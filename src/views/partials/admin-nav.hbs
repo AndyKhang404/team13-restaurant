@@ -1,61 +1,26 @@
-<aside class="w-64 bg-slate-900 text-slate-300 flex flex-col shrink-0 min-h-screen">
-  <div class="h-16 flex items-center px-6 border-b border-slate-800 gap-3">
-    <span class="text-2xl">🍜</span>
-    <div>
-      <div class="text-sm font-bold text-white tracking-wide">Team13 Admin</div>
-      <div class="text-[10px] text-amber-400 font-semibold uppercase tracking-wider">Management Portal</div>
-    </div>
-  </div>
+<aside class="sidebar">
+  <div class="side-brand">Team13 <i>Admin</i></div>
+  <div class="side-label">Quản trị dữ liệu</div>
+  <a class="side-link {{#if (eq title 'Dishes')}}active{{/if}}" href="/admin/dishes"><span class="n">01</span> Món ăn</a>
+  <a class="side-link {{#if (eq title 'Chefs')}}active{{/if}}" href="/admin/chefs"><span class="n">02</span> Đầu bếp</a>
+  <a class="side-link {{#if (eq title 'Ingredients')}}active{{/if}}" href="/admin/ingredients"><span class="n">03</span> Nguyên liệu</a>
+  {{#if (can user 'user:manage')}}
+    <a class="side-link {{#if (eq title 'User Management')}}active{{/if}}" href="/admin/users"><span class="n">04</span> Người dùng</a>
+  {{/if}}
+  <div class="side-label">Khác</div>
+  <a class="side-link" href="/"><span class="n">05</span> Trang người dùng</a>
 
-  <nav class="flex-1 px-4 py-6 space-y-1">
-    <a href="/admin" class="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-colors">
-      <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
-      Dashboard
-    </a>
-
-    <a href="/admin/dishes" class="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-colors">
-      <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
-      Dishes
-    </a>
-
-    <a href="/admin/chefs" class="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-colors">
-      <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
-      Chefs
-    </a>
-
-    <a href="/admin/ingredients" class="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-colors">
-      <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
-      Ingredients
-    </a>
-
-    {{#if (can user 'user:manage')}}
-      <a href="/admin/users" class="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-colors">
-        <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
-        Users & RBAC
-      </a>
-    {{/if}}
-
-    <div class="pt-6 mt-6 border-t border-slate-800">
-      <a href="/" class="flex items-center gap-3 px-3 py-2 text-xs font-medium rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">
-        <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
-        View Public Site
-      </a>
-    </div>
-  </nav>
-
-  <div class="p-4 border-t border-slate-800">
-    <div class="mb-3">
-      <div class="text-xs font-semibold text-white truncate">{{#if user.displayName}}{{user.displayName}}{{else}}{{user.email}}{{/if}}</div>
-      <span class="inline-block px-1.5 py-0.2 text-[10px] font-bold rounded uppercase tracking-wider {{#if (eq user.role 'ADMIN')}}bg-purple-900 text-purple-200{{else if (eq user.role 'STAFF')}}bg-blue-900 text-blue-200{{else}}bg-slate-800 text-slate-300{{/if}}">
-        Role: {{user.role}}
-      </span>
+  <div class="side-foot">
+    <div class="userbox">
+      <span class="avatar">T13</span>
+      <div>
+        <b>{{#if user.displayName}}{{user.displayName}}{{else}}Quản trị viên{{/if}}</b>
+        <span>{{user.email}}</span>
+      </div>
     </div>
     <form action="/logout" method="POST">
       <input type="hidden" name="_csrf" value="{{csrfToken}}" />
-      <button type="submit" class="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-xs font-medium text-slate-300 bg-slate-800 hover:bg-slate-700 rounded-md transition-colors">
-        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
-        Sign out
-      </button>
+      <button type="submit" class="side-link" style="width:100%;border:0;background:none;font:inherit;text-align:left;cursor:pointer"><span class="n">06</span> Đăng xuất</button>
     </form>
   </div>
 </aside>

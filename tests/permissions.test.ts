@@ -16,13 +16,13 @@ describe('RBAC Permissions', () => {
     expect(can(admin, 'user:manage')).toBe(true);
   });
 
-  it('allows STAFF to access admin and CRUD dishes, but DENIES user:manage', () => {
-    expect(can(staff, 'admin:access')).toBe(true);
-    expect(can(staff, 'dish:create')).toBe(true);
-    expect(can(staff, 'dish:update')).toBe(true);
-    expect(can(staff, 'dish:delete')).toBe(true);
-    expect(can(staff, 'chef:create')).toBe(true);
-    expect(can(staff, 'ingredient:create')).toBe(true);
+  it('denies STAFF access to the admin panel (ADMIN only)', () => {
+    expect(can(staff, 'admin:access')).toBe(false);
+    expect(can(staff, 'dish:create')).toBe(false);
+    expect(can(staff, 'dish:update')).toBe(false);
+    expect(can(staff, 'dish:delete')).toBe(false);
+    expect(can(staff, 'chef:create')).toBe(false);
+    expect(can(staff, 'ingredient:create')).toBe(false);
     expect(can(staff, 'user:manage')).toBe(false);
   });
 

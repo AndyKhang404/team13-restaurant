@@ -1,112 +1,81 @@
-<div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-  <div class="mb-6">
-    <a href="/menu" class="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors">
-      ← Back to Full Menu
-    </a>
+<nav class="crumbs">
+  <a href="/menu">Thực đơn</a> /
+  <a href="/menu?category={{dish.category}}">{{categoryLabel dish.category}}</a> /
+  {{dish.name}}
+</nav>
+
+<div class="detail">
+  <div class="detail-media">
+    {{#if dish.imageUrl}}
+      <img src="{{dish.imageUrl}}" alt="{{dish.name}}" />
+    {{else}}
+      <span class="media-ph" style="aspect-ratio:4/3">{{dish.name}}</span>
+    {{/if}}
   </div>
 
-  <div class="grid grid-cols-1 lg:grid-cols-12 gap-10">
-    <!-- Dish Visual Column -->
-    <div class="lg:col-span-7">
-      <div class="relative rounded-3xl overflow-hidden bg-slate-100 border border-slate-200 shadow-sm aspect-4/3">
-        {{#if dish.imageUrl}}
-          <img src="{{dish.imageUrl}}" alt="{{dish.name}}" class="w-full h-full object-cover" />
-        {{else}}
-          <div class="w-full h-full flex flex-col items-center justify-center text-slate-300">
-            <span class="text-6xl mb-2">🍜</span>
-            <span class="text-xs text-slate-400 font-medium">Delicious dish image coming soon</span>
-          </div>
-        {{/if}}
-
-        <div class="absolute top-4 left-4 flex gap-2">
-          <span class="px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wider bg-white/95 text-slate-800 shadow-xs backdrop-blur-xs">
-            {{categoryLabel dish.category}}
-          </span>
-          {{#if dish.isFeatured}}
-            <span class="px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wider bg-amber-500 text-white shadow-xs">
-              Featured
-            </span>
-          {{/if}}
-        </div>
-
-        {{#unless dish.isAvailable}}
-          <div class="absolute inset-0 bg-slate-950/60 backdrop-blur-[2px] flex items-center justify-center">
-            <span class="px-4 py-2 rounded-xl text-sm font-bold uppercase tracking-wider bg-rose-600 text-white shadow-lg">
-              Currently Sold Out
-            </span>
-          </div>
-        {{/unless}}
-      </div>
-    </div>
-
-    <!-- Dish Details Column -->
-    <div class="lg:col-span-5 flex flex-col justify-between space-y-6">
-      <div>
-        <div class="flex items-center justify-between gap-4 mb-2">
-          <h1 class="text-3xl font-extrabold text-slate-900 tracking-tight">{{dish.name}}</h1>
-        </div>
-
-        <div class="flex items-center gap-3 mb-6">
-          <span class="text-3xl font-extrabold text-amber-600">{{formatVnd dish.price}}</span>
-          {{#if dish.isAvailable}}
-            <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-              ● Available
-            </span>
-          {{else}}
-            <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200">
-              ● Out of Stock
-            </span>
-          {{/if}}
-          {{#if dish.prepTimeMinutes}}
-            <span class="text-xs text-slate-500 font-medium flex items-center gap-1">
-              ⏱️ {{dish.prepTimeMinutes}} mins prep
-            </span>
-          {{/if}}
-        </div>
-
-        {{#if dish.description}}
-          <div class="prose prose-sm text-slate-600 leading-relaxed mb-6">
-            <p>{{dish.description}}</p>
-          </div>
-        {{/if}}
-
-        <!-- Ingredients Section -->
-        {{#if ingredients.length}}
-          <div class="pt-6 border-t border-slate-200">
-            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">Key Ingredients</h3>
-            <div class="flex flex-wrap gap-2">
-              {{#each ingredients}}
-                <span class="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 text-xs font-medium border border-slate-200/80">
-                  🌿 {{this}}
-                </span>
-              {{/each}}
-            </div>
-          </div>
-        {{/if}}
-      </div>
-
-      <!-- Chef Spotlight Card -->
-      {{#if chef}}
-        <div class="p-5 rounded-2xl bg-amber-50/60 border border-amber-200/80 flex items-start gap-4">
-          <div class="w-14 h-14 rounded-full overflow-hidden bg-amber-100 border-2 border-white shadow-xs shrink-0">
-            {{#if chef.avatarUrl}}
-              <img src="{{chef.avatarUrl}}" alt="{{chef.name}}" class="w-full h-full object-cover" />
-            {{else}}
-              <div class="w-full h-full flex items-center justify-center text-xl">👨‍🍳</div>
-            {{/if}}
-          </div>
-          <div class="flex-1 min-w-0">
-            <div class="text-[11px] font-bold uppercase tracking-wider text-amber-700">Created by Chef</div>
-            <div class="text-sm font-bold text-slate-900 truncate">{{chef.name}}</div>
-            {{#if chef.specialty}}
-              <div class="text-xs text-slate-600 mt-0.5">Specialty: <span class="font-medium text-slate-800">{{chef.specialty}}</span></div>
-            {{/if}}
-            {{#if chef.bio}}
-              <p class="text-xs text-slate-500 mt-1 line-clamp-2 leading-relaxed">{{chef.bio}}</p>
-            {{/if}}
-          </div>
-        </div>
+  <div>
+    <div class="kicker">
+      <span>{{categoryLabel dish.category}}</span>
+      {{#if dish.isAvailable}}
+        <span class="status">Đang bán</span>
+      {{else}}
+        <span class="status off">Ngừng bán</span>
       {{/if}}
+      {{#if dish.isFeatured}}<span style="color:var(--accent)">Món nổi bật</span>{{/if}}
+    </div>
+    <h1>{{dish.name}}</h1>
+
+    <span class="price">{{formatVnd dish.price}}</span>
+
+    <dl class="specs">
+      <div class="row"><dt>Danh mục</dt><dd>{{categoryLabel dish.category}}</dd></div>
+      <div class="row"><dt>Giá bán</dt><dd>{{formatVnd dish.price}}</dd></div>
+      {{#if dish.prepTimeMinutes}}
+        <div class="row"><dt>Chế biến</dt><dd>khoảng {{dish.prepTimeMinutes}} phút</dd></div>
+      {{/if}}
+      <div class="row"><dt>Trạng thái</dt><dd>{{#if dish.isAvailable}}Đang bán{{else}}Ngừng bán{{/if}}</dd></div>
+      {{#if dish.updatedAt}}
+        <div class="row"><dt>Cập nhật</dt><dd>{{formatDateTime dish.updatedAt}}</dd></div>
+      {{/if}}
+    </dl>
+
+    {{#if dish.description}}
+      <div class="section">
+        <h3>Mô tả</h3>
+        <p>{{dish.description}}</p>
+      </div>
+    {{/if}}
+
+    {{#if ingredients.length}}
+      <div class="section">
+        <h3>Nguyên liệu ({{ingredients.length}})</h3>
+        <div class="tags">
+          {{#each ingredients}}
+            <span class="tag-item">{{this}}</span>
+          {{/each}}
+        </div>
+      </div>
+    {{/if}}
+
+    {{#if chef}}
+      <div class="section">
+        <h3>Đầu bếp phụ trách</h3>
+        <div class="chef-card">
+          {{#if chef.avatarUrl}}
+            <img src="{{chef.avatarUrl}}" alt="{{chef.name}}" loading="lazy" />
+          {{/if}}
+          <div>
+            <span class="role">{{#if chef.specialty}}{{chef.specialty}}{{else}}Bếp trưởng{{/if}}</span>
+            <b>{{chef.name}}</b>
+            {{#if chef.bio}}<p>{{chef.bio}}</p>{{/if}}
+          </div>
+        </div>
+      </div>
+    {{/if}}
+
+    <div class="actions-row">
+      <a class="btn btn-solid btn-lg" href="tel:19006868">Đặt bàn: 1900 6868</a>
+      <a class="btn btn-lg" href="/menu">Quay lại thực đơn</a>
     </div>
   </div>
 </div>

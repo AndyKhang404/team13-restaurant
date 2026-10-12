@@ -1,115 +1,100 @@
-<div class="space-y-6">
-  <!-- Top Bar: Search and Actions -->
-  <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row items-center justify-between gap-4">
-    <form method="GET" action="/admin/ingredients" class="flex flex-wrap items-center gap-3 w-full md:w-auto flex-1">
-      <input
-        type="text"
-        name="q"
-        value="{{q}}"
-        placeholder="Search ingredients by name..."
-        class="px-3.5 py-2 text-xs rounded-lg border border-slate-300 w-full sm:w-64 focus:outline-hidden focus:ring-2 focus:ring-amber-500"
-      />
-
-      <label class="inline-flex items-center gap-2 text-xs text-slate-600 cursor-pointer">
-        <input
-          type="checkbox"
-          name="deleted"
-          value="1"
-          {{#if showDeleted}}checked{{/if}}
-          onchange="this.form.submit()"
-          class="rounded border-slate-300 text-amber-600 focus:ring-amber-500"
-        />
-        <span>Show Deleted</span>
-      </label>
-
-      <button type="submit" class="px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700">
-        Filter
-      </button>
-
-      {{#if (or q showDeleted)}}
-        <a href="/admin/ingredients" class="text-xs text-rose-600 hover:underline">Clear</a>
-      {{/if}}
-    </form>
-
-    <a href="/admin/ingredients/new" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold shadow-xs transition-colors shrink-0">
-      <span>+</span> New Ingredient
-    </a>
+<section class="panel">
+  <div class="panel-head">
+    <h2>Danh sách nguyên liệu</h2>
+    <span class="count">{{ingredients.length}} bản ghi</span>
+    <div class="panel-tools">
+      <form class="search" action="/admin/ingredients" method="get">
+        <input type="search" name="q" value="{{q}}" placeholder="Tìm theo tên nguyên liệu" />
+        <button type="submit">Tìm</button>
+      </form>
+      <form action="/admin/ingredients" method="get" style="display:flex;gap:10px;align-items:center">
+        {{#if q}}<input type="hidden" name="q" value="{{q}}" />{{/if}}
+        <label class="check"><input type="checkbox" name="deleted" value="1" {{#if showDeleted}}checked{{/if}} /> Đã xóa</label>
+        <button type="submit" class="btn btn-quiet btn-sm">Lọc</button>
+        {{#if (or q showDeleted)}}
+          <a class="link-quiet" href="/admin/ingredients">Xóa lọc</a>
+        {{/if}}
+      </form>
+      <a class="btn btn-primary" href="/admin/ingredients/new">Thêm nguyên liệu</a>
+    </div>
   </div>
 
-  <!-- Table -->
-  <div class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-    <div class="overflow-x-auto">
-      <table class="w-full text-left text-xs">
-        <thead class="bg-slate-50 text-slate-600 uppercase font-semibold border-b border-slate-200">
-          <tr>
-            <th class="px-6 py-3.5">Ingredient</th>
-            <th class="px-6 py-3.5">Unit</th>
-            <th class="px-6 py-3.5">In Stock</th>
-            <th class="px-6 py-3.5">Cost / Unit</th>
-            <th class="px-6 py-3.5">Status</th>
-            <th class="px-6 py-3.5 text-right">Actions</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-slate-100">
-          {{#if ingredients.length}}
-            {{#each ingredients}}
-              <tr class="hover:bg-slate-50/60 transition-colors {{#if deletedAt}}bg-rose-50/20{{/if}}">
-                <td class="px-6 py-3.5 flex items-center gap-3">
-                  <div class="w-9 h-9 rounded-lg overflow-hidden bg-slate-100 border border-slate-200 shrink-0">
-                    {{#if imageUrl}}
-                      <img src="{{imageUrl}}" alt="{{name}}" class="w-full h-full object-cover" />
-                    {{else}}
-                      <div class="w-full h-full flex items-center justify-center text-sm">🌿</div>
-                    {{/if}}
-                  </div>
-                  <div class="font-bold text-slate-900">{{name}}</div>
-                </td>
-                <td class="px-6 py-3.5 font-mono text-slate-600">
-                  {{unit}}
-                </td>
-                <td class="px-6 py-3.5 font-medium text-slate-800">
-                  {{stockQuantity}} {{unit}}
-                </td>
-                <td class="px-6 py-3.5 text-slate-600">
-                  {{formatVnd pricePerUnit}}
-                </td>
-                <td class="px-6 py-3.5">
-                  {{#if deletedAt}}
-                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800">Deleted</span>
-                  {{else if isAvailable}}
-                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Available</span>
-                  {{else}}
-                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600">Unavailable</span>
-                  {{/if}}
-                </td>
-                <td class="px-6 py-3.5 text-right space-x-2">
-                  {{#if deletedAt}}
-                    <form action="/admin/ingredients/{{id}}/restore" method="POST" class="inline" onsubmit="return confirm('Restore this ingredient?')">
-                      <input type="hidden" name="_csrf" value="{{../csrfToken}}" />
-                      <button type="submit" class="text-emerald-600 hover:text-emerald-700 font-semibold">Restore</button>
-                    </form>
-                  {{else}}
-                    <a href="/admin/ingredients/{{id}}/edit" class="text-amber-600 hover:text-amber-700 font-semibold">Edit</a>
-                    <span class="text-slate-300">|</span>
-                    <form action="/admin/ingredients/{{id}}/delete" method="POST" class="inline" onsubmit="return confirm('Move this ingredient to deleted list?')">
-                      <input type="hidden" name="_csrf" value="{{../csrfToken}}" />
-                      <button type="submit" class="text-rose-600 hover:text-rose-700 font-semibold">Delete</button>
-                    </form>
-                  {{/if}}
-                </td>
-              </tr>
-            {{/each}}
-          {{else}}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:70px">Hình</th>
+          <th>Nguyên liệu</th>
+          <th style="width:100px">Đơn vị</th>
+          <th style="width:130px">Tồn kho</th>
+          <th style="width:140px">Đơn giá</th>
+          <th>Trạng thái</th>
+          <th style="text-align:right">Thao tác</th>
+        </tr>
+      </thead>
+      <tbody class="fade-late">
+        {{#if ingredients.length}}
+          {{#each ingredients}}
             <tr>
-              <td colspan="6" class="px-6 py-12 text-center text-slate-400">
-                No ingredients found matching your criteria.
+              <td>
+                {{#if imageUrl}}
+                  <img class="thumb" src="{{imageUrl}}" alt="{{name}}" />
+                {{else}}
+                  <span class="avatar">{{unit}}</span>
+                {{/if}}
+              </td>
+              <td>
+                <div class="cell-item">
+                  <div><b>{{name}}</b></div>
+                </div>
+              </td>
+              <td><span class="badge">{{unit}}</span></td>
+              <td class="num">{{stockQuantity}}</td>
+              <td class="num">{{formatVnd pricePerUnit}}</td>
+              <td>
+                {{#if deletedAt}}
+                  <span class="badge danger">Đã xóa</span>
+                {{else if isAvailable}}
+                  <span class="badge ok">Sẵn có</span>
+                {{else}}
+                  <span class="badge warn">Hết</span>
+                {{/if}}
+              </td>
+              <td>
+                <div class="row-actions">
+                  <a class="btn btn-sm btn-quiet" href="/admin/ingredients/{{id}}/edit">Sửa</a>
+                  {{#if deletedAt}}
+                    <form class="inline-form" action="/admin/ingredients/{{id}}/restore" method="POST" onsubmit="return confirm('Khôi phục nguyên liệu này?')">
+                      <input type="hidden" name="_csrf" value="{{../csrfToken}}" />
+                      <button type="submit" class="btn btn-sm btn-quiet">Khôi phục</button>
+                    </form>
+                  {{else}}
+                    <form class="inline-form" action="/admin/ingredients/{{id}}/delete" method="POST" onsubmit="return confirm('Chuyển nguyên liệu này vào danh sách đã xóa?')">
+                      <input type="hidden" name="_csrf" value="{{../csrfToken}}" />
+                      <button type="submit" class="btn btn-sm btn-danger">Xóa</button>
+                    </form>
+                  {{/if}}
+                </div>
               </td>
             </tr>
-          {{/if}}
-        </tbody>
-      </table>
-    </div>
+          {{/each}}
+        {{/if}}
+      </tbody>
+    </table>
 
-    {{> pagination}}
+    {{#unless ingredients.length}}
+      <div class="empty">
+        <b>Không có nguyên liệu nào</b>
+        Thử đổi từ khóa bộ lọc, hoặc thêm nguyên liệu mới cho kho.
+      </div>
+    {{/unless}}
+
+    <div class="skeleton-overlay" aria-hidden="true">
+      <div class="sk-row"><div class="sk w80"></div><div class="sk thumb-sk"></div><div class="sk grow"></div><div class="sk w80"></div><div class="sk w80"></div></div>
+      <div class="sk-row"><div class="sk w80"></div><div class="sk thumb-sk"></div><div class="sk grow"></div><div class="sk w80"></div><div class="sk w80"></div></div>
+      <div class="sk-row"><div class="sk w80"></div><div class="sk thumb-sk"></div><div class="sk grow"></div><div class="sk w80"></div><div class="sk w80"></div></div>
+    </div>
   </div>
-</div>
+
+  {{> pagination}}
+</section>

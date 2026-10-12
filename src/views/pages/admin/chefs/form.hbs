@@ -5,7 +5,7 @@
       <p class="text-xs text-slate-500 mt-1">Manage culinary chef profile and background.</p>
     </div>
     <a href="/admin/chefs" class="text-xs font-semibold text-slate-600 hover:text-slate-900">
-      ← Back to Chefs
+      ? Back to Chefs
     </a>
   </div>
 
@@ -25,7 +25,7 @@
           value="{{values.name}}"
           required
           class="w-full px-3.5 py-2.5 rounded-lg border {{#if errors.name}}border-rose-400 bg-rose-50/30{{else}}border-slate-300{{/if}} text-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500"
-          placeholder="e.g. Gordon Ramsay"
+          placeholder="VD: Món Việt, Món Âu, Sushi"
         />
         {{#if errors.name}}<p class="text-xs text-rose-600 mt-1">{{errors.name}}</p>{{/if}}
       </div>
@@ -41,7 +41,7 @@
           name="specialty"
           value="{{values.specialty}}"
           class="w-full px-3.5 py-2.5 rounded-lg border {{#if errors.specialty}}border-rose-400 bg-rose-50/30{{else}}border-slate-300{{/if}} text-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500"
-          placeholder="e.g. Món Âu, Món Việt, Sushi"
+          placeholder="e.g. M�n �u, M�n Vi?t, Sushi"
         />
         {{#if errors.specialty}}<p class="text-xs text-rose-600 mt-1">{{errors.specialty}}</p>{{/if}}
       </div>

@@ -1,0 +1,26 @@
+<article class="dish-card">
+  <a class="dish-media" href="/dishes/{{slug}}">
+    {{#if imageUrl}}
+      <img src="{{imageUrl}}" alt="{{name}}" loading="lazy" />
+    {{else}}
+      <span class="media-ph">{{name}}</span>
+    {{/if}}
+  </a>
+  <div class="dish-body">
+    <div class="dish-meta">
+      <span>{{categoryLabel category}}</span>
+      {{#if prepTimeMinutes}}<span>{{prepTimeMinutes}} phút</span>{{/if}}
+    </div>
+    <h3 class="dish-name"><a href="/dishes/{{slug}}">{{name}}</a></h3>
+    {{#if description}}
+      <p style="margin:12px 0 0;font-size:14.5px;color:var(--ink-2)">{{description}}</p>
+    {{/if}}
+    <div class="dish-foot">
+      <span class="price">{{formatVnd price}}</span>
+      <span style="display:flex;gap:14px;align-items:baseline">
+        {{#unless isAvailable}}<span class="status off">Ngừng bán</span>{{/unless}}
+        <a class="link-more" href="/dishes/{{slug}}">Chi tiết</a>
+      </span>
+    </div>
+  </div>
+</article>

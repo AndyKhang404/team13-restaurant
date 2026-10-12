@@ -1,28 +1,18 @@
 {{#if pagination}}
   {{#if (gt pagination.totalPages 1)}}
-    <div class="flex items-center justify-between border-t border-slate-200 px-4 py-3 sm:px-6 mt-6">
-      <div class="text-xs text-slate-500">
-        Page <span class="font-semibold text-slate-700">{{pagination.page}}</span> of <span class="font-semibold text-slate-700">{{pagination.totalPages}}</span> (Total {{pagination.total}})
-      </div>
-      <div class="flex items-center gap-2">
+    <div class="panel-foot">
+      Hiển thị trang {{pagination.page}} / {{pagination.totalPages}} — tổng {{pagination.total}} bản ghi
+      <div class="pager">
         {{#if pagination.hasPrev}}
-          <a href="?page={{pagination.prevPage}}{{#if pagination.baseQuery}}&{{pagination.baseQuery}}{{/if}}" class="px-3 py-1.5 text-xs font-medium rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-50">
-            Previous
-          </a>
+          <a href="?page={{pagination.prevPage}}{{#if pagination.baseQuery}}&{{pagination.baseQuery}}{{/if}}">Trước</a>
         {{else}}
-          <span class="px-3 py-1.5 text-xs font-medium rounded-md border border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed">
-            Previous
-          </span>
+          <span>Trước</span>
         {{/if}}
-
+        <span class="current">{{pagination.page}}</span>
         {{#if pagination.hasNext}}
-          <a href="?page={{pagination.nextPage}}{{#if pagination.baseQuery}}&{{pagination.baseQuery}}{{/if}}" class="px-3 py-1.5 text-xs font-medium rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-50">
-            Next
-          </a>
+          <a href="?page={{pagination.nextPage}}{{#if pagination.baseQuery}}&{{pagination.baseQuery}}{{/if}}">Sau</a>
         {{else}}
-          <span class="px-3 py-1.5 text-xs font-medium rounded-md border border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed">
-            Next
-          </span>
+          <span>Sau</span>
         {{/if}}
       </div>
     </div>

@@ -1,17 +1,20 @@
-<div class="max-w-md mx-auto my-12 bg-white p-8 rounded-2xl shadow-sm border border-slate-200 text-center">
-  <div class="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
-    ✉️
+<div class="auth-split">
+  <div class="auth-aside">
+    <div>
+      <div class="eyebrow">Team13 Restaurant</div>
+      <p class="auth-quote">Kiểm tra hộp thư của bạn.</p>
+    </div>
+    <div class="auth-aside-foot">
+      <span>123 Nguyễn Văn Cừ, Q.5, TP.HCM</span>
+      <span>1900 6868</span>
+    </div>
   </div>
-  <h2 class="text-2xl font-bold text-slate-900 tracking-tight">Check your email</h2>
-  <p class="text-sm text-slate-600 mt-2 leading-relaxed">
-    We have sent a confirmation email to <span class="font-semibold text-slate-900">{{email}}</span>.
-  </p>
-  <p class="text-xs text-slate-500 mt-4">
-    Click the verification link in the email to activate your account and proceed to sign in.
-  </p>
-  <div class="mt-8">
-    <a href="/login" class="inline-block px-5 py-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-semibold text-sm transition-colors">
-      Back to Sign In
-    </a>
+
+  <div class="auth-body">
+    <h1>Kiểm tra email</h1>
+    <p class="lead">
+      Chúng tôi đã gửi email xác nhận tới <b>{{email}}</b>. Bấm liên kết trong email để kích hoạt tài khoản rồi đăng nhập.
+    </p>
+    <a class="btn btn-solid btn-lg" href="/login">Quay lại đăng nhập</a>
   </div>
 </div>
