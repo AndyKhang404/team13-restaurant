@@ -12,3 +12,5 @@ public/css/app.css
 # Logs / OS
 *.log
 .DS_Store
+
+.opencode

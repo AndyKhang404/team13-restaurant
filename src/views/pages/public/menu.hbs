@@ -1,101 +1,78 @@
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-  <div class="text-center max-w-2xl mx-auto mb-12">
-    <span class="text-xs font-bold uppercase tracking-wider text-amber-600">Fresh & Exquisite</span>
-    <h1 class="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight mt-1 mb-3">Our Dining Menu</h1>
-    <p class="text-sm text-slate-500">
-      Indulge in our wide selection of appetizers, hearty mains, delectable desserts, and refreshing beverages.
-    </p>
+<section class="hero" style="padding-bottom:0">
+  <div class="eyebrow">Thực đơn theo mùa — giá đã bao gồm VAT</div>
+  <h1>Thực đơn nhà hàng</h1>
+  <p>Tìm món theo tên, lọc theo danh mục, sắp xếp theo giá hoặc tên — chọn và thưởng thức.</p>
+</section>
 
-    <!-- Category Filter Pills -->
-    <div class="flex flex-wrap items-center justify-center gap-2 mt-8">
-      <a
-        href="/menu"
-        class="px-4 py-2 rounded-full text-xs font-semibold transition-all {{#unless category}}bg-amber-600 text-white shadow-xs{{else}}bg-white text-slate-600 border border-slate-200 hover:border-slate-300{{/unless}}"
-      >
-        All Dishes
-      </a>
-      {{#each categories}}
-        <a
-          href="/menu?category={{key}}"
-          class="px-4 py-2 rounded-full text-xs font-semibold transition-all {{#if (eq ../category key)}}bg-amber-600 text-white shadow-xs{{else}}bg-white text-slate-600 border border-slate-200 hover:border-slate-300{{/if}}"
-        >
-          {{label}}
-        </a>
-      {{/each}}
-    </div>
+<div class="toolbar">
+  <div class="filters">
+    <a href="/menu" {{#unless category}}class="active"{{/unless}}>Tất cả</a>
+    {{#each categories}}
+      <a href="/menu?category={{key}}" {{#if (eq ../category key)}}class="active"{{/if}}>{{label}}</a>
+    {{/each}}
   </div>
+  <form class="menu-tools" action="/menu" method="get" role="search">
+    {{#if category}}<input type="hidden" name="category" value="{{category}}" />{{/if}}
+    <input class="menu-search" type="search" name="q" value="{{q}}" placeholder="Tìm món theo tên…" aria-label="Tìm món theo tên" />
+    <select class="menu-sort" name="sort" aria-label="Sắp xếp">
+      <option value="" {{#unless sort}}selected{{/unless}}>Tên A → Z</option>
+      <option value="name-desc" {{#if (eq sort 'name-desc')}}selected{{/if}}>Tên Z → A</option>
+      <option value="price-asc" {{#if (eq sort 'price-asc')}}selected{{/if}}>Giá thấp → cao</option>
+      <option value="price-desc" {{#if (eq sort 'price-desc')}}selected{{/if}}>Giá cao → thấp</option>
+      <option value="newest" {{#if (eq sort 'newest')}}selected{{/if}}>Mới cập nhật</option>
+    </select>
+    <button class="btn btn-solid" type="submit">Tìm</button>
+  </form>
+</div>
 
-  {{#if groups.length}}
-    <div class="space-y-16">
-      {{#each groups}}
-        <div>
-          <div class="flex items-center gap-4 mb-6">
-            <h2 class="text-2xl font-bold text-slate-900 tracking-tight">{{label}}</h2>
-            <div class="h-px bg-slate-200 flex-1"></div>
-            <span class="text-xs font-semibold text-slate-400">{{dishes.length}} items</span>
-          </div>
-
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {{#each dishes}}
-              <div class="group bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs hover:shadow-md hover:border-amber-200 transition-all flex flex-col">
-                <div class="relative aspect-16/10 bg-slate-100 overflow-hidden">
-                  {{#if imageUrl}}
-                    <img src="{{imageUrl}}" alt="{{name}}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                  {{else}}
-                    <div class="w-full h-full flex items-center justify-center text-4xl bg-slate-100 text-slate-300">🍜</div>
-                  {{/if}}
-
-                  {{#if isFeatured}}
-                    <span class="absolute top-3 left-3 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-500 text-white shadow-xs">
-                      Featured
-                    </span>
-                  {{/if}}
-
-                  {{#unless isAvailable}}
-                    <div class="absolute inset-0 bg-slate-950/60 backdrop-blur-[2px] flex items-center justify-center">
-                      <span class="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-rose-600 text-white shadow-md">
-                        Sold out
-                      </span>
-                    </div>
-                  {{/unless}}
-                </div>
-
-                <div class="p-5 flex-1 flex flex-col justify-between">
-                  <div>
-                    <div class="flex items-start justify-between gap-2">
-                      <h3 class="font-bold text-slate-900 text-base group-hover:text-amber-600 transition-colors">
-                        {{name}}
-                      </h3>
-                      {{#if prepTimeMinutes}}
-                        <span class="text-[11px] font-medium text-slate-500 shrink-0 flex items-center gap-1">
-                          ⏱️ {{prepTimeMinutes}}m
-                        </span>
-                      {{/if}}
-                    </div>
-                    {{#if description}}
-                      <p class="text-xs text-slate-500 mt-2 line-clamp-2 leading-relaxed">{{description}}</p>
-                    {{/if}}
-                  </div>
-
-                  <div class="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
-                    <span class="text-base font-extrabold text-slate-900">{{formatVnd price}}</span>
-                    <a href="/dishes/{{slug}}" class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-amber-50 hover:text-amber-800 transition-colors">
-                      View details →
-                    </a>
-                  </div>
-                </div>
-              </div>
-            {{/each}}
-          </div>
-        </div>
+{{#if flat}}
+  <div class="eyebrow" style="margin-top:38px">
+    Kết quả{{#if q}} cho "{{q}}"{{/if}}
+    <span style="color:var(--ink-2)">— {{resultCount}} món</span>
+  </div>
+  {{#if dishes.length}}
+    <div class="grid" style="margin-top:22px">
+      {{#each dishes}}
+        {{> dish-card}}
       {{/each}}
     </div>
   {{else}}
-    <div class="text-center py-20 bg-white rounded-2xl border border-slate-200">
-      <span class="text-4xl block mb-2">🍽️</span>
-      <h3 class="text-base font-bold text-slate-800">No dishes found</h3>
-      <p class="text-slate-500 text-xs mt-1">Try selecting another category or check back later.</p>
-      <a href="/menu" class="mt-4 inline-block text-xs font-semibold text-amber-600 hover:underline">View all dishes</a>
+    <div class="empty" style="margin-top:36px">
+      <b>Không tìm thấy món nào</b>
+      Thử từ khóa khác, bỏ bớt bộ lọc, hoặc xem toàn bộ thực đơn.
+      <div class="actions-row" style="justify-content:center;margin-top:20px">
+        <a class="btn btn-solid" href="/menu">Xem tất cả</a>
+      </div>
     </div>
   {{/if}}
-</div>
+{{else}}
+  {{#if groups.length}}
+    <div class="menu-skel">
+      {{#each groups}}
+        <div class="eyebrow" style="margin-top:42px">{{label}} <span style="color:var(--ink-2)">— {{dishes.length}} món</span></div>
+        <div class="grid" style="margin-top:22px">
+          {{#each dishes}}
+            {{> dish-card}}
+          {{/each}}
+        </div>
+      {{/each}}
+
+      <div class="skeleton-overlay" aria-hidden="true">
+        <div class="skel-grid">
+          <div class="sk-card"><div class="sk sk-img"></div><div class="sk sk-line w85"></div><div class="sk sk-line w60"></div><div class="sk sk-meta"></div></div>
+          <div class="sk-card"><div class="sk sk-img"></div><div class="sk sk-line w85"></div><div class="sk sk-line w40"></div><div class="sk sk-meta"></div></div>
+          <div class="sk-card"><div class="sk sk-img"></div><div class="sk sk-line w60"></div><div class="sk sk-line w85"></div><div class="sk sk-meta"></div></div>
+          <div class="sk-card"><div class="sk sk-img"></div><div class="sk sk-line w85"></div><div class="sk sk-line w40"></div><div class="sk sk-meta"></div></div>
+        </div>
+      </div>
+    </div>
+  {{else}}
+    <div class="empty" style="margin-top:48px">
+      <b>Không tìm thấy món nào</b>
+      Thử chọn danh mục khác hoặc xem lại toàn bộ thực đơn.
+      <div class="actions-row" style="justify-content:center;margin-top:20px">
+        <a class="btn btn-solid" href="/menu">Xem tất cả</a>
+      </div>
+    </div>
+  {{/if}}
+{{/if}}

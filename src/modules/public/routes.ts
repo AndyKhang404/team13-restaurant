@@ -21,26 +21,50 @@ router.get('/', async (_req, res) => {
   res.render('pages/public/home', { title: 'Home', featured });
 });
 
+const SORTS: Record<string, Prisma.DishOrderByWithRelationInput[]> = {
+  '': [{ name: 'asc' }],
+  'name-asc': [{ name: 'asc' }],
+  'name-desc': [{ name: 'desc' }],
+  'price-asc': [{ price: 'asc' }],
+  'price-desc': [{ price: 'desc' }],
+  newest: [{ updatedAt: 'desc' }],
+};
+
 router.get('/menu', async (req, res) => {
   const raw = typeof req.query.category === 'string' ? req.query.category : '';
   const category = CATEGORIES.includes(raw as DishCategory) ? (raw as DishCategory) : undefined;
+  const q = typeof req.query.q === 'string' ? req.query.q.trim().slice(0, 80) : '';
+  const sortRaw = typeof req.query.sort === 'string' ? req.query.sort : '';
+  const sort = sortRaw in SORTS ? sortRaw : '';
+  const flat = Boolean(q) || sort !== '';
 
   const dishes = await prisma.dish.findMany({
-    where: { ...visibleDish, ...(category ? { category } : {}) },
-    orderBy: [{ name: 'asc' }],
+    where: {
+      ...visibleDish,
+      ...(category ? { category } : {}),
+      ...(q ? { name: { contains: q, mode: 'insensitive' } } : {}),
+    },
+    orderBy: SORTS[sort],
   });
 
-  const groups = CATEGORIES.filter((c) => !category || c === category)
-    .map((c) => ({
-      key: c,
-      label: CATEGORY_LABELS[c] ?? c,
-      dishes: dishes.filter((d) => d.category === c),
-    }))
-    .filter((g) => g.dishes.length > 0);
+  const groups = flat
+    ? []
+    : CATEGORIES.filter((c) => !category || c === category)
+        .map((c) => ({
+          key: c,
+          label: CATEGORY_LABELS[c] ?? c,
+          dishes: dishes.filter((d) => d.category === c),
+        }))
+        .filter((g) => g.dishes.length > 0);
 
   res.render('pages/public/menu', {
     title: 'Menu',
     groups,
+    flat,
+    dishes,
+    q,
+    sort,
+    resultCount: dishes.length,
     category,
     categories: CATEGORIES.map((c) => ({ key: c, label: CATEGORY_LABELS[c] ?? c })),
   });

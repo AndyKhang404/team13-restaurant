@@ -1,19 +1,11 @@
-<div class="max-w-xl mx-auto my-16 bg-white p-8 rounded-2xl border border-slate-200 shadow-sm text-center">
-  <div class="w-16 h-16 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl font-bold">
-    ⚠️
-  </div>
-  <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight">500 — Server Error</h1>
-  <p class="text-sm text-slate-600 mt-2 leading-relaxed">
-    {{#if message}}{{message}}{{else}}An unexpected error occurred while processing your request.{{/if}}
-  </p>
+<div class="error-page">
+  <div class="code">500</div>
+  <h1>Lỗi máy chủ</h1>
+  <p>{{#if message}}{{message}}{{else}}Đã xảy ra lỗi khi xử lý yêu cầu của bạn, thử lại sau ít phút.{{/if}}</p>
   {{#if stack}}
-    <div class="mt-6 p-4 bg-slate-900 text-slate-200 rounded-lg text-left text-xs font-mono overflow-x-auto max-h-64">
-      <pre>{{stack}}</pre>
-    </div>
+    <pre>{{stack}}</pre>
   {{/if}}
-  <div class="mt-6">
-    <a href="/" class="px-4 py-2 rounded-lg bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 transition-colors">
-      Go to Homepage
-    </a>
+  <div class="actions-row" style="justify-content:center;margin-top:26px">
+    <a class="btn btn-solid" href="/">Về trang chủ</a>
   </div>
 </div>
