@@ -1,138 +1,67 @@
-<div class="max-w-2xl mx-auto bg-white p-8 rounded-2xl border border-slate-200 shadow-xs">
-  <div class="flex items-center justify-between pb-6 mb-6 border-b border-slate-100">
-    <div>
-      <h2 class="text-xl font-bold text-slate-900 tracking-tight">{{title}}</h2>
-      <p class="text-xs text-slate-500 mt-1">Manage kitchen ingredient inventory and cost.</p>
+<section class="panel form-card">
+  <div class="panel-head">
+    <h2>{{#if isNew}}Thêm nguyên liệu mới{{else}}Sửa nguyên liệu: {{ingredient.name}}{{/if}}</h2>
+    <div class="panel-tools">
+      <a class="link-quiet" href="/admin/ingredients">← Kho nguyên liệu</a>
     </div>
-    <a href="/admin/ingredients" class="text-xs font-semibold text-slate-600 hover:text-slate-900">
-      ← Back to Ingredients
-    </a>
   </div>
 
-  <form action="{{#if isNew}}/admin/ingredients{{else}}/admin/ingredients/{{ingredient.id}}{{/if}}" method="POST" enctype="multipart/form-data" class="space-y-6">
+  <form action="{{#if isNew}}/admin/ingredients{{else}}/admin/ingredients/{{ingredient.id}}{{/if}}" method="POST" enctype="multipart/form-data">
     <input type="hidden" name="_csrf" value="{{csrfToken}}" />
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <!-- Ingredient Name -->
-      <div>
-        <label for="name" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-          Ingredient Name <span class="text-rose-500">*</span>
-        </label>
-        <input
-          type="text"
-          id="name"
-          name="name"
-          value="{{values.name}}"
-          required
-          class="w-full px-3.5 py-2.5 rounded-lg border {{#if errors.name}}border-rose-400 bg-rose-50/30{{else}}border-slate-300{{/if}} text-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500"
-          placeholder="e.g. Thịt bò tái, Cà chua"
-        />
-        {{#if errors.name}}<p class="text-xs text-rose-600 mt-1">{{errors.name}}</p>{{/if}}
+    <div class="form-grid">
+      <div class="field full">
+        <p class="form-note">Quản lý tồn kho và giá vốn cho từng nguyên liệu.</p>
       </div>
 
-      <!-- Unit -->
-      <div>
-        <label for="unit" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-          Unit of Measurement <span class="text-rose-500">*</span>
-        </label>
-        <input
-          type="text"
-          id="unit"
-          name="unit"
-          value="{{values.unit}}"
-          required
-          class="w-full px-3.5 py-2.5 rounded-lg border {{#if errors.unit}}border-rose-400 bg-rose-50/30{{else}}border-slate-300{{/if}} text-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500"
-          placeholder="g, kg, ml, liter, cái"
-        />
-        {{#if errors.unit}}<p class="text-xs text-rose-600 mt-1">{{errors.unit}}</p>{{/if}}
-      </div>
-    </div>
-
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <!-- Stock Quantity -->
-      <div>
-        <label for="stockQuantity" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-          Stock Quantity
-        </label>
-        <input
-          type="number"
-          step="any"
-          id="stockQuantity"
-          name="stockQuantity"
-          min="0"
-          value="{{values.stockQuantity}}"
-          class="w-full px-3.5 py-2.5 rounded-lg border {{#if errors.stockQuantity}}border-rose-400 bg-rose-50/30{{else}}border-slate-300{{/if}} text-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500"
-          placeholder="1000"
-        />
-        {{#if errors.stockQuantity}}<p class="text-xs text-rose-600 mt-1">{{errors.stockQuantity}}</p>{{/if}}
+      <div class="field">
+        <label for="name">Tên nguyên liệu <span class="req">*</span></label>
+        <input type="text" id="name" name="name" value="{{values.name}}" required placeholder="VD: Thịt bò tái, cà chua" />
+        {{#if errors.name}}<p class="err">{{errors.name}}</p>{{/if}}
       </div>
 
-      <!-- Price Per Unit -->
-      <div>
-        <label for="pricePerUnit" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-          Cost per Unit (VND)
-        </label>
-        <input
-          type="number"
-          step="any"
-          id="pricePerUnit"
-          name="pricePerUnit"
-          min="0"
-          value="{{values.pricePerUnit}}"
-          class="w-full px-3.5 py-2.5 rounded-lg border {{#if errors.pricePerUnit}}border-rose-400 bg-rose-50/30{{else}}border-slate-300{{/if}} text-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500"
-          placeholder="250"
-        />
-        {{#if errors.pricePerUnit}}<p class="text-xs text-rose-600 mt-1">{{errors.pricePerUnit}}</p>{{/if}}
+      <div class="field">
+        <label for="unit">Đơn vị tính <span class="req">*</span></label>
+        <input type="text" id="unit" name="unit" value="{{values.unit}}" required placeholder="g, kg, ml, lít, cái" />
+        {{#if errors.unit}}<p class="err">{{errors.unit}}</p>{{/if}}
       </div>
-    </div>
 
-    <!-- Image Upload -->
-    <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
-      <label for="image" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider">Ingredient Photo</label>
+      <div class="field">
+        <label for="stockQuantity">Số lượng tồn</label>
+        <input type="number" step="any" id="stockQuantity" name="stockQuantity" min="0" value="{{values.stockQuantity}}" placeholder="1000" />
+        {{#if errors.stockQuantity}}<p class="err">{{errors.stockQuantity}}</p>{{/if}}
+      </div>
 
-      {{#if values.imageUrl}}
-        <div class="flex items-center gap-4">
-          <img src="{{values.imageUrl}}" alt="Current ingredient" class="w-16 h-16 rounded-lg object-cover border border-slate-300" />
-          <div>
-            <label class="inline-flex items-center gap-2 text-xs font-medium text-rose-600 cursor-pointer">
-              <input type="checkbox" name="removeImage" value="on" class="rounded border-slate-300 text-rose-600 focus:ring-rose-500" />
-              Remove existing photo
-            </label>
-            <p class="text-[11px] text-slate-400 mt-1">Or choose a new file below to replace it.</p>
+      <div class="field">
+        <label for="pricePerUnit">Giá vốn / đơn vị (VNĐ)</label>
+        <input type="number" step="any" id="pricePerUnit" name="pricePerUnit" min="0" value="{{values.pricePerUnit}}" placeholder="250" />
+        {{#if errors.pricePerUnit}}<p class="err">{{errors.pricePerUnit}}</p>{{/if}}
+      </div>
+
+      <div class="field full">
+        <label for="image">Ảnh nguyên liệu</label>
+        {{#if values.imageUrl}}
+          <div class="form-photo">
+            <img class="img-preview" src="{{values.imageUrl}}" alt="Ảnh hiện tại" />
+            <label class="check"><input type="checkbox" name="removeImage" value="on" /> Gỡ ảnh hiện tại</label>
           </div>
+        {{/if}}
+        <input type="file" id="image" name="image" accept="image/jpeg,image/png,image/webp" />
+        {{#if errors.image}}<p class="err">{{errors.image}}</p>{{/if}}
+        <p class="hint">JPG, PNG hoặc WebP · tối đa 2 MB.</p>
+      </div>
+
+      <div class="field full">
+        <div class="check-row">
+          <label class="check"><input type="checkbox" name="isAvailable" value="on" {{#if values.isAvailable}}checked{{/if}} /> Còn dùng cho công thức</label>
         </div>
-      {{/if}}
-
-      <input
-        type="file"
-        id="image"
-        name="image"
-        accept="image/jpeg,image/png,image/webp"
-        class="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100"
-      />
-      {{#if errors.image}}<p class="text-xs text-rose-600 mt-1">{{errors.image}}</p>{{/if}}
-      <p class="text-[11px] text-slate-400">Accepted formats: JPG, PNG, WebP (max 2 MB).</p>
+      </div>
     </div>
 
-    <!-- Available Checkbox -->
-    <div>
-      <label class="inline-flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
-        <input type="checkbox" name="isAvailable" value="on" {{#if values.isAvailable}}checked{{/if}} class="rounded border-slate-300 text-amber-600 focus:ring-amber-500" />
-        <span>Available in stock for recipes</span>
-      </label>
-    </div>
-
-    <!-- Submit buttons -->
-    <div class="pt-6 border-t border-slate-200 flex items-center justify-end gap-3">
-      <a href="/admin/ingredients" class="px-4 py-2 rounded-lg border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
-        Cancel
-      </a>
-      <button
-        type="submit"
-        class="px-5 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold shadow-xs transition-colors"
-      >
-        {{#if isNew}}Create Ingredient{{else}}Save Changes{{/if}}
-      </button>
+    <div class="form-foot">
+      <span class="left">Trường có dấu * là bắt buộc</span>
+      <a class="btn btn-quiet" href="/admin/ingredients">Hủy</a>
+      <button class="btn btn-primary" type="submit">{{#if isNew}}Tạo nguyên liệu{{else}}Lưu thay đổi{{/if}}</button>
     </div>
   </form>
-</div>
+</section>

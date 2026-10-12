@@ -1,147 +1,73 @@
-<div class="max-w-3xl mx-auto bg-white p-8 rounded-2xl border border-slate-200 shadow-xs">
-  <div class="flex items-center justify-between pb-6 mb-6 border-b border-slate-100">
-    <div>
-      <h2 class="text-xl font-bold text-slate-900 tracking-tight">{{title}}</h2>
-      <p class="text-xs text-slate-500 mt-1">Manage culinary chef profile and background.</p>
+<section class="panel form-card">
+  <div class="panel-head">
+    <h2>{{#if isNew}}Thêm đầu bếp mới{{else}}Sửa hồ sơ: {{chef.name}}{{/if}}</h2>
+    <div class="panel-tools">
+      <a class="link-quiet" href="/admin/chefs">← Danh sách đầu bếp</a>
     </div>
-    <a href="/admin/chefs" class="text-xs font-semibold text-slate-600 hover:text-slate-900">
-      ? Back to Chefs
-    </a>
   </div>
 
-  <form action="{{#if isNew}}/admin/chefs{{else}}/admin/chefs/{{chef.id}}{{/if}}" method="POST" enctype="multipart/form-data" class="space-y-6">
+  <form action="{{#if isNew}}/admin/chefs{{else}}/admin/chefs/{{chef.id}}{{/if}}" method="POST" enctype="multipart/form-data">
     <input type="hidden" name="_csrf" value="{{csrfToken}}" />
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <!-- Chef Name -->
-      <div>
-        <label for="name" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-          Full Name <span class="text-rose-500">*</span>
-        </label>
-        <input
-          type="text"
-          id="name"
-          name="name"
-          value="{{values.name}}"
-          required
-          class="w-full px-3.5 py-2.5 rounded-lg border {{#if errors.name}}border-rose-400 bg-rose-50/30{{else}}border-slate-300{{/if}} text-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500"
-          placeholder="VD: Món Việt, Món Âu, Sushi"
-        />
-        {{#if errors.name}}<p class="text-xs text-rose-600 mt-1">{{errors.name}}</p>{{/if}}
+    <div class="form-grid">
+      <div class="field full">
+        <p class="form-note">Hồ sơ hiển thị công khai ở trang chi tiết món ăn.</p>
       </div>
 
-      <!-- Specialty -->
-      <div>
-        <label for="specialty" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-          Specialty
-        </label>
-        <input
-          type="text"
-          id="specialty"
-          name="specialty"
-          value="{{values.specialty}}"
-          class="w-full px-3.5 py-2.5 rounded-lg border {{#if errors.specialty}}border-rose-400 bg-rose-50/30{{else}}border-slate-300{{/if}} text-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500"
-          placeholder="e.g. M�n �u, M�n Vi?t, Sushi"
-        />
-        {{#if errors.specialty}}<p class="text-xs text-rose-600 mt-1">{{errors.specialty}}</p>{{/if}}
-      </div>
-    </div>
-
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <!-- Experience Years -->
-      <div>
-        <label for="experienceYears" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-          Years of Experience
-        </label>
-        <input
-          type="number"
-          id="experienceYears"
-          name="experienceYears"
-          min="0"
-          value="{{values.experienceYears}}"
-          class="w-full px-3.5 py-2.5 rounded-lg border {{#if errors.experienceYears}}border-rose-400 bg-rose-50/30{{else}}border-slate-300{{/if}} text-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500"
-          placeholder="5"
-        />
-        {{#if errors.experienceYears}}<p class="text-xs text-rose-600 mt-1">{{errors.experienceYears}}</p>{{/if}}
+      <div class="field">
+        <label for="name">Họ và tên <span class="req">*</span></label>
+        <input type="text" id="name" name="name" value="{{values.name}}" required placeholder="VD: Nguyễn Văn An" />
+        {{#if errors.name}}<p class="err">{{errors.name}}</p>{{/if}}
       </div>
 
-      <!-- Phone -->
-      <div>
-        <label for="phone" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-          Contact Phone
-        </label>
-        <input
-          type="tel"
-          id="phone"
-          name="phone"
-          value="{{values.phone}}"
-          class="w-full px-3.5 py-2.5 rounded-lg border {{#if errors.phone}}border-rose-400 bg-rose-50/30{{else}}border-slate-300{{/if}} text-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500"
-          placeholder="+84 901 234 567"
-        />
-        {{#if errors.phone}}<p class="text-xs text-rose-600 mt-1">{{errors.phone}}</p>{{/if}}
+      <div class="field">
+        <label for="specialty">Chuyên môn</label>
+        <input type="text" id="specialty" name="specialty" value="{{values.specialty}}" placeholder="VD: Món Việt, Món Âu, Sushi" />
+        {{#if errors.specialty}}<p class="err">{{errors.specialty}}</p>{{/if}}
       </div>
-    </div>
 
-    <!-- Bio -->
-    <div>
-      <label for="bio" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Biography</label>
-      <textarea
-        id="bio"
-        name="bio"
-        rows="3"
-        class="w-full px-3.5 py-2.5 rounded-lg border {{#if errors.bio}}border-rose-400 bg-rose-50/30{{else}}border-slate-300{{/if}} text-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500"
-        placeholder="Brief culinary background and achievements..."
-      >{{values.bio}}</textarea>
-      {{#if errors.bio}}<p class="text-xs text-rose-600 mt-1">{{errors.bio}}</p>{{/if}}
-    </div>
+      <div class="field">
+        <label for="experienceYears">Số năm kinh nghiệm</label>
+        <input type="number" id="experienceYears" name="experienceYears" min="0" value="{{values.experienceYears}}" placeholder="5" />
+        {{#if errors.experienceYears}}<p class="err">{{errors.experienceYears}}</p>{{/if}}
+      </div>
 
-    <!-- Avatar Upload -->
-    <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
-      <label for="avatar" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider">Chef Portrait Photo</label>
+      <div class="field">
+        <label for="phone">Số điện thoại</label>
+        <input type="tel" id="phone" name="phone" value="{{values.phone}}" placeholder="+84 901 234 567" />
+        {{#if errors.phone}}<p class="err">{{errors.phone}}</p>{{/if}}
+      </div>
 
-      {{#if values.avatarUrl}}
-        <div class="flex items-center gap-4">
-          <img src="{{values.avatarUrl}}" alt="Current avatar" class="w-16 h-16 rounded-full object-cover border border-slate-300" />
-          <div>
-            <label class="inline-flex items-center gap-2 text-xs font-medium text-rose-600 cursor-pointer">
-              <input type="checkbox" name="removeImage" value="on" class="rounded border-slate-300 text-rose-600 focus:ring-rose-500" />
-              Remove existing photo
-            </label>
-            <p class="text-[11px] text-slate-400 mt-1">Or choose a new file below to replace it.</p>
+      <div class="field full">
+        <label for="bio">Tiểu sử</label>
+        <textarea id="bio" name="bio" rows="3" placeholder="Công việc và thành tựu ẩm thực ngắn gọn...">{{values.bio}}</textarea>
+        {{#if errors.bio}}<p class="err">{{errors.bio}}</p>{{/if}}
+      </div>
+
+      <div class="field full">
+        <label for="avatar">Ảnh chân dung</label>
+        {{#if values.avatarUrl}}
+          <div class="form-photo">
+            <img class="img-preview" src="{{values.avatarUrl}}" alt="Ảnh hiện tại" />
+            <label class="check"><input type="checkbox" name="removeImage" value="on" /> Gỡ ảnh hiện tại</label>
           </div>
+        {{/if}}
+        <input type="file" id="avatar" name="avatar" accept="image/jpeg,image/png,image/webp" />
+        {{#if errors.avatar}}<p class="err">{{errors.avatar}}</p>{{/if}}
+        <p class="hint">JPG, PNG hoặc WebP · tối đa 2 MB.</p>
+      </div>
+
+      <div class="field full">
+        <div class="check-row">
+          <label class="check"><input type="checkbox" name="isActive" value="on" {{#if values.isActive}}checked{{/if}} /> Đang hoạt động (hiển thị công khai)</label>
         </div>
-      {{/if}}
-
-      <input
-        type="file"
-        id="avatar"
-        name="avatar"
-        accept="image/jpeg,image/png,image/webp"
-        class="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100"
-      />
-      {{#if errors.avatar}}<p class="text-xs text-rose-600 mt-1">{{errors.avatar}}</p>{{/if}}
-      <p class="text-[11px] text-slate-400">Accepted formats: JPG, PNG, WebP (max 2 MB).</p>
+      </div>
     </div>
 
-    <!-- Active Checkbox -->
-    <div>
-      <label class="inline-flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
-        <input type="checkbox" name="isActive" value="on" {{#if values.isActive}}checked{{/if}} class="rounded border-slate-300 text-amber-600 focus:ring-amber-500" />
-        <span>Active chef (publicly visible on dishes)</span>
-      </label>
-    </div>
-
-    <!-- Submit buttons -->
-    <div class="pt-6 border-t border-slate-200 flex items-center justify-end gap-3">
-      <a href="/admin/chefs" class="px-4 py-2 rounded-lg border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
-        Cancel
-      </a>
-      <button
-        type="submit"
-        class="px-5 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold shadow-xs transition-colors"
-      >
-        {{#if isNew}}Create Chef{{else}}Save Changes{{/if}}
-      </button>
+    <div class="form-foot">
+      <span class="left">Trường có dấu * là bắt buộc</span>
+      <a class="btn btn-quiet" href="/admin/chefs">Hủy</a>
+      <button class="btn btn-primary" type="submit">{{#if isNew}}Tạo đầu bếp{{else}}Lưu thay đổi{{/if}}</button>
     </div>
   </form>
-</div>
+</section>
