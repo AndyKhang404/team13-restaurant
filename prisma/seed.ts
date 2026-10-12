@@ -9,7 +9,12 @@ const supabaseUrl = process.env.SUPABASE_URL;
 const secretKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 const bucketName = process.env.STORAGE_BUCKET || 'images';
 const seedAdminEmail = process.env.SEED_ADMIN_EMAIL || 'admin@example.com';
-const seedAdminPassword = process.env.SEED_ADMIN_PASSWORD || 'AdminPass123!#';
+const rawPass = process.env.SEED_ADMIN_PASSWORD?.trim() || '';
+const seedAdminPassword =
+  rawPass.length >= 6 ? rawPass : rawPass ? `${rawPass}123456` : 'AdminPass123!#';
+if (rawPass && rawPass.length < 6) {
+  console.log(`ℹ️ SEED_ADMIN_PASSWORD was under 6 chars, using "${seedAdminPassword}" for Supabase Auth requirements.`);
+}
 
 if (!databaseUrl || !supabaseUrl || !secretKey) {
   console.error('❌ Missing DATABASE_URL, SUPABASE_URL, or SUPABASE_SECRET_KEY in .env');

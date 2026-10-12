@@ -1,30 +1,25 @@
--- ============================================================
--- Team13 Restaurant — Baseline Migration
--- ============================================================
+-- CreateSchema
+CREATE SCHEMA IF NOT EXISTS "public";
 
--- 1. Extension
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";
-
--- 2. Enums
+-- CreateEnum
 CREATE TYPE "role" AS ENUM ('ADMIN', 'STAFF', 'CUSTOMER');
+
+-- CreateEnum
 CREATE TYPE "dish_category" AS ENUM ('appetizer', 'main', 'dessert', 'drink', 'combo');
 
--- 3. Profiles
+-- CreateTable
 CREATE TABLE "profiles" (
     "id" UUID NOT NULL,
     "email" TEXT NOT NULL,
     "display_name" TEXT,
     "role" "role" NOT NULL DEFAULT 'CUSTOMER',
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL,
 
     CONSTRAINT "profiles_pkey" PRIMARY KEY ("id")
 );
 
-CREATE INDEX "profiles_email_idx" ON "profiles"("email");
-CREATE INDEX "profiles_role_idx" ON "profiles"("role");
-
--- 4. Chefs
+-- CreateTable
 CREATE TABLE "chefs" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "name" TEXT NOT NULL,
@@ -35,14 +30,13 @@ CREATE TABLE "chefs" (
     "phone" TEXT,
     "is_active" BOOLEAN NOT NULL DEFAULT true,
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL,
     "deleted_at" TIMESTAMPTZ(6),
 
-    CONSTRAINT "chefs_pkey" PRIMARY KEY ("id"),
-    CONSTRAINT "chefs_experience_years_check" CHECK ("experience_years" >= 0)
+    CONSTRAINT "chefs_pkey" PRIMARY KEY ("id")
 );
 
--- 5. Ingredients
+-- CreateTable
 CREATE TABLE "ingredients" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "name" TEXT NOT NULL,
@@ -52,16 +46,13 @@ CREATE TABLE "ingredients" (
     "image_url" TEXT,
     "is_available" BOOLEAN NOT NULL DEFAULT true,
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL,
     "deleted_at" TIMESTAMPTZ(6),
 
-    CONSTRAINT "ingredients_pkey" PRIMARY KEY ("id"),
-    CONSTRAINT "ingredients_name_key" UNIQUE ("name"),
-    CONSTRAINT "ingredients_stock_quantity_check" CHECK ("stock_quantity" >= 0),
-    CONSTRAINT "ingredients_price_per_unit_check" CHECK ("price_per_unit" >= 0)
+    CONSTRAINT "ingredients_pkey" PRIMARY KEY ("id")
 );
 
--- 6. Dishes
+-- CreateTable
 CREATE TABLE "dishes" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "name" TEXT NOT NULL,
@@ -75,44 +66,52 @@ CREATE TABLE "dishes" (
     "prep_time_minutes" INTEGER,
     "chef_id" UUID,
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL,
     "deleted_at" TIMESTAMPTZ(6),
 
-    CONSTRAINT "dishes_pkey" PRIMARY KEY ("id"),
-    CONSTRAINT "dishes_slug_key" UNIQUE ("slug"),
-    CONSTRAINT "dishes_price_check" CHECK ("price" >= 0),
-    CONSTRAINT "dishes_prep_time_minutes_check" CHECK ("prep_time_minutes" > 0),
-    CONSTRAINT "dishes_chef_id_fkey" FOREIGN KEY ("chef_id") REFERENCES "chefs"("id") ON DELETE SET NULL ON UPDATE CASCADE
+    CONSTRAINT "dishes_pkey" PRIMARY KEY ("id")
 );
 
-CREATE INDEX "idx_dishes_chef" ON "dishes"("chef_id");
-CREATE INDEX "idx_dishes_category" ON "dishes"("category");
-CREATE INDEX "idx_dishes_available" ON "dishes"("is_available");
-
--- 7. Dish Ingredients (N-N)
+-- CreateTable
 CREATE TABLE "dish_ingredients" (
     "dish_id" UUID NOT NULL,
     "ingredient_id" UUID NOT NULL,
     "quantity" DECIMAL(10,2) NOT NULL,
     "unit" TEXT DEFAULT 'g',
 
-    CONSTRAINT "dish_ingredients_pkey" PRIMARY KEY ("dish_id","ingredient_id"),
-    CONSTRAINT "dish_ingredients_quantity_check" CHECK ("quantity" > 0),
-    CONSTRAINT "dish_ingredients_dish_id_fkey" FOREIGN KEY ("dish_id") REFERENCES "dishes"("id") ON DELETE CASCADE ON UPDATE CASCADE,
-    CONSTRAINT "dish_ingredients_ingredient_id_fkey" FOREIGN KEY ("ingredient_id") REFERENCES "ingredients"("id") ON DELETE CASCADE ON UPDATE CASCADE
+    CONSTRAINT "dish_ingredients_pkey" PRIMARY KEY ("dish_id","ingredient_id")
 );
 
+-- CreateIndex
+CREATE INDEX "profiles_email_idx" ON "profiles"("email");
+
+-- CreateIndex
+CREATE INDEX "profiles_role_idx" ON "profiles"("role");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "ingredients_name_key" ON "ingredients"("name");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "dishes_slug_key" ON "dishes"("slug");
+
+-- CreateIndex
+CREATE INDEX "idx_dishes_chef" ON "dishes"("chef_id");
+
+-- CreateIndex
+CREATE INDEX "idx_dishes_category" ON "dishes"("category");
+
+-- CreateIndex
+CREATE INDEX "idx_dishes_available" ON "dishes"("is_available");
+
+-- CreateIndex
 CREATE INDEX "idx_dish_ingredients_ingredient" ON "dish_ingredients"("ingredient_id");
 
--- 8. Row Level Security (RLS)
-ALTER TABLE "chefs" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "ingredients" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "dishes" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "dish_ingredients" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "profiles" ENABLE ROW LEVEL SECURITY;
+-- AddForeignKey
+ALTER TABLE "dishes" ADD CONSTRAINT "dishes_chef_id_fkey" FOREIGN KEY ("chef_id") REFERENCES "chefs"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
--- Public Read-Only Policies (Security fix: no write policies to prevent anon key tampering)
-CREATE POLICY "public read chefs" ON "chefs" FOR SELECT TO anon, authenticated USING (true);
-CREATE POLICY "public read ingredients" ON "ingredients" FOR SELECT TO anon, authenticated USING (true);
-CREATE POLICY "public read dishes" ON "dishes" FOR SELECT TO anon, authenticated USING (true);
-CREATE POLICY "public read dish_ingredients" ON "dish_ingredients" FOR SELECT TO anon, authenticated USING (true);
+-- AddForeignKey
+ALTER TABLE "dish_ingredients" ADD CONSTRAINT "dish_ingredients_dish_id_fkey" FOREIGN KEY ("dish_id") REFERENCES "dishes"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "dish_ingredients" ADD CONSTRAINT "dish_ingredients_ingredient_id_fkey" FOREIGN KEY ("ingredient_id") REFERENCES "ingredients"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
