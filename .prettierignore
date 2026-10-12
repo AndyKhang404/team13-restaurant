@@ -1,0 +1,8 @@
+node_modules
+dist
+coverage
+src/generated
+public/css/app.css
+prisma/migrations
+package-lock.json
+src/views

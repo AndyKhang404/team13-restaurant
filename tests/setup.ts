@@ -1,0 +1,9 @@
+process.env.NODE_ENV = 'test';
+process.env.PORT = '3000';
+process.env.APP_URL = 'http://localhost:3000';
+process.env.DATABASE_URL = 'postgresql://dummy:dummy@localhost:5432/postgres';
+process.env.SUPABASE_URL = 'https://dummy.supabase.co';
+process.env.SUPABASE_ANON_KEY = 'dummy-anon-key';
+process.env.SUPABASE_SERVICE_ROLE_KEY = 'dummy-service-role-key';
+process.env.STORAGE_BUCKET = 'images';
+process.env.CSRF_SECRET = 'a-very-long-dummy-csrf-secret-key-at-least-32-chars';

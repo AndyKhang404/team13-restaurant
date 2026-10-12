@@ -1,0 +1,14 @@
+node_modules/
+dist/
+coverage/
+.env
+.env.*
+!.env.example
+
+# Generated
+src/generated/
+public/css/app.css
+
+# Logs / OS
+*.log
+.DS_Store

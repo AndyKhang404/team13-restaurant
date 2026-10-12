@@ -1,0 +1,9 @@
+{{#if flash}}
+  <div class="space-y-2 mb-6">
+    {{#each flash}}
+      <div class="px-4 py-3 rounded-lg text-sm flex items-center justify-between border {{#if (eq type 'success')}}bg-emerald-50 text-emerald-800 border-emerald-200{{else if (eq type 'error')}}bg-rose-50 text-rose-800 border-rose-200{{else}}bg-sky-50 text-sky-800 border-sky-200{{/if}}">
+        <span>{{message}}</span>
+      </div>
+    {{/each}}
+  </div>
+{{/if}}

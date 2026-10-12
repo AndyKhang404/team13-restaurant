@@ -1,0 +1,6 @@
+{
+  "singleQuote": true,
+  "printWidth": 100,
+  "trailingComma": "all",
+  "overrides": [{ "files": "*.hbs", "options": { "parser": "glimmer", "singleQuote": false } }]
+}

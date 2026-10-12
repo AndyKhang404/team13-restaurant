@@ -1,0 +1,277 @@
+<div class="max-w-4xl mx-auto bg-white p-8 rounded-2xl border border-slate-200 shadow-xs">
+  <div class="flex items-center justify-between pb-6 mb-6 border-b border-slate-100">
+    <div>
+      <h2 class="text-xl font-bold text-slate-900 tracking-tight">{{title}}</h2>
+      <p class="text-xs text-slate-500 mt-1">Fill in the meal details and select ingredients.</p>
+    </div>
+    <a href="/admin/dishes" class="text-xs font-semibold text-slate-600 hover:text-slate-900">
+      ← Back to Dishes
+    </a>
+  </div>
+
+  <form action="{{#if isNew}}/admin/dishes{{else}}/admin/dishes/{{dish.id}}{{/if}}" method="POST" enctype="multipart/form-data" class="space-y-6">
+    <input type="hidden" name="_csrf" value="{{csrfToken}}" />
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <!-- Dish Name -->
+      <div>
+        <label for="name" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+          Dish Name <span class="text-rose-500">*</span>
+        </label>
+        <input
+          type="text"
+          id="name"
+          name="name"
+          value="{{values.name}}"
+          required
+          class="w-full px-3.5 py-2.5 rounded-lg border {{#if errors.name}}border-rose-400 bg-rose-50/30{{else}}border-slate-300{{/if}} text-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500"
+          placeholder="e.g. Phở Bò Tái Lăn"
+        />
+        {{#if errors.name}}<p class="text-xs text-rose-600 mt-1">{{errors.name}}</p>{{/if}}
+      </div>
+
+      <!-- URL Slug -->
+      <div>
+        <label for="slug" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+          URL Slug
+        </label>
+        <input
+          type="text"
+          id="slug"
+          name="slug"
+          value="{{values.slug}}"
+          class="w-full px-3.5 py-2.5 rounded-lg border {{#if errors.slug}}border-rose-400 bg-rose-50/30{{else}}border-slate-300{{/if}} text-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500 font-mono text-xs"
+          placeholder="e.g. pho-bo-tai-lan (leave blank to auto-generate)"
+        />
+        {{#if errors.slug}}<p class="text-xs text-rose-600 mt-1">{{errors.slug}}</p>{{/if}}
+        <p class="text-[11px] text-slate-400 mt-1">Leaves blank to auto-generate from dish name.</p>
+      </div>
+    </div>
+
+    <!-- Description -->
+    <div>
+      <label for="description" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Description</label>
+      <textarea
+        id="description"
+        name="description"
+        rows="3"
+        class="w-full px-3.5 py-2.5 rounded-lg border {{#if errors.description}}border-rose-400 bg-rose-50/30{{else}}border-slate-300{{/if}} text-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500"
+        placeholder="Brief description of the dish, heritage, or tasting notes..."
+      >{{values.description}}</textarea>
+      {{#if errors.description}}<p class="text-xs text-rose-600 mt-1">{{errors.description}}</p>{{/if}}
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+      <!-- Price -->
+      <div>
+        <label for="price" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+          Price (VND) <span class="text-rose-500">*</span>
+        </label>
+        <input
+          type="number"
+          id="price"
+          name="price"
+          step="1000"
+          min="0"
+          value="{{values.price}}"
+          required
+          class="w-full px-3.5 py-2.5 rounded-lg border {{#if errors.price}}border-rose-400 bg-rose-50/30{{else}}border-slate-300{{/if}} text-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500"
+          placeholder="55000"
+        />
+        {{#if errors.price}}<p class="text-xs text-rose-600 mt-1">{{errors.price}}</p>{{/if}}
+      </div>
+
+      <!-- Category -->
+      <div>
+        <label for="category" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+          Category <span class="text-rose-500">*</span>
+        </label>
+        <select
+          id="category"
+          name="category"
+          required
+          class="w-full px-3.5 py-2.5 rounded-lg border {{#if errors.category}}border-rose-400 bg-rose-50/30{{else}}border-slate-300{{/if}} text-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500"
+        >
+          {{#each categories}}
+            <option value="{{key}}" {{#if (eq ../values.category key)}}selected{{/if}}>{{label}}</option>
+          {{/each}}
+        </select>
+        {{#if errors.category}}<p class="text-xs text-rose-600 mt-1">{{errors.category}}</p>{{/if}}
+      </div>
+
+      <!-- Prep Time -->
+      <div>
+        <label for="prepTimeMinutes" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+          Prep Time (Mins)
+        </label>
+        <input
+          type="number"
+          id="prepTimeMinutes"
+          name="prepTimeMinutes"
+          min="1"
+          value="{{values.prepTimeMinutes}}"
+          class="w-full px-3.5 py-2.5 rounded-lg border {{#if errors.prepTimeMinutes}}border-rose-400 bg-rose-50/30{{else}}border-slate-300{{/if}} text-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500"
+          placeholder="15"
+        />
+        {{#if errors.prepTimeMinutes}}<p class="text-xs text-rose-600 mt-1">{{errors.prepTimeMinutes}}</p>{{/if}}
+      </div>
+    </div>
+
+    <!-- Chef Assignment -->
+    <div>
+      <label for="chefId" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Assigned Chef</label>
+      <select
+        id="chefId"
+        name="chefId"
+        class="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500"
+      >
+        <option value="">No specific chef</option>
+        {{#each chefs}}
+          <option value="{{id}}" {{#if (eq ../values.chefId id)}}selected{{/if}}>
+            {{name}} {{#if specialty}}({{specialty}}){{/if}} {{#if isDeleted}}[Deleted]{{/if}}
+          </option>
+        {{/each}}
+      </select>
+    </div>
+
+    <!-- Image Upload & Preview -->
+    <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+      <label for="image" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider">Dish Photo</label>
+
+      {{#if values.imageUrl}}
+        <div class="flex items-center gap-4">
+          <img src="{{values.imageUrl}}" alt="Current photo" class="w-20 h-20 rounded-lg object-cover border border-slate-300" />
+          <div>
+            <label class="inline-flex items-center gap-2 text-xs font-medium text-rose-600 cursor-pointer">
+              <input type="checkbox" name="removeImage" value="on" class="rounded border-slate-300 text-rose-600 focus:ring-rose-500" />
+              Remove existing image
+            </label>
+            <p class="text-[11px] text-slate-400 mt-1">Or choose a new file below to replace it.</p>
+          </div>
+        </div>
+      {{/if}}
+
+      <input
+        type="file"
+        id="image"
+        name="image"
+        accept="image/jpeg,image/png,image/webp"
+        class="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100"
+      />
+      {{#if errors.image}}<p class="text-xs text-rose-600 mt-1">{{errors.image}}</p>{{/if}}
+      <p class="text-[11px] text-slate-400">Accepted formats: JPG, PNG, WebP (max 2 MB).</p>
+    </div>
+
+    <!-- Checkboxes -->
+    <div class="flex flex-wrap gap-6 pt-2">
+      <label class="inline-flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
+        <input type="checkbox" name="isAvailable" value="on" {{#if values.isAvailable}}checked{{/if}} class="rounded border-slate-300 text-amber-600 focus:ring-amber-500" />
+        <span>Available for orders</span>
+      </label>
+
+      <label class="inline-flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
+        <input type="checkbox" name="isFeatured" value="on" {{#if values.isFeatured}}checked{{/if}} class="rounded border-slate-300 text-amber-600 focus:ring-amber-500" />
+        <span>Feature on homepage</span>
+      </label>
+    </div>
+
+    <!-- Dynamic Ingredients Section -->
+    <div class="pt-6 border-t border-slate-200">
+      <div class="flex items-center justify-between mb-3">
+        <div>
+          <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wider">Dish Ingredients & Proportions</h3>
+          <p class="text-xs text-slate-500">Specify ingredients required for this dish recipe.</p>
+        </div>
+        <button
+          type="button"
+          id="add-ingredient-btn"
+          class="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700 transition-colors"
+        >
+          + Add Ingredient Row
+        </button>
+      </div>
+
+      <div id="ingredient-rows-container" class="space-y-3">
+        {{#each dishIngredients}}
+          <div class="ingredient-row flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
+            <select name="ingredient_id" required class="flex-1 px-3 py-2 text-xs rounded-lg border border-slate-300">
+              <option value="">Select ingredient</option>
+              {{#each ../ingredients}}
+                <option value="{{id}}" {{#if (eq ../ingredientId id)}}selected{{/if}}>
+                  {{name}} (unit: {{unit}}) {{#if isDeleted}}[Deleted]{{/if}}
+                </option>
+              {{/each}}
+            </select>
+            <input
+              type="number"
+              step="any"
+              min="0.01"
+              name="quantity"
+              value="{{quantity}}"
+              placeholder="Quantity"
+              required
+              class="w-28 px-3 py-2 text-xs rounded-lg border border-slate-300"
+            />
+            <input
+              type="text"
+              name="unit"
+              value="{{unit}}"
+              placeholder="Unit (e.g. g)"
+              class="w-20 px-3 py-2 text-xs rounded-lg border border-slate-300"
+            />
+            <button type="button" class="remove-row-btn px-2.5 py-2 text-xs text-rose-600 hover:bg-rose-50 rounded-lg">
+              ✕
+            </button>
+          </div>
+        {{/each}}
+      </div>
+    </div>
+
+    <!-- Submit buttons -->
+    <div class="pt-6 border-t border-slate-200 flex items-center justify-end gap-3">
+      <a href="/admin/dishes" class="px-4 py-2 rounded-lg border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
+        Cancel
+      </a>
+      <button
+        type="submit"
+        class="px-5 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold shadow-xs transition-colors"
+      >
+        {{#if isNew}}Create Dish{{else}}Save Changes{{/if}}
+      </button>
+    </div>
+  </form>
+</div>
+
+<script>
+  // Dynamic ingredient rows handler
+  const container = document.getElementById('ingredient-rows-container');
+  const addBtn = document.getElementById('add-ingredient-btn');
+
+  // Ingredient options template
+  const ingredientOptions = `
+    <option value="">Select ingredient</option>
+    {{#each ingredients}}
+      <option value="{{id}}">{{name}} (unit: {{unit}}) {{#if isDeleted}}[Deleted]{{/if}}</option>
+    {{/each}}
+  `;
+
+  addBtn.addEventListener('click', () => {
+    const row = document.createElement('div');
+    row.className = 'ingredient-row flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200';
+    row.innerHTML = `
+      <select name="ingredient_id" required class="flex-1 px-3 py-2 text-xs rounded-lg border border-slate-300">
+        ${ingredientOptions}
+      </select>
+      <input type="number" step="any" min="0.01" name="quantity" placeholder="Quantity" required class="w-28 px-3 py-2 text-xs rounded-lg border border-slate-300" />
+      <input type="text" name="unit" placeholder="Unit (g)" value="g" class="w-20 px-3 py-2 text-xs rounded-lg border border-slate-300" />
+      <button type="button" class="remove-row-btn px-2.5 py-2 text-xs text-rose-600 hover:bg-rose-50 rounded-lg">✕</button>
+    `;
+    container.appendChild(row);
+  });
+
+  container.addEventListener('click', (e) => {
+    if (e.target.classList.contains('remove-row-btn')) {
+      e.target.closest('.ingredient-row').remove();
+    }
+  });
+</script>
