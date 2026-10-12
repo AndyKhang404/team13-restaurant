@@ -6,19 +6,19 @@ import { Role, DishCategory } from '../src/generated/prisma/enums.js';
 
 const databaseUrl = process.env.DATABASE_URL;
 const supabaseUrl = process.env.SUPABASE_URL;
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const secretKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 const bucketName = process.env.STORAGE_BUCKET || 'images';
 const seedAdminEmail = process.env.SEED_ADMIN_EMAIL || 'admin@example.com';
 const seedAdminPassword = process.env.SEED_ADMIN_PASSWORD || 'AdminPass123!#';
 
-if (!databaseUrl || !supabaseUrl || !serviceRoleKey) {
-  console.error('❌ Missing DATABASE_URL, SUPABASE_URL, or SUPABASE_SERVICE_ROLE_KEY in .env');
+if (!databaseUrl || !supabaseUrl || !secretKey) {
+  console.error('❌ Missing DATABASE_URL, SUPABASE_URL, or SUPABASE_SECRET_KEY in .env');
   process.exit(1);
 }
 
 const adapter = new PrismaPg({ connectionString: databaseUrl });
 const prisma = new PrismaClient({ adapter });
-const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
+const supabaseAdmin = createClient(supabaseUrl, secretKey, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 

@@ -4,11 +4,11 @@ import { createClient } from '@supabase/supabase-js';
 import { env, isProd } from '../config/env.js';
 
 /**
- * Per-request Supabase client for auth (anon key + user's cookies).
+ * Per-request Supabase client for auth (publishable key + user's cookies).
  * Reads cookies from the request, writes refreshed session cookies to the response.
  */
 export function createSupabaseForRequest(req: Request, res: Response) {
-  return createServerClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY, {
+  return createServerClient(env.SUPABASE_URL, env.SUPABASE_PUBLISHABLE_KEY, {
     cookieOptions: { sameSite: 'lax', secure: isProd, path: '/', httpOnly: true },
     cookies: {
       getAll() {
@@ -26,10 +26,10 @@ export function createSupabaseForRequest(req: Request, res: Response) {
 }
 
 /**
- * Service-role client — bypasses RLS. Server-only: storage uploads and seeding.
+ * Secret client (service_role) — bypasses RLS. Server-only: storage uploads and seeding.
  * Never pass this client (or its key) to views.
  */
-export const supabaseAdmin = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+export const supabaseAdmin = createClient(env.SUPABASE_URL, env.SUPABASE_SECRET_KEY, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 

@@ -62,8 +62,8 @@ Fill in the values in `.env`:
 - `DATABASE_URL`: Supabase Transaction Pooler URL (port `6543`)
 - `DIRECT_URL`: Supabase Session / Direct connection URL (port `5432`)
 - `SUPABASE_URL`: Your Supabase project URL (`https://<project-ref>.supabase.co`)
-- `SUPABASE_ANON_KEY`: Supabase anon public key
-- `SUPABASE_SERVICE_ROLE_KEY`: Supabase service_role secret key (kept server-side)
+- `SUPABASE_PUBLISHABLE_KEY`: Supabase publishable key (used by SSR auth client)
+- `SUPABASE_SECRET_KEY`: Supabase secret key / service_role (kept server-side for admin & storage)
 - `STORAGE_BUCKET`: `images` (auto-created by seed script if missing)
 - `CSRF_SECRET`: 32+ character random string (e.g. `openssl rand -hex 32`)
 - `SEED_ADMIN_EMAIL`: Initial admin email

@@ -9,8 +9,14 @@ const EnvSchema = z.object({
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required (Supabase pooler URL)'),
 
   SUPABASE_URL: z.url(),
-  SUPABASE_ANON_KEY: z.string().min(1),
-  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
+  SUPABASE_PUBLISHABLE_KEY: z
+    .string()
+    .min(1, 'SUPABASE_PUBLISHABLE_KEY is required')
+    .default(() => process.env.SUPABASE_ANON_KEY ?? ''),
+  SUPABASE_SECRET_KEY: z
+    .string()
+    .min(1, 'SUPABASE_SECRET_KEY is required')
+    .default(() => process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''),
   STORAGE_BUCKET: z.string().min(1).default('images'),
 
   CSRF_SECRET: z.string().min(32, 'CSRF_SECRET must be at least 32 characters'),
