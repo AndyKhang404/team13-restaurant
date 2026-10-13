@@ -66,6 +66,30 @@
       }
     });
   }
+
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest('.remove-photo-btn');
+    if (!btn) return;
+    var photoWrap = btn.closest('.form-photo');
+    if (!photoWrap) return;
+    var cb = photoWrap.querySelector('input[name="removeImage"]');
+    if (!cb) return;
+    cb.checked = !cb.checked;
+    var checked = cb.checked;
+    btn.setAttribute('aria-pressed', checked ? 'true' : 'false');
+    var textSpan = btn.querySelector('.remove-photo-btn-text');
+    if (checked) {
+      btn.classList.remove('btn-danger');
+      btn.classList.add('btn-quiet');
+      if (textSpan) textSpan.textContent = 'Hoàn tác gỡ ảnh';
+      photoWrap.classList.add('is-removed');
+    } else {
+      btn.classList.remove('btn-quiet');
+      btn.classList.add('btn-danger');
+      if (textSpan) textSpan.textContent = 'Gỡ ảnh hiện tại';
+      photoWrap.classList.remove('is-removed');
+    }
+  });
 })();
 </script>
 </body>

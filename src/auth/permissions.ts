@@ -37,8 +37,8 @@ const CONTENT_PERMISSIONS: Permission[] = [
 
 export const ROLE_PERMISSIONS: Record<Role, ReadonlySet<Permission>> = {
   [Role.ADMIN]: new Set<Permission>(['admin:access', ...CONTENT_PERMISSIONS, 'user:manage']),
-  // STAFF intentionally has no permissions: only ADMIN may see/use the admin panel.
-  [Role.STAFF]: new Set<Permission>(),
+  // STAFF can access admin panel and manage content (dishes, chefs, ingredients), but cannot manage users.
+  [Role.STAFF]: new Set<Permission>(['admin:access', ...CONTENT_PERMISSIONS]),
   [Role.CUSTOMER]: new Set<Permission>(),
 };
 

@@ -1,4 +1,4 @@
-﻿import { Router } from 'express';
+import { Router } from 'express';
 import { prisma } from '../../lib/prisma.js';
 import { requirePermission } from '../../auth/middleware.js';
 import dishesRouter from '../dishes/routes.js';
@@ -8,7 +8,7 @@ import usersRouter from '../users/routes.js';
 
 const router = Router();
 
-// Every route in /admin requires admin:access (ADMIN only)
+// Every route in /admin requires admin:access (ADMIN and STAFF)
 router.use(requirePermission('admin:access'));
 
 router.get('/', async (_req, res) => {
