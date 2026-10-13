@@ -21,9 +21,9 @@
     <div class="side-foot">
       <div class="userbox">
         <span class="avatar">T13</span>
-        <div>
-          <b>{{#if user.displayName}}{{user.displayName}}{{else}}Quản trị viên{{/if}}</b>
-          <span>{{user.email}}</span>
+        <div class="userbox-info">
+          <b class="userbox-name" title="{{#if user.displayName}}{{user.displayName}}{{else}}Quản trị viên{{/if}}">{{#if user.displayName}}{{user.displayName}}{{else}}Quản trị viên{{/if}}</b>
+          <span class="userbox-email" title="{{user.email}}">{{user.email}}</span>
         </div>
       </div>
       <form action="/logout" method="POST">
