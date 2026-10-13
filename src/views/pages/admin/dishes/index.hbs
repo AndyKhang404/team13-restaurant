@@ -74,10 +74,7 @@
                       <button type="submit" class="btn btn-sm btn-quiet">Khôi phục</button>
                     </form>
                   {{else}}
-                    <form class="inline-form" action="/admin/dishes/{{id}}/delete" method="POST" onsubmit="return confirm('Chuyển món này vào danh sách đã xóa?')">
-                      <input type="hidden" name="_csrf" value="{{../csrfToken}}" />
-                      <button type="submit" class="btn btn-sm btn-danger">Xóa</button>
-                    </form>
+                    <a class="btn btn-sm btn-danger" href="/admin/dishes/{{id}}/delete">Xóa</a>
                   {{/if}}
                 </div>
               </td>

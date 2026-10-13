@@ -8,6 +8,7 @@
 
   <form action="{{#if isNew}}/admin/chefs{{else}}/admin/chefs/{{chef.id}}{{/if}}" method="POST" enctype="multipart/form-data">
     <input type="hidden" name="_csrf" value="{{csrfToken}}" />
+    {{#unless isNew}}<input type="hidden" name="_method" value="PATCH" />{{/unless}}
 
     <div class="form-grid">
       <div class="field full">

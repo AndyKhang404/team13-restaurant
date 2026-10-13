@@ -80,7 +80,7 @@ router.post('/', requirePermission('ingredient:create'), async (req, res) => {
   if (!parsed.success || imageErr) {
     const errors = parsed.success ? {} : toFieldErrors(parsed.error);
     if (imageErr) errors['image'] = imageErr;
-    return res.status(422).render('pages/admin/ingredients/form', {
+    return res.status(400).render('pages/admin/ingredients/form', {
       layout: 'admin',
       title: 'Nguyên liệu mới',
       isNew: true,
@@ -90,7 +90,7 @@ router.post('/', requirePermission('ingredient:create'), async (req, res) => {
   }
 
   if (await findNameClash(parsed.data.name)) {
-    return res.status(422).render('pages/admin/ingredients/form', {
+    return res.status(400).render('pages/admin/ingredients/form', {
       layout: 'admin',
       title: 'Nguyên liệu mới',
       isNew: true,
@@ -115,7 +115,7 @@ router.post('/', requirePermission('ingredient:create'), async (req, res) => {
     });
   } catch (e) {
     if (isUniqueViolation(e, 'name')) {
-      return res.status(422).render('pages/admin/ingredients/form', {
+      return res.status(400).render('pages/admin/ingredients/form', {
         layout: 'admin',
         title: 'Nguyên liệu mới',
         isNew: true,
@@ -127,7 +127,7 @@ router.post('/', requirePermission('ingredient:create'), async (req, res) => {
   }
 
   req.flash('success', `Đã tạo nguyên liệu "${data.name}".`);
-  res.redirect('/admin/ingredients');
+  res.redirect(303, '/admin/ingredients');
 });
 
 router.get('/:id/edit', requirePermission('ingredient:update'), async (req, res) => {
@@ -145,7 +145,7 @@ router.get('/:id/edit', requirePermission('ingredient:update'), async (req, res)
   });
 });
 
-router.post('/:id', requirePermission('ingredient:update'), async (req, res) => {
+router.patch('/:id', requirePermission('ingredient:update'), async (req, res) => {
   const id = paramId(req.params.id);
   const ingredient = await prisma.ingredient.findUnique({ where: { id } });
   if (!ingredient) throw notFound('Ingredient');
@@ -157,7 +157,7 @@ router.post('/:id', requirePermission('ingredient:update'), async (req, res) => 
   if (!parsed.success || imageErr) {
     const errors = parsed.success ? {} : toFieldErrors(parsed.error);
     if (imageErr) errors['image'] = imageErr;
-    return res.status(422).render('pages/admin/ingredients/form', {
+    return res.status(400).render('pages/admin/ingredients/form', {
       layout: 'admin',
       title: `Sửa nguyên liệu: ${ingredient.name}`,
       isNew: false,
@@ -168,7 +168,7 @@ router.post('/:id', requirePermission('ingredient:update'), async (req, res) => 
   }
 
   if (await findNameClash(parsed.data.name, id)) {
-    return res.status(422).render('pages/admin/ingredients/form', {
+    return res.status(400).render('pages/admin/ingredients/form', {
       layout: 'admin',
       title: `Sửa nguyên liệu: ${ingredient.name}`,
       isNew: false,
@@ -203,7 +203,7 @@ router.post('/:id', requirePermission('ingredient:update'), async (req, res) => 
     );
   } catch (e) {
     if (isUniqueViolation(e, 'name')) {
-      return res.status(422).render('pages/admin/ingredients/form', {
+      return res.status(400).render('pages/admin/ingredients/form', {
         layout: 'admin',
         title: `Sửa nguyên liệu: ${ingredient.name}`,
         isNew: false,
@@ -216,10 +216,22 @@ router.post('/:id', requirePermission('ingredient:update'), async (req, res) => 
   }
 
   req.flash('success', `Đã cập nhật nguyên liệu "${data.name}".`);
-  res.redirect('/admin/ingredients');
+  res.redirect(303, '/admin/ingredients');
 });
 
-router.post('/:id/delete', requirePermission('ingredient:delete'), async (req, res) => {
+router.get('/:id/delete', requirePermission('ingredient:delete'), async (req, res) => {
+  const id = paramId(req.params.id);
+  const ingredient = await prisma.ingredient.findUnique({ where: { id } });
+  if (!ingredient) throw notFound('Ingredient');
+
+  res.render('pages/admin/ingredients/delete', {
+    layout: 'admin',
+    title: `Xác nhận xóa: ${ingredient.name}`,
+    ingredient,
+  });
+});
+
+router.delete('/:id', requirePermission('ingredient:delete'), async (req, res) => {
   const id = paramId(req.params.id);
   try {
     await prisma.ingredient.update({
@@ -231,7 +243,7 @@ router.post('/:id/delete', requirePermission('ingredient:delete'), async (req, r
     if (isNotFound(e)) throw notFound('Ingredient');
     throw e;
   }
-  res.redirect('/admin/ingredients');
+  res.redirect(303, '/admin/ingredients');
 });
 
 router.post('/:id/restore', requirePermission('ingredient:restore'), async (req, res) => {
@@ -246,7 +258,7 @@ router.post('/:id/restore', requirePermission('ingredient:restore'), async (req,
     if (isNotFound(e)) throw notFound('Ingredient');
     throw e;
   }
-  res.redirect('/admin/ingredients?deleted=1');
+  res.redirect(303, '/admin/ingredients?deleted=1');
 });
 
 export default router;

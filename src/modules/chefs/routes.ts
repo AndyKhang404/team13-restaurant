@@ -73,7 +73,7 @@ router.post('/', requirePermission('chef:create'), async (req, res) => {
   if (!parsed.success || imageErr) {
     const errors = parsed.success ? {} : toFieldErrors(parsed.error);
     if (imageErr) errors['avatar'] = imageErr;
-    return res.status(422).render('pages/admin/chefs/form', {
+    return res.status(400).render('pages/admin/chefs/form', {
       layout: 'admin',
       title: 'Đầu bếp mới',
       isNew: true,
@@ -101,7 +101,7 @@ router.post('/', requirePermission('chef:create'), async (req, res) => {
   );
 
   req.flash('success', `Đã tạo đầu bếp "${data.name}".`);
-  res.redirect('/admin/chefs');
+  res.redirect(303, '/admin/chefs');
 });
 
 router.get('/:id/edit', requirePermission('chef:update'), async (req, res) => {
@@ -119,7 +119,7 @@ router.get('/:id/edit', requirePermission('chef:update'), async (req, res) => {
   });
 });
 
-router.post('/:id', requirePermission('chef:update'), async (req, res) => {
+router.patch('/:id', requirePermission('chef:update'), async (req, res) => {
   const id = paramId(req.params.id);
   const chef = await prisma.chef.findUnique({ where: { id } });
   if (!chef) throw notFound('Chef');
@@ -131,7 +131,7 @@ router.post('/:id', requirePermission('chef:update'), async (req, res) => {
   if (!parsed.success || imageErr) {
     const errors = parsed.success ? {} : toFieldErrors(parsed.error);
     if (imageErr) errors['avatar'] = imageErr;
-    return res.status(422).render('pages/admin/chefs/form', {
+    return res.status(400).render('pages/admin/chefs/form', {
       layout: 'admin',
       title: `Sửa đầu bếp: ${chef.name}`,
       isNew: false,
@@ -166,10 +166,22 @@ router.post('/:id', requirePermission('chef:update'), async (req, res) => {
   );
 
   req.flash('success', `Đã cập nhật đầu bếp "${data.name}".`);
-  res.redirect('/admin/chefs');
+  res.redirect(303, '/admin/chefs');
 });
 
-router.post('/:id/delete', requirePermission('chef:delete'), async (req, res) => {
+router.get('/:id/delete', requirePermission('chef:delete'), async (req, res) => {
+  const id = paramId(req.params.id);
+  const chef = await prisma.chef.findUnique({ where: { id } });
+  if (!chef) throw notFound('Chef');
+
+  res.render('pages/admin/chefs/delete', {
+    layout: 'admin',
+    title: `Xác nhận xóa: ${chef.name}`,
+    chef,
+  });
+});
+
+router.delete('/:id', requirePermission('chef:delete'), async (req, res) => {
   const id = paramId(req.params.id);
   try {
     await prisma.chef.update({
@@ -181,7 +193,7 @@ router.post('/:id/delete', requirePermission('chef:delete'), async (req, res) =>
     if (isNotFound(e)) throw notFound('Chef');
     throw e;
   }
-  res.redirect('/admin/chefs');
+  res.redirect(303, '/admin/chefs');
 });
 
 router.post('/:id/restore', requirePermission('chef:restore'), async (req, res) => {
@@ -196,7 +208,7 @@ router.post('/:id/restore', requirePermission('chef:restore'), async (req, res) 
     if (isNotFound(e)) throw notFound('Chef');
     throw e;
   }
-  res.redirect('/admin/chefs?deleted=1');
+  res.redirect(303, '/admin/chefs?deleted=1');
 });
 
 export default router;

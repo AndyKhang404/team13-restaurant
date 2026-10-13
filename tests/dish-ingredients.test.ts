@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { validateIngredientRows } from '../src/modules/dishes/routes.js';
 
-// Regression tests: invalid/duplicate ingredient rows must become 422 form
+// Regression tests: invalid/duplicate ingredient rows must become 400 form
 // errors instead of crashing the POST handler with a 500 (PK/FK violation).
 const ID_A = '11111111-1111-4111-8111-111111111111';
 const ID_B = '22222222-2222-4222-8222-222222222222';

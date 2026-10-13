@@ -10,6 +10,7 @@ import { env, isProd } from './config/env.js';
 import { formatVnd, formatDateTime, CATEGORY_LABELS } from './lib/format.js';
 import { can, type Permission } from './auth/permissions.js';
 import { browserId, flash, multipart, csrfProtection, csrfToken } from './middleware/security.js';
+import { methodOverride } from './middleware/method-override.js';
 import { loadUser } from './auth/middleware.js';
 import { HttpError } from './lib/http.js';
 
@@ -83,6 +84,10 @@ export function createApp() {
 
   // Multipart parser (for image uploads)
   app.use(multipart);
+
+  // HTML forms can only send GET/POST natively; allow PATCH/DELETE via a
+  // hidden `_method` field (must run after multipart so req.body is populated)
+  app.use(methodOverride);
 
   // Double-submit CSRF protection + inject csrfToken helper to res.locals
   app.use(csrfProtection);

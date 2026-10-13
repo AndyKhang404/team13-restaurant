@@ -78,7 +78,7 @@ function parseIngredientRows(body: Record<string, unknown>): Array<{ ingredientI
 
 /** Schema-check each ingredient row and reject duplicates.
  * A duplicated ingredient would otherwise violate the (dishId, ingredientId)
- * primary key and crash with a 500, so it is reported as a 422 form error.
+ * primary key and crash with a 500, so it is reported as a 400 form error.
  * `raw` rows are echoed back to the form unchanged so the user can fix them.
  */
 export function validateIngredientRows(
@@ -213,7 +213,7 @@ router.post('/', requirePermission('dish:create'), async (req, res) => {
     Object.assign(errors, rowErrors);
     if (imageErr) errors['image'] = imageErr;
     const deps = await loadFormDependencies();
-    return res.status(422).render('pages/admin/dishes/form', {
+    return res.status(400).render('pages/admin/dishes/form', {
       layout: 'admin',
       title: 'Món mới',
       isNew: true,
@@ -263,7 +263,7 @@ router.post('/', requirePermission('dish:create'), async (req, res) => {
   } catch (e) {
     if (isUniqueViolation(e, 'slug')) {
       const deps = await loadFormDependencies();
-      return res.status(422).render('pages/admin/dishes/form', {
+      return res.status(400).render('pages/admin/dishes/form', {
         layout: 'admin',
         title: 'Món mới',
         isNew: true,
@@ -277,7 +277,7 @@ router.post('/', requirePermission('dish:create'), async (req, res) => {
   }
 
   req.flash('success', `Đã tạo món "${data.name}".`);
-  res.redirect('/admin/dishes');
+  res.redirect(303, '/admin/dishes');
 });
 
 router.get('/:id/edit', requirePermission('dish:update'), async (req, res) => {
@@ -302,7 +302,7 @@ router.get('/:id/edit', requirePermission('dish:update'), async (req, res) => {
   });
 });
 
-router.post('/:id', requirePermission('dish:update'), async (req, res) => {
+router.patch('/:id', requirePermission('dish:update'), async (req, res) => {
   const id = paramId(req.params.id);
   const existing = await prisma.dish.findUnique({ where: { id } });
   if (!existing) throw notFound('Dish');
@@ -319,7 +319,7 @@ router.post('/:id', requirePermission('dish:update'), async (req, res) => {
     Object.assign(errors, rowErrors);
     if (imageErr) errors['image'] = imageErr;
     const deps = await loadFormDependencies(id);
-    return res.status(422).render('pages/admin/dishes/form', {
+    return res.status(400).render('pages/admin/dishes/form', {
       layout: 'admin',
       title: `Sửa món: ${existing.name}`,
       isNew: false,
@@ -384,7 +384,7 @@ router.post('/:id', requirePermission('dish:update'), async (req, res) => {
   } catch (e) {
     if (isUniqueViolation(e, 'slug')) {
       const deps = await loadFormDependencies(id);
-      return res.status(422).render('pages/admin/dishes/form', {
+      return res.status(400).render('pages/admin/dishes/form', {
         layout: 'admin',
         title: `Sửa món: ${existing.name}`,
         isNew: false,
@@ -399,10 +399,22 @@ router.post('/:id', requirePermission('dish:update'), async (req, res) => {
   }
 
   req.flash('success', `Đã cập nhật món "${data.name}".`);
-  res.redirect('/admin/dishes');
+  res.redirect(303, '/admin/dishes');
 });
 
-router.post('/:id/delete', requirePermission('dish:delete'), async (req, res) => {
+router.get('/:id/delete', requirePermission('dish:delete'), async (req, res) => {
+  const id = paramId(req.params.id);
+  const dish = await prisma.dish.findUnique({ where: { id } });
+  if (!dish) throw notFound('Dish');
+
+  res.render('pages/admin/dishes/delete', {
+    layout: 'admin',
+    title: `Xác nhận xóa: ${dish.name}`,
+    dish,
+  });
+});
+
+router.delete('/:id', requirePermission('dish:delete'), async (req, res) => {
   const id = paramId(req.params.id);
   try {
     await prisma.dish.update({
@@ -414,7 +426,7 @@ router.post('/:id/delete', requirePermission('dish:delete'), async (req, res) =>
     if (isNotFound(e)) throw notFound('Dish');
     throw e;
   }
-  res.redirect('/admin/dishes');
+  res.redirect(303, '/admin/dishes');
 });
 
 router.post('/:id/restore', requirePermission('dish:restore'), async (req, res) => {
@@ -429,7 +441,7 @@ router.post('/:id/restore', requirePermission('dish:restore'), async (req, res) 
     if (isNotFound(e)) throw notFound('Dish');
     throw e;
   }
-  res.redirect('/admin/dishes?deleted=1');
+  res.redirect(303, '/admin/dishes?deleted=1');
 });
 
 export default router;
