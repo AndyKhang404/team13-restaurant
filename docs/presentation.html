@@ -1,0 +1,1956 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Team13 Restaurant — Slide Thuyết Trình Đồ Án</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f8f5ee;
+      --surface: #ffffff;
+      --surface-card: #fdfbf7;
+      --text: #1f1d1a;
+      --text-muted: #5e574f;
+      --border: #e2dbcf;
+      --border-subtle: #eee8de;
+      --accent: #c45a2c;
+      --accent-soft: rgba(196, 90, 44, 0.1);
+      --accent-hover: #a8471e;
+      --gold: #b38246;
+      --gold-soft: rgba(179, 130, 70, 0.12);
+      --green: #245c43;
+      --green-soft: rgba(36, 92, 67, 0.12);
+      --blue: #2563eb;
+      --blue-soft: rgba(37, 99, 235, 0.1);
+      --red: #b91c1c;
+      --red-soft: rgba(185, 28, 28, 0.1);
+      --code-bg: #211e1b;
+      --code-text: #f0ebe1;
+      --shadow: 0 10px 30px rgba(31, 29, 26, 0.08);
+      --radius: 12px;
+      --font-serif: 'Playfair Display', Georgia, serif;
+      --font-sans: 'Be Vietnam Pro', system-ui, sans-serif;
+      --font-mono: 'IBM Plex Mono', monospace;
+    }
+
+    [data-theme="dark"] {
+      --bg: #141210;
+      --surface: #1e1b18;
+      --surface-card: #25221e;
+      --text: #f5f0e8;
+      --text-muted: #b5ada3;
+      --border: #38342e;
+      --border-subtle: #2b2722;
+      --accent: #e57a4e;
+      --accent-soft: rgba(229, 122, 78, 0.18);
+      --accent-hover: #f08960;
+      --gold: #dcb07e;
+      --gold-soft: rgba(220, 176, 126, 0.16);
+      --green: #4ade80;
+      --green-soft: rgba(74, 222, 128, 0.16);
+      --blue: #60a5fa;
+      --blue-soft: rgba(96, 165, 250, 0.16);
+      --red: #f87171;
+      --red-soft: rgba(248, 113, 113, 0.18);
+      --code-bg: #0d0c0a;
+      --code-text: #e6ded3;
+      --shadow: 0 16px 36px rgba(0, 0, 0, 0.55);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.45;
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+      user-select: none;
+      transition: background-color 0.25s ease, color 0.25s ease;
+    }
+
+    /* Top Bar */
+    .topbar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 48px;
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      z-index: 100;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: var(--font-serif);
+      font-weight: 700;
+      font-size: 1.12rem;
+      letter-spacing: 0.5px;
+    }
+
+    .brand span {
+      color: var(--accent);
+      font-style: italic;
+    }
+
+    .badge-course {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      background: var(--accent-soft);
+      color: var(--accent);
+      padding: 2px 8px;
+      border-radius: 99px;
+      font-weight: 600;
+      border: 1px solid rgba(196, 90, 44, 0.25);
+    }
+
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-icon {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 0.88rem;
+      transition: all 0.15s ease;
+    }
+
+    .btn-icon:hover {
+      background: var(--surface-card);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* Deck Viewport */
+    .deck-container {
+      position: absolute;
+      top: 48px;
+      bottom: 52px;
+      left: 0;
+      right: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px 20px;
+    }
+
+    .slide {
+      display: none;
+      width: 100%;
+      max-width: 1200px;
+      height: 100%;
+      max-height: 740px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 20px 30px;
+      overflow-y: auto;
+      position: relative;
+    }
+
+    .slide.active {
+      display: flex;
+      flex-direction: column;
+      animation: slideIn 0.15s ease-out;
+    }
+
+    @keyframes slideIn {
+      from { transform: translateY(4px); }
+      to { transform: translateY(0); }
+    }
+
+    /* Typography */
+    h1, h2, h3, h4 {
+      font-family: var(--font-serif);
+      color: var(--text);
+      font-weight: 700;
+      letter-spacing: -0.2px;
+    }
+
+    .slide-header {
+      margin-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+    }
+
+    .slide-title-wrap h2 {
+      font-size: 1.85rem;
+      line-height: 1.15;
+    }
+
+    .slide-title-wrap .subtitle {
+      color: var(--text-muted);
+      font-size: 0.88rem;
+      margin-top: 3px;
+    }
+
+    .slide-tag {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--gold);
+      background: var(--gold-soft);
+      padding: 3px 9px;
+      border-radius: 6px;
+      border: 1px solid rgba(212, 163, 115, 0.3);
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .slide-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    /* Grids & Cards */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 14px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+    }
+
+    .grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+
+    .card {
+      background: var(--surface-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 18px;
+      transition: border-color 0.15s ease;
+    }
+
+    .card:hover {
+      border-color: var(--accent);
+    }
+
+    .card-title {
+      font-size: 1.05rem;
+      font-weight: 600;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card-title .icon {
+      color: var(--accent);
+    }
+
+    .card-desc {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    /* Key Metrics Badge */
+    .metric-badge {
+      display: inline-flex;
+      flex-direction: column;
+      padding: 10px 14px;
+      background: var(--surface-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      text-align: center;
+    }
+
+    .metric-num {
+      font-family: var(--font-mono);
+      font-size: 1.65rem;
+      font-weight: 700;
+      color: var(--accent);
+      line-height: 1;
+    }
+
+    .metric-label {
+      font-size: 0.74rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 600;
+    }
+
+    /* Tables */
+    .table-clean {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+
+    .table-clean th {
+      text-align: left;
+      padding: 8px 12px;
+      background: var(--surface-card);
+      border-bottom: 2px solid var(--border);
+      font-weight: 600;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text);
+    }
+
+    .table-clean td {
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+      color: var(--text);
+    }
+
+    .table-clean tr:hover td {
+      background: var(--accent-soft);
+    }
+
+    /* Pill Badges */
+    .pill {
+      display: inline-block;
+      font-size: 0.72rem;
+      font-family: var(--font-mono);
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 4px;
+      border: 1px solid transparent;
+    }
+
+    .pill-green {
+      background: var(--green-soft);
+      color: var(--green);
+      border-color: rgba(45, 106, 79, 0.3);
+    }
+
+    .pill-orange {
+      background: var(--accent-soft);
+      color: var(--accent);
+      border-color: rgba(196, 90, 44, 0.3);
+    }
+
+    .pill-blue {
+      background: var(--blue-soft);
+      color: var(--blue);
+      border-color: rgba(37, 99, 235, 0.3);
+    }
+
+    .pill-red {
+      background: var(--red-soft);
+      color: var(--red);
+      border-color: rgba(185, 28, 28, 0.3);
+    }
+
+    .pill-gray {
+      background: rgba(150, 150, 150, 0.12);
+      color: var(--text-muted);
+      border-color: var(--border);
+    }
+
+    /* Code blocks */
+    pre.code-box {
+      background: var(--code-bg);
+      color: var(--code-text);
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      line-height: 1.4;
+      overflow-x: auto;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    /* Title Slide Customization */
+    .slide-title-hero {
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100%;
+      padding: 10px;
+    }
+
+    .slide-title-hero h1 {
+      font-size: 3.2rem;
+      line-height: 1.1;
+      margin-bottom: 12px;
+      background: linear-gradient(135deg, var(--accent) 0%, var(--gold) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .slide-title-hero .lead {
+      font-size: 1.25rem;
+      color: var(--text-muted);
+      max-width: 780px;
+      margin-bottom: 24px;
+      font-weight: 400;
+    }
+
+    .author-tags {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .author-pill {
+      background: var(--surface-card);
+      border: 1px solid var(--border);
+      padding: 6px 16px;
+      border-radius: 99px;
+      font-size: 0.88rem;
+      font-weight: 500;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    }
+
+    /* ========================================================
+       DIAGRAM SYSTEM (CUSTOM HIGH-CONTRAST CSS / SVG DIAGRAMS)
+       ======================================================== */
+    .diagram-container {
+      background: var(--surface-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+      position: relative;
+    }
+
+    /* Flow Stepper Pipeline */
+    .pipeline {
+      display: flex;
+      align-items: stretch;
+      justify-content: space-between;
+      gap: 8px;
+      margin: 8px 0;
+    }
+
+    .pipeline-step {
+      flex: 1;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      transition: all 0.2s ease;
+    }
+
+    .pipeline-step:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    }
+
+    .step-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: 4px;
+    }
+
+    .step-title {
+      font-size: 0.86rem;
+      font-weight: 600;
+      color: var(--text);
+      line-height: 1.25;
+      margin-bottom: 4px;
+    }
+
+    .step-desc {
+      font-size: 0.74rem;
+      color: var(--text-muted);
+      line-height: 1.35;
+      margin-top: auto;
+    }
+
+    .pipeline-arrow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent);
+      font-size: 1.1rem;
+      font-weight: 700;
+      padding: 0 2px;
+      user-select: none;
+    }
+
+    /* Visual ERD Diagram Grid */
+    .erd-grid {
+      display: grid;
+      grid-template-columns: 1fr 40px 1.15fr 40px 1fr;
+      grid-template-rows: auto;
+      gap: 6px 0;
+      align-items: center;
+      margin: 4px 0;
+    }
+
+    .erd-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      font-size: 0.72rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+    }
+
+    .erd-header {
+      padding: 4px 8px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.76rem;
+    }
+
+    .erd-header.chef { background: var(--gold-soft); color: var(--gold); }
+    .erd-header.dish { background: var(--accent-soft); color: var(--accent); }
+    .erd-header.ingr { background: var(--green-soft); color: var(--green); }
+    .erd-header.join { background: var(--blue-soft); color: var(--blue); }
+    .erd-header.user { background: rgba(147, 51, 234, 0.12); color: #a855f7; }
+
+    .erd-body {
+      padding: 4px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      font-family: var(--font-mono);
+    }
+
+    .erd-row {
+      display: flex;
+      justify-content: space-between;
+      color: var(--text);
+      line-height: 1.35;
+    }
+
+    .erd-pk { color: var(--accent); font-weight: 600; }
+    .erd-fk { color: var(--blue); font-weight: 600; }
+    .erd-type { color: var(--text-muted); font-size: 0.7rem; }
+
+    .erd-connector {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent);
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .erd-connector .line {
+      width: 100%;
+      height: 2px;
+      background: var(--border);
+      position: relative;
+    }
+
+    /* Architecture Map Split Box */
+    .arch-flow {
+      display: grid;
+      grid-template-columns: 180px 40px 1fr;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .arch-node {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px;
+      text-align: center;
+    }
+
+    /* Bottom Controller */
+    .bottombar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 52px;
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+      z-index: 100;
+    }
+
+    .progress-bar-wrap {
+      flex: 1;
+      max-width: 450px;
+      height: 6px;
+      background: var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+      margin: 0 20px;
+    }
+
+    .progress-bar {
+      height: 100%;
+      background: var(--accent);
+      width: 7%;
+      transition: width 0.2s ease;
+    }
+
+    .nav-btn {
+      background: var(--surface-card);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-family: var(--font-sans);
+      font-size: 0.82rem;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }
+
+    .nav-btn:hover:not(:disabled) {
+      background: var(--accent);
+      color: #ffffff;
+      border-color: var(--accent);
+    }
+
+    .nav-btn:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+
+    .counter {
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    /* Modal / Overview Drawer */
+    .overview-drawer {
+      position: fixed;
+      top: 48px;
+      bottom: 52px;
+      right: -380px;
+      width: 360px;
+      background: var(--surface);
+      border-left: 1px solid var(--border);
+      box-shadow: -8px 0 24px rgba(0,0,0,0.15);
+      z-index: 150;
+      padding: 20px;
+      overflow-y: auto;
+      transition: right 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .overview-drawer.open {
+      right: 0;
+    }
+
+    .drawer-title {
+      font-size: 1.1rem;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .slide-item-link {
+      display: block;
+      padding: 7px 12px;
+      border-radius: 6px;
+      font-size: 0.84rem;
+      color: var(--text);
+      text-decoration: none;
+      margin-bottom: 4px;
+      transition: background 0.15s ease;
+    }
+
+    .slide-item-link:hover, .slide-item-link.current {
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    /* Speaker Notes Box */
+    .notes-box {
+      display: none;
+      background: var(--surface-card);
+      border: 1px dashed var(--gold);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-top: auto;
+    }
+
+    .notes-box.show {
+      display: block;
+    }
+
+    .notes-label {
+      font-family: var(--font-mono);
+      color: var(--gold);
+      font-weight: 600;
+      margin-bottom: 2px;
+      text-transform: uppercase;
+      font-size: 0.7rem;
+    }
+
+    @media (max-width: 900px) {
+      .slide {
+        padding: 20px 18px;
+      }
+      .slide-title-hero h1 {
+        font-size: 2.1rem;
+      }
+      .grid-2, .grid-3, .grid-4, .erd-grid, .pipeline {
+        grid-template-columns: 1fr;
+        flex-direction: column;
+      }
+      .pipeline-arrow {
+        transform: rotate(90deg);
+        padding: 4px 0;
+      }
+    }
+  </style>
+</head>
+<body data-theme="dark">
+
+  <!-- Top Navigation Bar -->
+  <header class="topbar">
+    <div class="brand">
+      Team13 <span>Restaurant</span>
+      <span class="badge-course">CSC13008 — HCMUS</span>
+    </div>
+    <div class="top-actions">
+      <button id="btn-theme" class="btn-icon" title="Đổi giao diện Sáng / Tối (T)" aria-label="Toggle theme">◐</button>
+      <button id="btn-notes" class="btn-icon" title="Bật / Tắt Ghi chú diễn giả (N)" aria-label="Toggle notes">📝</button>
+      <button id="btn-toc" class="btn-icon" title="Mục lục các Slide (M)" aria-label="Toggle Table of Contents">☰</button>
+      <button id="btn-fs" class="btn-icon" title="Toàn màn hình (F)" aria-label="Fullscreen">⛶</button>
+    </div>
+  </header>
+
+  <!-- Slide Deck Viewport -->
+  <main class="deck-container">
+
+    <!-- SLIDE 1: Title -->
+    <section class="slide active" data-index="1">
+      <div class="slide-title-hero">
+        <span class="badge-course" style="font-size: 0.85rem; padding: 4px 14px; margin-bottom: 14px;">Báo Cáo Đồ Án Cuối Kỳ</span>
+        <h1>Team13 Restaurant</h1>
+        <p class="lead">Hệ thống Website Nhà hàng SSR Đa Cổng — Kiến trúc Bền vững với Express 5, Prisma ORM 7 & Supabase</p>
+        
+        <div class="author-tags">
+          <div class="author-pill"><b>Phùng Bảo Khang</b> (Backend & Architecture)</div>
+          <div class="author-pill"><b>Nguyễn Minh Đức</b> (UI/UX SSR & Design)</div>
+          <div class="author-pill"><b>Hy Huê Hưng</b> (Validation & Operations)</div>
+        </div>
+
+        <div style="font-family: var(--font-mono); font-size: 0.82rem; color: var(--text-muted);">
+          Live Demo: <span style="color: var(--accent); font-weight: 600;">http://localhost:3000</span> · Ngày: 13/10/2026
+        </div>
+      </div>
+      <div class="notes-box">
+        <div class="notes-label">Ghi chú diễn giả</div>
+        Chào thầy cô và các bạn. Đây là bài báo cáo đồ án Web của Nhóm 13. Sản phẩm là website nhà hàng SSR hoàn chỉnh gồm 2 cổng Public và Admin, chạy dữ liệu thật và tuân thủ chặt chẽ tiêu chuẩn RESTful/SSR.
+      </div>
+    </section>
+
+    <!-- SLIDE 2: Sản Phẩm & Live Data -->
+    <section class="slide" data-index="2">
+      <div class="slide-header">
+        <div class="slide-title-wrap">
+          <h2>1. Tổng quan Sản phẩm & Kiến trúc Cổng</h2>
+          <div class="subtitle">Ứng dụng Express 5 duy nhất phục vụ đồng thời 2 cổng Public & Admin</div>
+        </div>
+        <span class="slide-tag">01 / TỔNG QUAN</span>
+      </div>
+      <div class="slide-body">
+        <!-- DIAGRAM 1: Dual-Portal Architectural Flow -->
+        <div class="diagram-container" style="padding: 12px 16px;">
+          <div style="font-size: 0.84rem; font-weight: 700; color: var(--text); margin-bottom: 8px; display: flex; justify-content: space-between;">
+            <span>SƠ ĐỒ PHÂN LUỒNG HAI CỔNG TRÊN EXPRESS 5</span>
+            <span class="pill pill-orange">SSR Single-Engine Architecture</span>
+          </div>
+          <div style="display: grid; grid-template-columns: 190px 40px 1fr 40px 190px; gap: 8px; align-items: center; font-size: 0.8rem;">
+            <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px; text-align: center;">
+              <b style="color: var(--accent);">🌐 Public Visitors</b>
+              <div style="color: var(--text-muted); font-size: 0.74rem; margin-top: 3px;">Khách vãng lai & Thực khách</div>
+            </div>
+            <div style="text-align: center; color: var(--accent); font-weight: 700;">➔</div>
+            <div style="background: var(--surface); border: 2px dashed var(--gold); border-radius: 8px; padding: 10px; text-align: center;">
+              <b style="color: var(--gold);">⚡ Express 5 Router & Security Stack</b>
+              <div style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">
+                Helmet · Double CSRF · Multer (5MB) · Signed Cookie Session
+              </div>
+              <div style="display: flex; gap: 6px; justify-content: center; margin-top: 6px;">
+                <span class="pill pill-blue">Layout: public.hbs</span>
+                <span class="pill pill-orange">Layout: admin.hbs</span>
+              </div>
+            </div>
+            <div style="text-align: center; color: var(--accent); font-weight: 700;">➔</div>
+            <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px; text-align: center;">
+              <b style="color: var(--green);">🛡️ Admin & Staff</b>
+              <div style="color: var(--text-muted); font-size: 0.74rem; margin-top: 3px;">Nhân sự quản trị nội dung</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card" style="padding: 10px 14px;">
+            <div class="card-title" style="font-size: 0.95rem;"><span class="icon">🌐</span> Cổng Public (<code style="font-family: var(--font-mono); font-size: 0.85rem;">/</code>)</div>
+            <ul style="margin: 4px 0 0 16px; font-size: 0.8rem; color: var(--text-muted); line-height: 1.45;">
+              <li><b>Trang chủ</b>: Hero song đôi, món nổi bật, ticker chạy liền mạch.</li>
+              <li><b>Thực đơn</b>: Lọc theo danh mục, tìm kiếm và sắp xếp server-side.</li>
+              <li><b>Chi tiết món</b>: Đọc qua SEO slug, giá VND, modal bếp (<code style="font-family: var(--font-mono);">&lt;dialog&gt;</code>).</li>
+              <li><b>Auth</b>: Đăng nhập/Đăng ký tài khoản (Supabase Auth cookie).</li>
+            </ul>
+          </div>
+          <div class="card" style="padding: 10px 14px;">
+            <div class="card-title" style="font-size: 0.95rem;"><span class="icon">⚙️</span> Cổng Admin (<code style="font-family: var(--font-mono); font-size: 0.85rem;">/admin</code>)</div>
+            <ul style="margin: 4px 0 0 16px; font-size: 0.8rem; color: var(--text-muted); line-height: 1.45;">
+              <li><b>Dashboard</b>: Thống kê số liệu trực tiếp từ Postgres, món mới cập nhật.</li>
+              <li><b>CRUD Món</b>: Form POST + <code style="font-family: var(--font-mono);">_method=PATCH/DELETE</code>, công thức động.</li>
+              <li><b>Bếp & Kho</b>: Kiểm soát năm kinh nghiệm, tồn kho, giá vốn.</li>
+              <li><b>Quản lý User</b>: Độc quyền cho ADMIN, chặn STAFF với 403.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div>
+          <div class="grid-4">
+            <div class="metric-badge">
+              <span class="metric-num">16</span>
+              <span class="metric-label">Món ăn phục vụ</span>
+            </div>
+            <div class="metric-badge">
+              <span class="metric-num">7</span>
+              <span class="metric-label">Đầu bếp thực tế</span>
+            </div>
+            <div class="metric-badge">
+              <span class="metric-num">31</span>
+              <span class="metric-label">Nguyên liệu kho</span>
+            </div>
+            <div class="metric-badge">
+              <span class="metric-num">3</span>
+              <span class="metric-label">Tài khoản (Admin, Staff, Customer)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="notes-box">
+        <div class="notes-label">Ghi chú diễn giả</div>
+        Nhấn mạnh: Ứng dụng Express 5 duy nhất phục vụ cả 2 cổng thông qua 2 layout Handlebars khác nhau. Dữ liệu 16 món và 31 nguyên liệu đều là dữ liệu thật từ DB Supabase live.
+      </div>
+    </section>
+
+    <!-- SLIDE 3: Tech Stack -->
+    <section class="slide" data-index="3">
+      <div class="slide-header">
+        <div class="slide-title-wrap">
+          <h2>2. Công nghệ Cốt lõi (Tech Stack)</h2>
+          <div class="subtitle">Lựa chọn công nghệ hiện đại, bền vững và tuân thủ tiêu chuẩn Web</div>
+        </div>
+        <span class="slide-tag">02 / CÔNG NGHỆ</span>
+      </div>
+      <div class="slide-body">
+        <div class="grid-3">
+          <div class="card">
+            <div class="card-title">Backend & SSR</div>
+            <p style="font-size: 0.84rem; color: var(--text-muted); margin-bottom: 6px;">
+              <b>Express 5.3</b> + <b>express-handlebars 9.0</b>
+            </p>
+            <p style="font-size: 0.8rem; color: var(--text-muted);">
+              TypeScript Strict ở chế độ <code style="font-family: var(--font-mono);">NodeNext</code> ESM. 2 layout độc lập (Public & Admin) cùng hệ thống helpers định dạng VND, phân quyền <code style="font-family: var(--font-mono);">can</code>.
+            </p>
+          </div>
+          <div class="card">
+            <div class="card-title">Cơ sở dữ liệu & Auth</div>
+            <p style="font-size: 0.84rem; color: var(--text-muted); margin-bottom: 6px;">
+              <b>PostgreSQL</b> + <b>Prisma ORM 7</b>
+            </p>
+            <p style="font-size: 0.8rem; color: var(--text-muted);">
+              Sử dụng adapter chính thức <code style="font-family: var(--font-mono);">@prisma/adapter-pg</code> trên nền Supabase. Quản lý phiên làm việc qua signed cookie và lưu trữ ảnh trên Supabase Storage.
+            </p>
+          </div>
+          <div class="card">
+            <div class="card-title">Giao diện & Styling</div>
+            <p style="font-size: 0.84rem; color: var(--text-muted); margin-bottom: 6px;">
+              <b>Tailwind v4</b> + <b>CSS Viết tay</b>
+            </p>
+            <p style="font-size: 0.8rem; color: var(--text-muted);">
+              Tailwind CSS v4 tối ưu hóa dựng nhanh form admin; <code style="font-family: var(--font-mono);">style.css</code> và <code style="font-family: var(--font-mono);">admin.css</code> tùy biến design system, chuyển theme Dark/Light không phụ thuộc JS.
+            </p>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top: 2px;">
+          <div class="card-title" style="font-size: 0.95rem;"><span class="icon">🛡️</span> Lớp phòng thủ Bảo mật Toàn diện</div>
+          <div class="grid-4" style="margin-top: 8px;">
+            <div style="font-size: 0.8rem;">
+              <b style="color: var(--accent);">Zod 4.6</b>
+              <p style="color: var(--text-muted); margin-top: 2px;">Kiểm tra toàn bộ biến môi trường lúc boot và dữ liệu form gửi lên.</p>
+            </div>
+            <div style="font-size: 0.8rem;">
+              <b style="color: var(--accent);">csrf-csrf 4.0</b>
+              <p style="color: var(--text-muted); margin-top: 2px;">Double-submit CSRF cookie token, bảo vệ 100% form POST/PATCH/DELETE.</p>
+            </div>
+            <div style="font-size: 0.8rem;">
+              <b style="color: var(--accent);">Helmet 8.3</b>
+              <p style="color: var(--text-muted); margin-top: 2px;">Thiết lập các HTTP security headers (chống clickjacking, sniff mime-type).</p>
+            </div>
+            <div style="font-size: 0.8rem;">
+              <b style="color: var(--accent);">Rate Limit Tự Viết</b>
+              <p style="color: var(--text-muted); margin-top: 2px;">Middleware in-memory khóa brute-force IP đối với các route nhạy cảm /login & /register.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="notes-box">
+        <div class="notes-label">Ghi chú diễn giả</div>
+        Giải thích: Nhóm nâng cấp lên Express 5 mới nhất cùng Prisma 7 với adapter PostgreSQL driver. Không dùng thư viện rate-limit nặng mà tự code middleware in-memory trượt cửa sổ thời gian.
+      </div>
+    </section>
+
+    <!-- SLIDE 4: Đội Ngũ & Git Workflow -->
+    <section class="slide" data-index="4">
+      <div class="slide-header">
+        <div class="slide-title-wrap">
+          <h2>3. Đội ngũ & Quy trình Git Feature Branch</h2>
+          <div class="subtitle">Sự phối hợp chặt chẽ giữa 3 thành viên trên nền tảng Git & Quality Gates</div>
+        </div>
+        <span class="slide-tag">03 / CON NGƯỜI</span>
+      </div>
+      <div class="slide-body">
+        <div class="grid-3">
+          <div class="card" style="border-top: 3px solid var(--accent); padding: 12px 14px;">
+            <div style="font-size: 1.05rem; font-weight: 700; margin-bottom: 2px;">Phùng Bảo Khang</div>
+            <span class="pill pill-orange" style="margin-bottom: 8px;">Kiến trúc & Backend Lõi</span>
+            <ul style="font-size: 0.78rem; color: var(--text-muted); line-height: 1.45; margin-left: 14px;">
+              <li>Khảo sát và quyết định 38 điểm kiến trúc hệ thống.</li>
+              <li>Thiết lập Zod config, module SEO slug, Supabase storage.</li>
+              <li>Hiện thực ma trận RBAC & middleware bảo mật (CSRF, Flash, Method-override).</li>
+              <li>Vá lỗi RLS và đồng bộ toàn bộ schema vào Prisma migration.</li>
+            </ul>
+          </div>
+
+          <div class="card" style="border-top: 3px solid var(--gold); padding: 12px 14px;">
+            <div style="font-size: 1.05rem; font-weight: 700; margin-bottom: 2px;">Nguyễn Minh Đức</div>
+            <span class="pill pill-orange" style="margin-bottom: 8px;">UI/UX & Giao diện SSR</span>
+            <ul style="font-size: 0.78rem; color: var(--text-muted); line-height: 1.45; margin-left: 14px;">
+              <li>Chuyển đổi bản thiết kế mockup tĩnh sang view Handlebars.</li>
+              <li>Thiết kế bố cục hero đôi, ticker chữ chạy vô hạn liền mạch.</li>
+              <li>Hiện thực Dark/Light theme qua CSS variables + View Transitions.</li>
+              <li>Tối ưu hóa font chữ tiếng Việt, skeleton loading, bộ lọc món ăn.</li>
+            </ul>
+          </div>
+
+          <div class="card" style="border-top: 3px solid var(--green); padding: 12px 14px;">
+            <div style="font-size: 1.05rem; font-weight: 700; margin-bottom: 2px;">Hy Huê Hưng</div>
+            <span class="pill pill-green" style="margin-bottom: 8px;">Vận hành, Validation & Test</span>
+            <ul style="font-size: 0.78rem; color: var(--text-muted); line-height: 1.45; margin-left: 14px;">
+              <li>Khởi tạo cơ sở dữ liệu ban đầu và tuyển chọn bộ ảnh thật.</li>
+              <li>Khắc phục lỗi boot server, hoàn thiện modal bếp <code style="font-family: var(--font-mono);">&lt;dialog&gt;</code> & avatar.</li>
+              <li>Rà soát toàn diện bộ tiêu chuẩn validation A–H (SĐT, UUID rác).</li>
+              <li>Xây dựng các bộ kiểm thử tự động Vitest (32/32 tests passed).</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- DIAGRAM 2: Git Workflow Diagram -->
+        <div class="diagram-container" style="padding: 10px 14px;">
+          <div style="font-size: 0.8rem; font-weight: 700; color: var(--text); margin-bottom: 6px; display: flex; justify-content: space-between;">
+            <span>QUY TRÌNH PHÁT TRIỂN & CỔNG KIỂM SOÁT CHẤT LƯỢNG (GIT FLOW)</span>
+            <span class="pill pill-green">Protected Main Branch</span>
+          </div>
+          <div class="pipeline" style="margin: 4px 0;">
+            <div class="pipeline-step">
+              <div class="step-badge">🌱 BƯỚC 1</div>
+              <div class="step-title">Branching</div>
+              <div class="step-desc">Tách nhánh tính năng riêng biệt: <code style="font-family: var(--font-mono); color: var(--accent);">feat/*</code></div>
+            </div>
+            <div class="pipeline-arrow">➔</div>
+            <div class="pipeline-step">
+              <div class="step-badge">💻 BƯỚC 2</div>
+              <div class="step-title">Development</div>
+              <div class="step-desc">Viết mã theo phân công, tuân thủ TypeScript NodeNext</div>
+            </div>
+            <div class="pipeline-arrow">➔</div>
+            <div class="pipeline-step" style="border-color: var(--blue);">
+              <div class="step-badge" style="color: var(--blue);">🧪 BƯỚC 3 (GATE)</div>
+              <div class="step-title">Quality Gates</div>
+              <div class="step-desc"><b style="color: var(--green);">Vitest 32 tests</b> + <b style="color: var(--blue);">tsc --noEmit</b></div>
+            </div>
+            <div class="pipeline-arrow">➔</div>
+            <div class="pipeline-step" style="border-color: var(--green);">
+              <div class="step-badge" style="color: var(--green);">🚀 BƯỚC 4</div>
+              <div class="step-title">Review & Merge</div>
+              <div class="step-desc">Pull Request kiểm duyệt ➔ Merge vào nhánh <code style="font-family: var(--font-mono);">main</code></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="notes-box">
+        <div class="notes-label">Ghi chú diễn giả</div>
+        Mỗi thành viên phụ trách một mảng chuyên trách nhưng phối hợp qua Git PR rất chặt chẽ. Cổng kiểm soát tự động bắt buộc test 32 pass và typecheck 0 lỗi trước khi merge.
+      </div>
+    </section>
+
+    <!-- SLIDE 5: Data Model Diagram -->
+    <section class="slide" data-index="5">
+      <div class="slide-header">
+        <div class="slide-title-wrap">
+          <h2>4. Mô hình Dữ liệu Thực thể (Entity Relationship)</h2>
+          <div class="subtitle">Quan hệ toàn vẹn giữa Món ăn, Đầu bếp, Nguyên liệu và Phân quyền người dùng</div>
+        </div>
+        <span class="slide-tag">04 / CƠ SỞ DỮ LIỆU</span>
+      </div>
+      <div class="slide-body">
+        <!-- DIAGRAM 3: Visual Entity Relationship Diagram -->
+        <div class="diagram-container">
+          <div style="font-size: 0.82rem; font-weight: 700; color: var(--text); margin-bottom: 8px; display: flex; justify-content: space-between;">
+            <span>SƠ ĐỒ THỰC THỂ QUAN HỆ (PRISMA SCHEMA & POSTGRESQL)</span>
+            <span class="pill pill-green">Relational Integrity</span>
+          </div>
+
+          <div class="erd-grid">
+            <!-- CHEFS TABLE -->
+            <div class="erd-box">
+              <div class="erd-header chef">
+                <span>👨‍🍳 chefs</span>
+                <span class="pill pill-orange">1</span>
+              </div>
+              <div class="erd-body">
+                <div class="erd-row"><span class="erd-pk">id</span><span class="erd-type">UUID PK</span></div>
+                <div class="erd-row"><span>name</span><span class="erd-type">Text</span></div>
+                <div class="erd-row"><span>experience_years</span><span class="erd-type">Int (&ge;0)</span></div>
+                <div class="erd-row"><span>phone</span><span class="erd-type">Text (Hidden)</span></div>
+                <div class="erd-row"><span>deleted_at</span><span class="erd-type">Timestamp?</span></div>
+              </div>
+            </div>
+
+            <!-- CONNECTOR 1: Chefs to Dishes (1:N) -->
+            <div class="erd-connector">
+              <span>1</span>
+              <div class="line"></div>
+              <span>N</span>
+              <span style="font-size: 0.65rem; color: var(--text-muted); margin-top: 2px;">SetNull</span>
+            </div>
+
+            <!-- DISHES TABLE -->
+            <div class="erd-box" style="border: 2px solid var(--accent);">
+              <div class="erd-header dish">
+                <span>🍲 dishes</span>
+                <span class="pill pill-orange">Core Table</span>
+              </div>
+              <div class="erd-body">
+                <div class="erd-row"><span class="erd-pk">id</span><span class="erd-type">UUID PK</span></div>
+                <div class="erd-row"><span>name</span><span class="erd-type">Text</span></div>
+                <div class="erd-row"><span style="color: var(--green);">slug</span><span class="erd-type">Unique (-2)</span></div>
+                <div class="erd-row"><span>price</span><span class="erd-type">Decimal (&ge;0)</span></div>
+                <div class="erd-row"><span>category</span><span class="erd-type">Enum</span></div>
+                <div class="erd-row"><span class="erd-fk">chef_id</span><span class="erd-type">UUID FK</span></div>
+                <div class="erd-row"><span>deleted_at</span><span class="erd-type">Timestamp?</span></div>
+              </div>
+            </div>
+
+            <!-- CONNECTOR 2: Dishes to Join (1:N) -->
+            <div class="erd-connector">
+              <span>1</span>
+              <div class="line"></div>
+              <span>N</span>
+              <span style="font-size: 0.65rem; color: var(--text-muted); margin-top: 2px;">Cascade</span>
+            </div>
+
+            <!-- DISH_INGREDIENTS JUNCTION -->
+            <div class="erd-box">
+              <div class="erd-header join">
+                <span>🔗 dish_ingredients</span>
+                <span class="pill pill-blue">Junction</span>
+              </div>
+              <div class="erd-body">
+                <div class="erd-row"><span class="erd-pk">dish_id</span><span class="erd-type">UUID PK/FK</span></div>
+                <div class="erd-row"><span class="erd-pk">ingredient_id</span><span class="erd-type">UUID PK/FK</span></div>
+                <div class="erd-row"><span>quantity</span><span class="erd-type">Decimal (&gt;0)</span></div>
+                <div class="erd-row"><span>unit</span><span class="erd-type">Text (g, ml)</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; border-top: 1px solid var(--border); padding-top: 10px;">
+            <!-- INGREDIENTS TABLE -->
+            <div class="erd-box">
+              <div class="erd-header ingr">
+                <span>🥬 ingredients</span>
+                <span class="pill pill-green">Warehouse</span>
+              </div>
+              <div class="erd-body">
+                <div class="erd-row"><span class="erd-pk">id</span><span class="erd-type">UUID PK</span></div>
+                <div class="erd-row"><span>name</span><span class="erd-type">Unique (Case-Insensitive)</span></div>
+                <div class="erd-row"><span>stock_quantity</span><span class="erd-type">Decimal (&ge;0)</span></div>
+                <div class="erd-row"><span>price_per_unit</span><span class="erd-type">Decimal (&ge;0)</span></div>
+              </div>
+            </div>
+
+            <!-- PROFILES TABLE -->
+            <div class="erd-box">
+              <div class="erd-header user">
+                <span>👤 profiles</span>
+                <span class="pill pill-blue">Auth Synced</span>
+              </div>
+              <div class="erd-body">
+                <div class="erd-row"><span class="erd-pk">id</span><span class="erd-type">UUID (auth.users.id)</span></div>
+                <div class="erd-row"><span>email</span><span class="erd-type">Indexed</span></div>
+                <div class="erd-row"><span style="color: var(--accent); font-weight: 700;">role</span><span class="erd-type">ADMIN | STAFF | CUSTOMER</span></div>
+                <div class="erd-row"><span>created_at</span><span class="erd-type">Timestamptz</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="padding: 8px 14px; background: var(--surface);">
+          <div style="font-size: 0.78rem; color: var(--text-muted); display: flex; justify-content: space-between; align-items: center;">
+            <span><b>Chính sách RLS & Ràng buộc CHECK</b>: Bật RLS 100% bảng. Public chỉ đọc bản ghi chưa xóa (<code style="font-family: var(--font-mono);">deleted_at IS NULL</code>). SQL CHECK bảo vệ số lượng, giá tiền &gt;= 0.</span>
+            <span class="pill pill-green">DB Level Safety</span>
+          </div>
+        </div>
+      </div>
+      <div class="notes-box">
+        <div class="notes-label">Ghi chú diễn giả</div>
+        Sơ đồ thực thể thể hiện rõ ràng quan hệ 1-N giữa Chefs và Dishes, và N-M giữa Dishes và Ingredients qua bảng trung gian dish_ingredients. Bảng profiles liên kết 1-1 với Supabase Auth.
+      </div>
+    </section>
+
+    <!-- SLIDE 6: Vòng Đời Request Public Diagram -->
+    <section class="slide" data-index="6">
+      <div class="slide-header">
+        <div class="slide-title-wrap">
+          <h2>5. Vòng đời Request: Cổng Public SSR</h2>
+          <div class="subtitle">Đọc dữ liệu qua SEO Slug, xử lý tìm kiếm/lọc server-side và Modal dialog</div>
+        </div>
+        <span class="slide-tag">05 / PUBLIC FLOW</span>
+      </div>
+      <div class="slide-body">
+        <!-- DIAGRAM 4: Public Request Pipeline -->
+        <div class="diagram-container">
+          <div style="font-size: 0.82rem; font-weight: 700; color: var(--text); margin-bottom: 6px; display: flex; justify-content: space-between;">
+            <span>LUỒNG XỬ LÝ YÊU CẦU XEM CHI TIẾT MÓN ĂN (SERVER-SIDE RENDERING)</span>
+            <span class="pill pill-green">GET /dishes/:slug</span>
+          </div>
+
+          <div class="pipeline">
+            <div class="pipeline-step">
+              <div class="step-badge">01. CLIENT REQUEST</div>
+              <div class="step-title">Gửi HTTP Request</div>
+              <div class="step-desc">Nhấn link tại thực đơn hoặc nhập URL: <br><code style="font-family: var(--font-mono); color: var(--accent);">/dishes/pho-bo</code></div>
+            </div>
+            <div class="pipeline-arrow">➔</div>
+            <div class="pipeline-step">
+              <div class="step-badge">02. ROUTING</div>
+              <div class="step-title">Trích Xuất Slug</div>
+              <div class="step-desc">Express Router match path param <code style="font-family: var(--font-mono);">:slug</code> không phân biệt hoa thường</div>
+            </div>
+            <div class="pipeline-arrow">➔</div>
+            <div class="pipeline-step">
+              <div class="step-badge">03. DATA FETCH</div>
+              <div class="step-title">Prisma Query</div>
+              <div class="step-desc">Lọc <code style="font-family: var(--font-mono);">deletedAt: null</code>, include bếp & nguyên liệu. Ẩn bếp nghỉ (<code style="font-family: var(--font-mono);">isActive=false</code>)</div>
+            </div>
+            <div class="pipeline-arrow">➔</div>
+            <div class="pipeline-step" style="border-color: var(--green);">
+              <div class="step-badge" style="color: var(--green);">04. SSR RESPONSE</div>
+              <div class="step-title">Render Handlebars</div>
+              <div class="step-desc">Ghép layout <code style="font-family: var(--font-mono);">public.hbs</code>, format VND, ẩn SĐT bếp ➔ <b>200 OK</b></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title">Tìm kiếm, Lọc & Sắp xếp Phía Server</div>
+            <p style="font-size: 0.82rem; color: var(--text-muted);">
+              Đường dẫn <code style="font-family: var(--font-mono);">GET /menu?category=main&q=pho&sort=price-asc</code>:
+            </p>
+            <ul style="margin: 6px 0 0 16px; font-size: 0.8rem; color: var(--text-muted); line-height: 1.45;">
+              <li>Đọc query string trên server ➔ Build Prisma <code style="font-family: var(--font-mono);">where</code> và <code style="font-family: var(--font-mono);">orderBy</code> tương ứng.</li>
+              <li>Cho phép lưu bookmark, gửi link kết quả tìm kiếm cho người khác mà vẫn giữ nguyên kết quả lọc.</li>
+              <li>Tối ưu hoàn hảo cho công cụ tìm kiếm (SEO Friendly).</li>
+            </ul>
+          </div>
+          <div class="card">
+            <div class="card-title">Modal Đầu Bếp & Avatar Silhouette Fallback</div>
+            <p style="font-size: 0.82rem; color: var(--text-muted);">
+              Xem nhanh tiểu sử bếp trưởng mà không chuyển trang:
+            </p>
+            <ul style="margin: 6px 0 0 16px; font-size: 0.8rem; color: var(--text-muted); line-height: 1.45;">
+              <li>Dùng thẻ chuẩn <code style="font-family: var(--font-mono);">&lt;dialog&gt;</code> HTML5 native, đóng bằng nút ×, click nền mờ hoặc phím Esc.</li>
+              <li>Nếu đầu bếp chưa có ảnh: tự động hiển thị avatar silhouette chuẩn phong cách Facebook trên đĩa tròn nền xanh nhạt, kích thước chuẩn xác.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="notes-box">
+        <div class="notes-label">Ghi chú diễn giả</div>
+        Trình bày luồng request public: không có AJAX, URL chứa slug có ý nghĩa tiếng Việt như /dishes/pho-bo-dac-biet. Modal dùng thẻ dialog chuẩn hiện đại không cần nạp thêm thư viện Bootstrap hay jQuery nào.
+      </div>
+    </section>
+
+    <!-- SLIDE 7: Vòng Đời Request Admin Diagram -->
+    <section class="slide" data-index="7">
+      <div class="slide-header">
+        <div class="slide-title-wrap">
+          <h2>6. Vòng đời Request: Cổng Admin CRUD & Form An Toàn</h2>
+          <div class="subtitle">Chuẩn mực RESTful: Method override, chống trùng lặp, bảo toàn form và HTTP 303</div>
+        </div>
+        <span class="slide-tag">06 / ADMIN CRUD</span>
+      </div>
+      <div class="slide-body">
+        <!-- DIAGRAM 5: Admin CRUD Decision Pipeline -->
+        <div class="diagram-container">
+          <div style="font-size: 0.82rem; font-weight: 700; color: var(--text); margin-bottom: 6px; display: flex; justify-content: space-between;">
+            <span>QUY TRÌNH GỬI FORM QUẢN TRỊ & XỬ LÝ NHÁNH LỖI (DECISION PIPELINE)</span>
+            <span class="pill pill-orange">RESTful Form Pattern</span>
+          </div>
+
+          <div class="pipeline">
+            <div class="pipeline-step">
+              <div class="step-badge">01. FORM SUBMIT</div>
+              <div class="step-title">POST + Method Override</div>
+              <div class="step-desc">Gửi kèm hidden field: <code style="font-family: var(--font-mono); color: var(--accent);">_method=PATCH</code> hoặc <code style="font-family: var(--font-mono); color: var(--red);">DELETE</code></div>
+            </div>
+            <div class="pipeline-arrow">➔</div>
+            <div class="pipeline-step">
+              <div class="step-badge">02. SECURITY STACK</div>
+              <div class="step-title">CSRF & Multer Guard</div>
+              <div class="step-desc">Khớp signed cookie token + Multer giữ ảnh trong bộ nhớ (Trần 5MB)</div>
+            </div>
+            <div class="pipeline-arrow">➔</div>
+            <div class="pipeline-step" style="border: 1.5px solid var(--gold);">
+              <div class="step-badge" style="color: var(--gold);">03. VALIDATE & CHECK</div>
+              <div class="step-title">Zod & Deduplication</div>
+              <div class="step-desc">Kiểm tra hợp lệ, chống trùng dòng công thức & trùng tên hoa thường</div>
+            </div>
+            <div class="pipeline-arrow">➔</div>
+            <div class="pipeline-step" style="border-color: var(--green);">
+              <div class="step-badge" style="color: var(--green);">04. SAVE & REDIRECT</div>
+              <div class="step-title">Ghi DB & HTTP 303</div>
+              <div class="step-desc">Ghi flash message + <b>Redirect 303</b> ngăn chặn ấn F5 resubmit form</div>
+            </div>
+          </div>
+
+          <!-- Error Branch Callout -->
+          <div style="margin-top: 8px; background: var(--red-soft); border: 1px solid rgba(185, 28, 28, 0.25); border-radius: 6px; padding: 6px 12px; display: flex; align-items: center; justify-content: space-between; font-size: 0.76rem;">
+            <span>⚠️ <b>Nhánh Lỗi Nhập Liệu (Validation Failed / Duplicate)</b>: Trả mã <b>HTTP 400 Bad Request</b> ➔ Render lại form giữ nguyên 100% dữ liệu đã nhập và báo lỗi dưới từng ô.</span>
+            <span class="pill pill-red">Status 400</span>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title"><span class="icon">🔄</span> Chống Trùng Lặp Thông Minh</div>
+            <ul style="margin: 4px 0 0 16px; font-size: 0.8rem; color: var(--text-muted); line-height: 1.45;">
+              <li>Tự động tăng hậu tố slug nếu bị trùng: <code style="font-family: var(--font-mono);">pho-bo-2</code>, <code style="font-family: var(--font-mono);">pho-bo-3</code>.</li>
+              <li>Chống trùng nguyên liệu trong cùng một món trên form (ngăn lỗi vi phạm composite PK).</li>
+              <li>Chống trùng tên nguyên liệu không phân biệt hoa thường (<code style="font-family: var(--font-mono);">mode: 'insensitive'</code>).</li>
+            </ul>
+          </div>
+          <div class="card">
+            <div class="card-title"><span class="icon">🗑️</span> Xóa Mềm An Toàn & Trang Xác Nhận</div>
+            <ul style="margin: 4px 0 0 16px; font-size: 0.8rem; color: var(--text-muted); line-height: 1.45;">
+              <li>Nút xóa dẫn đến trang xác nhận riêng <code style="font-family: var(--font-mono);">GET /admin/.../:id/delete</code>.</li>
+              <li>Tuyệt đối không thực hiện xóa dữ liệu bằng yêu cầu GET.</li>
+              <li>Xác nhận xóa sẽ gửi yêu cầu <code style="font-family: var(--font-mono);">DELETE</code> (cập nhật <code style="font-family: var(--font-mono);">deletedAt</code>), có nút khôi phục lại khi cần.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="notes-box">
+        <div class="notes-label">Ghi chú diễn giả</div>
+        Nhấn mạnh rằng form HTML chỉ hỗ trợ GET và POST, nhóm đã viết middleware method-override bắt trường `_method` để hỗ trợ PATCH/DELETE đúng chuẩn RESTful. Phản hồi 303 Redirect là tiêu chuẩn công nghiệp chống double-submit.
+      </div>
+    </section>
+
+    <!-- SLIDE 8: RBAC Diagram -->
+    <section class="slide" data-index="8">
+      <div class="slide-header">
+        <div class="slide-title-wrap">
+          <h2>7. Hệ thống Phân quyền Đa tầng (RBAC)</h2>
+          <div class="subtitle">Ma trận quyền tĩnh rõ ràng, phân định trách nhiệm giữa Quản trị và Nhân viên</div>
+        </div>
+        <span class="slide-tag">07 / BẢO MẬT RBAC</span>
+      </div>
+      <div class="slide-body">
+        <!-- DIAGRAM 6: Visual Role Boundary Diagram -->
+        <div class="diagram-container" style="padding: 10px 14px;">
+          <div style="font-size: 0.82rem; font-weight: 700; color: var(--text); margin-bottom: 6px; display: flex; justify-content: space-between;">
+            <span>SƠ ĐỒ CỔNG BẢO VỆ PHÂN QUYỀN TRUY CẬP (ACCESS GATEWAY)</span>
+            <span class="pill pill-orange">Static RBAC Matrix</span>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; font-size: 0.8rem;">
+            <!-- CUSTOMER BOX -->
+            <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <b style="color: var(--text-muted);">👤 CUSTOMER</b>
+                <span class="pill pill-red">No Admin</span>
+              </div>
+              <p style="font-size: 0.74rem; color: var(--text-muted); line-height: 1.4;">
+                Chỉ được xem menu công khai, chi tiết món và đăng nhập/đăng ký. Truy cập <code style="font-family: var(--font-mono);">/admin</code> lập tức bị chặn bằng <b>403 Forbidden</b>.
+              </p>
+            </div>
+
+            <!-- STAFF BOX -->
+            <div style="background: var(--surface); border: 1.5px solid var(--gold); border-radius: 8px; padding: 10px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <b style="color: var(--gold);">🧑‍🍳 STAFF</b>
+                <span class="pill pill-green">admin:access</span>
+              </div>
+              <p style="font-size: 0.74rem; color: var(--text-muted); line-height: 1.4;">
+                Được vào <code style="font-family: var(--font-mono);">/admin</code>, toàn quyền CRUD món ăn, đầu bếp, nguyên liệu. <b>Bị ẩn menu Người dùng</b> và bị chặn nếu truy cập <code style="font-family: var(--font-mono);">/admin/users</code>.
+              </p>
+            </div>
+
+            <!-- ADMIN BOX -->
+            <div style="background: var(--surface); border: 2px solid var(--accent); border-radius: 8px; padding: 10px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <b style="color: var(--accent);">👑 ADMIN</b>
+                <span class="pill pill-orange">user:manage</span>
+              </div>
+              <p style="font-size: 0.74rem; color: var(--text-muted); line-height: 1.4;">
+                Toàn quyền toàn hệ thống. Độc quyền quản trị vai trò người dùng tại <code style="font-family: var(--font-mono);">/admin/users</code>. Có safeguard chống tự hạ quyền và chống hạ Admin cuối cùng.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <table class="table-clean" style="margin-top: 2px;">
+          <thead>
+            <tr>
+              <th>Vai trò (Role)</th>
+              <th>Vào /admin</th>
+              <th>Quản lý Món ăn (Dishes)</th>
+              <th>Quản lý Bếp & Kho</th>
+              <th>Quản lý User (/admin/users)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><b style="color: var(--accent);">ADMIN</b></td>
+              <td><span class="pill pill-green">Cho phép</span></td>
+              <td><span class="pill pill-green">Toàn quyền CRUD</span></td>
+              <td><span class="pill pill-green">Toàn quyền CRUD</span></td>
+              <td><span class="pill pill-green">Toàn quyền (Độc quyền)</span></td>
+            </tr>
+            <tr>
+              <td><b style="color: var(--gold);">STAFF</b></td>
+              <td><span class="pill pill-green">Cho phép</span></td>
+              <td><span class="pill pill-green">Toàn quyền CRUD</span></td>
+              <td><span class="pill pill-green">Toàn quyền CRUD</span></td>
+              <td><span class="pill pill-red">Từ chối (403 Forbidden)</span></td>
+            </tr>
+            <tr>
+              <td><b style="color: var(--text-muted);">CUSTOMER</b></td>
+              <td><span class="pill pill-red">Từ chối (403)</span></td>
+              <td><span class="pill pill-gray">Chỉ xem ở Public</span></td>
+              <td><span class="pill pill-gray">Chỉ xem ở Public</span></td>
+              <td><span class="pill pill-red">Từ chối</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="notes-box">
+        <div class="notes-label">Ghi chú diễn giả</div>
+        Làm rõ: STAFF được phép vào admin để thêm bớt món ăn và kiểm kho hằng ngày, nhưng menu Người dùng bị ẩn và không thể vào /admin/users. Chỉ duy nhất ADMIN mới có quyền nâng hạ role người dùng.
+      </div>
+    </section>
+
+    <!-- SLIDE 9: Storage & Magic Bytes Diagram -->
+    <section class="slide" data-index="9">
+      <div class="slide-header">
+        <div class="slide-title-wrap">
+          <h2>8. An toàn File & Giao tác Lưu trữ Storage</h2>
+          <div class="subtitle">Quy trình upload ảnh nghiêm ngặt: Kiểm tra Magic Bytes và Rollback tự động</div>
+        </div>
+        <span class="slide-tag">08 / FILE STORAGE</span>
+      </div>
+      <div class="slide-body">
+        <!-- DIAGRAM 7: Storage Transaction & Rollback Flow -->
+        <div class="diagram-container">
+          <div style="font-size: 0.82rem; font-weight: 700; color: var(--text); margin-bottom: 6px; display: flex; justify-content: space-between;">
+            <span>SƠ ĐỒ GIAO TÁC LƯU TRỮ ẢNH & ROLLBACK TỰ ĐỘNG (saveWithImage)</span>
+            <span class="pill pill-blue">Zero Orphaned Files</span>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 30px 1.1fr 30px 1.2fr; gap: 8px; align-items: center; font-size: 0.78rem;">
+            <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px;">
+              <b style="color: var(--accent);">1. Validate File</b>
+              <div style="color: var(--text-muted); font-size: 0.72rem; margin-top: 2px;">
+                Quét Magic Bytes (JPEG/PNG/WebP) + Dung lượng &le; 2MB
+              </div>
+            </div>
+            <div style="text-align: center; color: var(--accent); font-weight: 700;">➔</div>
+            <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px;">
+              <b style="color: var(--blue);">2. Upload Supabase</b>
+              <div style="color: var(--text-muted); font-size: 0.72rem; margin-top: 2px;">
+                Đẩy lên bucket <code style="font-family: var(--font-mono);">images/&lt;folder&gt;/&lt;uuid&gt;.&lt;ext&gt;</code> lấy URL
+              </div>
+            </div>
+            <div style="text-align: center; color: var(--accent); font-weight: 700;">➔</div>
+            <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px;">
+              <b style="color: var(--green);">3. Execute DB Write</b>
+              <div style="color: var(--text-muted); font-size: 0.72rem; margin-top: 2px;">
+                Ghi thông tin món & image_url vào Postgres
+              </div>
+              <div style="margin-top: 4px; display: flex; gap: 4px;">
+                <span class="pill pill-green" style="font-size: 0.68rem;">Thành công: Xóa ảnh cũ</span>
+                <span class="pill pill-red" style="font-size: 0.68rem;">Lỗi DB: Xóa ảnh vừa up</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title">Kiểm Tra File Upload Bằng Magic Bytes</div>
+            <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 6px;">
+              Không tin tưởng phần đuôi mở rộng (.jpg/.png) do trình duyệt gửi lên:
+            </p>
+            <ul style="margin: 0 0 8px 16px; font-size: 0.78rem; color: var(--text-muted); line-height: 1.45;">
+              <li><b>JPEG</b>: Quét 3 bytes đầu tiên <code style="font-family: var(--font-mono);">0xFF, 0xD8, 0xFF</code>.</li>
+              <li><b>PNG</b>: Quét 8 bytes chữ ký nhị phân <code style="font-family: var(--font-mono);">89 50 4E 47 0D 0A 1A 0A</code>.</li>
+              <li><b>WebP</b>: Quét định dạng container <code style="font-family: var(--font-mono);">RIFF....WEBP</code>.</li>
+              <li><b>Giới hạn dung lượng</b>: Trần Multer 5MB, ảnh hợp lệ &le; 2MB.</li>
+            </ul>
+            <span class="pill pill-green">Ngăn chặn triệt để mã độc giả mạo đuôi ảnh</span>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Phòng Thủ CSRF Hai Lớp (Double-Submit)</div>
+            <p style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.45; margin-bottom: 8px;">
+              Bảo vệ 100% các thao tác thay đổi dữ liệu mà không cần duy trì session server:
+            </p>
+            <ul style="margin: 0 0 8px 16px; font-size: 0.78rem; color: var(--text-muted); line-height: 1.45;">
+              <li>Tự động sinh signed cookie định danh trình duyệt ẩn danh (<code style="font-family: var(--font-mono);">sid</code>).</li>
+              <li>Ràng buộc token CSRF ẩn trong form (<code style="font-family: var(--font-mono);">{{csrfToken}}</code>) với cookie.</li>
+              <li>Bảo vệ an toàn mọi form POST/PATCH/DELETE trước tấn công giả mạo yêu cầu.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="notes-box">
+        <div class="notes-label">Ghi chú diễn giả</div>
+        Giải thích hàm `saveWithImage` trong `src/lib/storage.ts`: đây là pattern giao tác giúp storage không bị rác (orphan files) nếu quá trình tạo món trong DB bị lỗi. Magic-bytes bảo vệ server không bị hacker upload file shell php/sh giả mạo đuôi png.
+      </div>
+    </section>
+
+    <!-- SLIDE 10: Hành Trình UI/UX -->
+    <section class="slide" data-index="10">
+      <div class="slide-header">
+        <div class="slide-title-wrap">
+          <h2>9. Hành trình Tinh chỉnh Giao diện UI/UX</h2>
+          <div class="subtitle">Từ bản mockup tĩnh đến hệ thống SSR thẩm mỹ cao và chuẩn mực Việt hóa</div>
+        </div>
+        <span class="slide-tag">09 / TRẢI NGHIỆM UI/UX</span>
+      </div>
+      <div class="slide-body">
+        <div class="grid-3">
+          <div class="card">
+            <div class="card-title">100% Font Tiếng Việt</div>
+            <p style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.45;">
+              Kiểm tra trực tiếp Google Fonts subset tiếng Việt:
+              <br>• <b>Playfair Display</b>: Tiêu đề trang nhã, phong cách ẩm thực cao cấp.
+              <br>• <b>Be Vietnam Pro</b>: Tối ưu hiển thị dấu thanh tiếng Việt trọn vẹn, không lỗi font.
+              <br>• <b>IBM Plex Mono</b>: Giá tiền & số liệu.
+            </p>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Dark/Light Theme Mượt</div>
+            <p style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.45;">
+              Cơ chế chuyển đổi thông minh:
+              <br>• Dùng checkbox CSS ẩn điều khiển trạng thái <code style="font-family: var(--font-mono);">:checked</code>.
+              <br>• Lưu trạng thái bền vững trong <code style="font-family: var(--font-mono);">localStorage</code>.
+              <br>• Chuyển cảnh mềm mại với <b>View Transitions API</b> nguyên bản của trình duyệt.
+            </p>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Tối Ưu Tương Tác & CLS</div>
+            <p style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.45;">
+              Tránh giật khung hình:
+              <br>• <b>Loại bỏ zoom ảnh</b> khi hover, thay bằng hiệu ứng nâng thẻ nhẹ nhàng.
+              <br>• <b>Skeleton loading thuần CSS</b> giúp tránh hiện tượng nhảy layout khi ảnh đang tải.
+              <br>• Ticker thông tin mở cửa cuộn vô tận không giật lặp.
+            </p>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title" style="font-size: 0.95rem;">Thiết Kế Đáp Ứng Đa Thiết Bị (Responsive Breakpoints)</div>
+          <p style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.45;">
+            Thử nghiệm trên nhiều kích thước màn hình từ điện thoại hẹp (Galaxy S8 360px), tablet (768px) đến màn hình desktop lớn (1440px). Menu quản trị tự động chuyển thành ngăn kéo trượt (drawer dropdown) mượt mà khi dưới 960px.
+          </p>
+        </div>
+      </div>
+      <div class="notes-box">
+        <div class="notes-label">Ghi chú diễn giả</div>
+        Điểm đáng tự hào ở UI: Dù là trang SSR thuần nhưng giao diện có Dark Mode mượt mà với View Transitions API, font chữ tiếng Việt hiển thị sắc nét không lỗi dấu, và hoàn toàn không bị layout shift nhờ CSS skeleton.
+      </div>
+    </section>
+
+    <!-- SLIDE 11: Ứng Dụng AI -->
+    <section class="slide" data-index="11">
+      <div class="slide-header">
+        <div class="slide-title-wrap">
+          <h2>10. Ứng dụng AI & Kỹ thuật Prompt</h2>
+          <div class="subtitle">AI đóng vai trò trợ lý phản biện, kiểm thử và đồng hành kiến trúc</div>
+        </div>
+        <span class="slide-tag">10 / AI USAGE</span>
+      </div>
+      <div class="slide-body">
+        <div class="grid-3">
+          <div class="card">
+            <div class="card-title">Phùng Bảo Khang</div>
+            <div style="font-size: 0.78rem; color: var(--accent); font-weight: 600; margin-bottom: 4px;">Google Antigravity</div>
+            <p style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.45;">
+              Phương pháp phỏng vấn kiến trúc: Hỏi đáp 38 quyết định kỹ thuật trước khi gõ code. Sử dụng AI để rà soát lỗ hổng RLS, dịch SQL sang Prisma migration versioned và xử lý xung đột schema drift.
+            </p>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Nguyễn Minh Đức</div>
+            <div style="font-size: 0.78rem; color: var(--gold); font-weight: 600; margin-bottom: 4px;">Prompt Report (17 prompts)</div>
+            <p style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.45;">
+              Prompt theo phong cách "Yêu cầu + Kỳ vọng". Dán log lỗi trực tiếp để AI truy vết nguyên nhân (ví dụ: encoding UTF-8 PowerShell). Giữ ranh giới nghiêm ngặt: AI chỉ can thiệp view HBS và CSS.
+            </p>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Hy Huê Hưng</div>
+            <div style="font-size: 0.78rem; color: var(--green); font-weight: 600; margin-bottom: 4px;">OpenCode & Muse Spark</div>
+            <p style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.45;">
+              Đồng hành thiết lập cơ sở dữ liệu, tìm nguồn ảnh giấy phép mở, xử lý modal bếp và xây dựng bộ kiểm thử đơn vị cho các module validation và format tiền tệ.
+            </p>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top: 2px;">
+          <div class="card-title" style="font-size: 0.95rem;">Nguyên Tắc Làm Việc Cùng AI của Nhóm</div>
+          <div class="grid-3" style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">
+            <div><b>1. Sinh viên ra quyết định</b><br>AI đề xuất các phương án, sinh viên là người lựa chọn giải pháp phù hợp với bài toán.</div>
+            <div><b>2. Kiểm chứng bằng lệnh thật</b><br>Mọi code do AI sinh ra bắt buộc phải vượt qua <code style="font-family: var(--font-mono);">npm test</code> và <code style="font-family: var(--font-mono);">npm run typecheck</code>.</div>
+            <div><b>3. Minh bạch tài liệu</b><br>Lưu trữ đầy đủ 3 báo cáo AI usage chi tiết trong thư mục <code style="font-family: var(--font-mono);">docs/</code>.</div>
+          </div>
+        </div>
+      </div>
+      <div class="notes-box">
+        <div class="notes-label">Ghi chú diễn giả</div>
+        Nhấn mạnh sự trung thực học thuật: Nhóm ghi chép toàn bộ nhật ký prompt thành 3 file Markdown trong docs/. AI không viết thay toàn bộ đồ án mà đóng vai trò phản biện kiến trúc và hỗ trợ tìm lỗi nhanh.
+      </div>
+    </section>
+
+    <!-- SLIDE 12: Kiểm Chứng Chất Lượng -->
+    <section class="slide" data-index="12">
+      <div class="slide-header">
+        <div class="slide-title-wrap">
+          <h2>11. Kiểm chứng Chất lượng Thực tế</h2>
+          <div class="subtitle">Đo lường độ tin cậy bằng bộ test tự động và kiểm thử trên môi trường chạy thật</div>
+        </div>
+        <span class="slide-tag">11 / KIỂM CHỨNG</span>
+      </div>
+      <div class="slide-body">
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title"><span class="icon">🧪</span> Bộ Kiểm Thử Vitest (32 Tests Passed)</div>
+            <pre class="code-box">
+✓ tests/http.test.ts (2 tests)
+✓ tests/slug.test.ts (3 tests)
+✓ tests/method-override.test.ts (5 tests)
+✓ tests/rate-limit.test.ts (3 tests)
+✓ tests/permissions.test.ts (4 tests)
+✓ tests/admin-id.test.ts (3 tests)
+✓ tests/chef-validation.test.ts (6 tests)
+✓ tests/dish-ingredients.test.ts (6 tests)
+
+Test Files  8 passed (8)
+     Tests  32 passed (32) — Time: ~360ms</pre>
+          </div>
+
+          <div class="card">
+            <div class="card-title"><span class="icon">✨</span> Kiểm Tra Tĩnh & Live Runtime</div>
+            <ul style="margin: 4px 0 0 16px; font-size: 0.8rem; color: var(--text-muted); line-height: 1.5;">
+              <li><b>TypeScript Typecheck</b>: <code style="font-family: var(--font-mono);">tsc --noEmit</code> hoàn thành với <b>0 lỗi</b> ở cấu hình khắt khe <code style="font-family: var(--font-mono);">"strict": true</code>.</li>
+              <li><b>Kiểm thử giao diện mẫu</b>: Toàn bộ form món/bếp/kho và đăng ký đều render đạt chuẩn với dữ liệu giả lập.</li>
+              <li><b>Bảo mật thông tin</b>: Xác nhận đường dẫn công khai không để lộ số điện thoại riêng của đầu bếp.</li>
+              <li><b>Xử lý đường dẫn lỗi</b>: Các ID dị tật hoặc slug không tồn tại (<code style="font-family: var(--font-mono);">/dishes/2</code>) được bắt chặn và trả về trang 404 thân thiện.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="notes-box">
+        <div class="notes-label">Ghi chú diễn giả</div>
+        Chỉ ra kết quả test: 8 file test bao phủ từ hàm tạo slug, kiểm tra method override, rate limiting cho tới phân quyền RBAC và validation. Typecheck đạt 0 lỗi đảm bảo không có runtime undefined bug nào.
+      </div>
+    </section>
+
+    <!-- SLIDE 13: Kịch Bản Demo -->
+    <section class="slide" data-index="13">
+      <div class="slide-header">
+        <div class="slide-title-wrap">
+          <h2>12. Kịch bản Demo Trực tiếp (5 Phút)</h2>
+          <div class="subtitle">Trình diễn tuần tự các tính năng nổi bật trước hội đồng</div>
+        </div>
+        <span class="slide-tag">12 / DEMO SẢN PHẨM</span>
+      </div>
+      <div class="slide-body">
+        <table class="table-clean">
+          <thead>
+            <tr>
+              <th style="width: 14%;">Thời gian</th>
+              <th style="width: 31%;">Tính năng & Đường dẫn</th>
+              <th style="width: 55%;">Thao tác trình diễn chính</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><b>Phút 1</b></td>
+              <td><b>Trang chủ</b> (<code style="font-family: var(--font-mono);">/</code>)</td>
+              <td>Hero đôi, ticker cuộn liên tục, bật/tắt núm chuyển đổi Dark/Light theme với View Transitions.</td>
+            </tr>
+            <tr>
+              <td><b>Phút 2</b></td>
+              <td><b>Thực đơn</b> (<code style="font-family: var(--font-mono);">/menu</code>)</td>
+              <td>Tìm kiếm món (<code style="font-family: var(--font-mono);">?q=pho</code>), lọc theo danh mục, sắp xếp giá; quan sát URL cập nhật tức thì.</td>
+            </tr>
+            <tr>
+              <td><b>Phút 3</b></td>
+              <td><b>Chi tiết món</b> (<code style="font-family: var(--font-mono);">/dishes/pho-bo-dac-biet</code>)</td>
+              <td>Thông tin món, danh sách nguyên liệu, bấm vào thẻ đầu bếp mở modal <code style="font-family: var(--font-mono);">&lt;dialog&gt;</code> (đóng bằng Esc).</td>
+            </tr>
+            <tr>
+              <td><b>Phút 4</b></td>
+              <td><b>Quản trị</b> (<code style="font-family: var(--font-mono);">/admin</code>)</td>
+              <td>
+                1. Đăng nhập STAFF: Xem dashboard, sửa món, chứng minh menu Người dùng bị ẩn.<br>
+                2. Đăng nhập ADMIN: Thử tạo món với 2 dòng trùng nguyên liệu ➔ hiện lỗi <b>400</b> giữ nguyên form. Mở trang xác nhận xóa món.
+              </td>
+            </tr>
+            <tr>
+              <td><b>Phút 5</b></td>
+              <td><b>Trang 404</b> (<code style="font-family: var(--font-mono);">/dishes/duong-dan-la</code>)</td>
+              <td>Chứng minh trang 404 tùy biến hiển thị thân thiện, an toàn khi gặp URL không tồn tại.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="notes-box">
+        <div class="notes-label">Ghi chú diễn giả</div>
+        Đây là kịch bản demo mẫu cho nhóm khi bước lên bục thuyết trình. Chia rõ từng phút để cả 3 thành viên phối hợp nhịp nhàng giữa người thuyết trình và người thao tác máy.
+      </div>
+    </section>
+
+    <!-- SLIDE 14: Rút Kinh Nghiệm & Kết Luận -->
+    <section class="slide" data-index="14">
+      <div class="slide-header">
+        <div class="slide-title-wrap">
+          <h2>13. Bài học Kinh nghiệm & Kết luận</h2>
+          <div class="subtitle">Những đúc kết quý giá sau quá trình xây dựng hệ thống web chuẩn mực</div>
+        </div>
+        <span class="slide-tag">13 / TỔNG KẾT</span>
+      </div>
+      <div class="slide-body">
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title">Bài Học Kỹ Thuật Đắt Giá</div>
+            <ul style="margin: 4px 0 0 16px; font-size: 0.8rem; color: var(--text-muted); line-height: 1.55;">
+              <li><b>Validation đa tầng là thiết yếu</b>: Client giúp người dùng nhập nhanh, Zod bảo vệ nghiệp vụ backend, và DB CHECK constraints bảo vệ dữ liệu vĩnh viễn.</li>
+              <li><b>Kiểm soát DB bằng Migration</b>: Tuyệt đối không sửa tay trực tiếp trên DB production để tránh lệch lạc schema (schema drift).</li>
+              <li><b>Nguyên tắc an toàn của HTTP GET</b>: Route GET tuyệt đối không làm thay đổi trạng thái dữ liệu (idempotent & safe).</li>
+              <li><b>Render template thử nghiệm</b>: Dùng dữ liệu mẫu kiểm tra layout trước khi đẩy lên trình duyệt giúp tiết kiệm 70% thời gian gỡ lỗi.</li>
+            </ul>
+          </div>
+
+          <div class="card" style="display: flex; flex-direction: column; justify-content: center; text-align: center; padding: 24px;">
+            <h3 style="font-size: 1.85rem; color: var(--accent); margin-bottom: 10px;">Cảm Ơn Thầy Cô & Các Bạn!</h3>
+            <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 20px;">
+              Nhóm 13 sẵn sàng lắng nghe câu hỏi và nhận xét từ Hội đồng.
+            </p>
+            <div style="font-family: var(--font-mono); font-size: 0.82rem; color: var(--gold); font-weight: 600;">
+              Phùng Bảo Khang · Nguyễn Minh Đức · Hy Huê Hưng
+            </div>
+            <div style="margin-top: 10px; font-size: 0.78rem; color: var(--text-muted);">
+              Đồ án môn Phát triển ứng dụng Web (CSC13008) — HCMUS
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="notes-box">
+        <div class="notes-label">Ghi chú diễn giả</div>
+        Cảm ơn thầy cô và các bạn đã lắng nghe bài thuyết trình của Nhóm 13. Mời thầy cô và các bạn đặt câu hỏi cho nhóm.
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Slide Overview Drawer (TOC) -->
+  <aside id="drawer" class="overview-drawer">
+    <div class="drawer-title">
+      <b>Mục Lục Các Slide</b>
+      <button id="btn-close-drawer" class="btn-icon" style="border: none;">✕</button>
+    </div>
+    <div id="drawer-links"></div>
+  </aside>
+
+  <!-- Bottom Navigation Controller -->
+  <footer class="bottombar">
+    <div style="display: flex; gap: 8px;">
+      <button id="btn-prev" class="nav-btn">◀ Trước</button>
+      <button id="btn-next" class="nav-btn">Sau ▶</button>
+    </div>
+
+    <div class="progress-bar-wrap">
+      <div id="progress-bar" class="progress-bar"></div>
+    </div>
+
+    <div class="counter">
+      Slide <b id="slide-curr" style="color: var(--accent);">01</b> / <span id="slide-total">14</span>
+    </div>
+  </footer>
+
+  <!-- Deck Interactive Controller JS -->
+  <script>
+    (function () {
+      const slides = Array.from(document.querySelectorAll('.slide'));
+      const total = slides.length;
+      let current = 0;
+
+      const currEl = document.getElementById('slide-curr');
+      const totalEl = document.getElementById('slide-total');
+      const progressEl = document.getElementById('progress-bar');
+      const btnPrev = document.getElementById('btn-prev');
+      const btnNext = document.getElementById('btn-next');
+      const btnTheme = document.getElementById('btn-theme');
+      const btnNotes = document.getElementById('btn-notes');
+      const btnToc = document.getElementById('btn-toc');
+      const btnFs = document.getElementById('btn-fs');
+      const drawer = document.getElementById('drawer');
+      const drawerLinks = document.getElementById('drawer-links');
+      const btnCloseDrawer = document.getElementById('btn-close-drawer');
+
+      totalEl.textContent = String(total).padStart(2, '0');
+
+      // Populate Drawer Links
+      slides.forEach((s, idx) => {
+        const titleEl = s.querySelector('h2') || s.querySelector('h1');
+        const title = titleEl ? titleEl.textContent : `Slide ${idx + 1}`;
+        const a = document.createElement('a');
+        a.href = '#';
+        a.className = 'slide-item-link';
+        a.innerHTML = `<b>${String(idx + 1).padStart(2, '0')}.</b> ${title}`;
+        a.addEventListener('click', (e) => {
+          e.preventDefault();
+          goToSlide(idx);
+          drawer.classList.remove('open');
+        });
+        drawerLinks.appendChild(a);
+      });
+
+      function updateUI() {
+        slides.forEach((s, idx) => {
+          s.classList.toggle('active', idx === current);
+        });
+
+        currEl.textContent = String(current + 1).padStart(2, '0');
+        const pct = ((current + 1) / total) * 100;
+        progressEl.style.width = pct + '%';
+
+        btnPrev.disabled = current === 0;
+        btnNext.disabled = current === total - 1;
+
+        // Update drawer active highlight
+        const links = drawerLinks.querySelectorAll('.slide-item-link');
+        links.forEach((l, idx) => {
+          l.classList.toggle('current', idx === current);
+        });
+
+        // Sync URL Hash
+        window.location.hash = 'slide-' + (current + 1);
+      }
+
+      function goToSlide(idx) {
+        if (idx >= 0 && idx < total) {
+          current = idx;
+          updateUI();
+        }
+      }
+
+      function nextSlide() {
+        if (current < total - 1) goToSlide(current + 1);
+      }
+
+      function prevSlide() {
+        if (current > 0) goToSlide(current - 1);
+      }
+
+      // Event Listeners
+      btnNext.addEventListener('click', nextSlide);
+      btnPrev.addEventListener('click', prevSlide);
+
+      btnToc.addEventListener('click', () => {
+        drawer.classList.toggle('open');
+      });
+
+      btnCloseDrawer.addEventListener('click', () => {
+        drawer.classList.remove('open');
+      });
+
+      // Toggle Theme with View Transitions API support
+      btnTheme.addEventListener('click', () => {
+        const isDark = document.body.getAttribute('data-theme') === 'dark';
+        const targetTheme = isDark ? 'light' : 'dark';
+        
+        const applyTheme = () => {
+          document.body.setAttribute('data-theme', targetTheme);
+          localStorage.setItem('presentation-theme', targetTheme);
+        };
+
+        if (document.startViewTransition) {
+          document.startViewTransition(applyTheme);
+        } else {
+          applyTheme();
+        }
+      });
+
+      // Load Saved Theme
+      const savedTheme = localStorage.getItem('presentation-theme');
+      if (savedTheme) {
+        document.body.setAttribute('data-theme', savedTheme);
+      }
+
+      // Toggle Speaker Notes
+      btnNotes.addEventListener('click', () => {
+        document.querySelectorAll('.notes-box').forEach(box => {
+          box.classList.toggle('show');
+        });
+      });
+
+      // Fullscreen Toggle
+      btnFs.addEventListener('click', () => {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().catch(err => console.log(err));
+        } else {
+          document.exitFullscreen().catch(err => console.log(err));
+        }
+      });
+
+      // Keyboard Controller
+      window.addEventListener('keydown', (e) => {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+        switch (e.key) {
+          case 'ArrowRight':
+          case 'PageDown':
+          case ' ':
+            e.preventDefault();
+            nextSlide();
+            break;
+          case 'ArrowLeft':
+          case 'PageUp':
+          case 'Backspace':
+            e.preventDefault();
+            prevSlide();
+            break;
+          case 'Home':
+            e.preventDefault();
+            goToSlide(0);
+            break;
+          case 'End':
+            e.preventDefault();
+            goToSlide(total - 1);
+            break;
+          case 'f':
+          case 'F':
+            btnFs.click();
+            break;
+          case 't':
+          case 'T':
+            btnTheme.click();
+            break;
+          case 'm':
+          case 'M':
+          case 'o':
+          case 'O':
+            btnToc.click();
+            break;
+          case 'n':
+          case 'N':
+            btnNotes.click();
+            break;
+          case 'Escape':
+            drawer.classList.remove('open');
+            break;
+        }
+      });
+
+      // Handle Initial Hash navigation
+      if (window.location.hash) {
+        const match = window.location.hash.match(/slide-(\d+)/);
+        if (match && match[1]) {
+          const slideNum = parseInt(match[1], 10) - 1;
+          if (slideNum >= 0 && slideNum < total) {
+            current = slideNum;
+          }
+        }
+      }
+
+      updateUI();
+    })();
+  </script>
+</body>
+</html>
