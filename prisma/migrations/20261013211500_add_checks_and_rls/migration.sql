@@ -101,17 +101,6 @@ CREATE POLICY "public read profiles"
     ON "profiles" FOR SELECT TO anon, authenticated
     USING (true);
 
-DROP POLICY IF EXISTS "users insert own profile" ON "profiles";
-CREATE POLICY "users insert own profile"
-    ON "profiles" FOR INSERT TO authenticated
-    WITH CHECK (auth.uid() = id);
-
-DROP POLICY IF EXISTS "users update own profile" ON "profiles";
-CREATE POLICY "users update own profile"
-    ON "profiles" FOR UPDATE TO authenticated
-    USING (auth.uid() = id)
-    WITH CHECK (auth.uid() = id);
-
 -- ------------------------------------------------------------
 -- 5. SUPABASE STORAGE (BUCKETS & POLICIES)
 -- Applied conditionally when storage schema exists
