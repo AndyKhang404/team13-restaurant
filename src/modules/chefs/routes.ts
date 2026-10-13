@@ -5,18 +5,18 @@ import { prisma } from '../../lib/prisma.js';
 import { notFound } from '../../lib/http.js';
 import { buildPagination, skipFor } from '../../lib/pagination.js';
 import { listParams, isNotFound, paramId } from '../../lib/admin.js';
-import { requiredText, optionalText, optionalInt, checkbox, toFieldErrors } from '../../lib/validation.js';
+import { requiredText, optionalText, optionalInt, optionalPhone, checkbox, toFieldErrors } from '../../lib/validation.js';
 import { fileFor, validateImage, saveWithImage, type UploadedFile } from '../../lib/storage.js';
 import { requirePermission } from '../../auth/middleware.js';
 
 const router = Router();
 
-const ChefSchema = z.object({
-  name: requiredText('Name', 120),
+export const ChefSchema = z.object({
+  name: requiredText('Họ và tên', 120),
   specialty: optionalText(120),
   bio: optionalText(1000),
-  experienceYears: optionalInt('Experience years', 0).default(0),
-  phone: optionalText(30),
+  experienceYears: optionalInt('Số năm kinh nghiệm', 0, 100).default(0),
+  phone: optionalPhone(),
   isActive: checkbox,
   removeImage: checkbox,
 });
@@ -47,7 +47,7 @@ router.get('/', requirePermission('chef:create'), async (req, res) => {
 
   res.render('pages/admin/chefs/index', {
     layout: 'admin',
-    title: 'Chefs',
+    title: 'Danh sách đầu bếp',
     chefs,
     pagination: buildPagination(page, total, filters),
     q,
@@ -58,7 +58,7 @@ router.get('/', requirePermission('chef:create'), async (req, res) => {
 router.get('/new', requirePermission('chef:create'), (_req, res) => {
   res.render('pages/admin/chefs/form', {
     layout: 'admin',
-    title: 'New Chef',
+    title: 'Đầu bếp mới',
     isNew: true,
     values: { isActive: true, experienceYears: 0 },
     errors: {},
@@ -75,7 +75,7 @@ router.post('/', requirePermission('chef:create'), async (req, res) => {
     if (imageErr) errors['avatar'] = imageErr;
     return res.status(422).render('pages/admin/chefs/form', {
       layout: 'admin',
-      title: 'New Chef',
+      title: 'Đầu bếp mới',
       isNew: true,
       values: req.body,
       errors,
@@ -100,7 +100,7 @@ router.post('/', requirePermission('chef:create'), async (req, res) => {
     },
   );
 
-  req.flash('success', `Chef "${data.name}" created successfully.`);
+  req.flash('success', `Đã tạo đầu bếp "${data.name}".`);
   res.redirect('/admin/chefs');
 });
 
@@ -111,7 +111,7 @@ router.get('/:id/edit', requirePermission('chef:update'), async (req, res) => {
 
   res.render('pages/admin/chefs/form', {
     layout: 'admin',
-    title: `Edit Chef: ${chef.name}`,
+    title: `Sửa đầu bếp: ${chef.name}`,
     isNew: false,
     chef,
     values: chef,
@@ -133,7 +133,7 @@ router.post('/:id', requirePermission('chef:update'), async (req, res) => {
     if (imageErr) errors['avatar'] = imageErr;
     return res.status(422).render('pages/admin/chefs/form', {
       layout: 'admin',
-      title: `Edit Chef: ${chef.name}`,
+      title: `Sửa đầu bếp: ${chef.name}`,
       isNew: false,
       chef,
       values: req.body,
@@ -165,7 +165,7 @@ router.post('/:id', requirePermission('chef:update'), async (req, res) => {
     },
   );
 
-  req.flash('success', `Chef "${data.name}" updated successfully.`);
+  req.flash('success', `Đã cập nhật đầu bếp "${data.name}".`);
   res.redirect('/admin/chefs');
 });
 
@@ -176,7 +176,7 @@ router.post('/:id/delete', requirePermission('chef:delete'), async (req, res) =>
       where: { id },
       data: { deletedAt: new Date() },
     });
-    req.flash('success', 'Chef moved to deleted list.');
+    req.flash('success', 'Đã chuyển đầu bếp vào danh sách đã xóa.');
   } catch (e) {
     if (isNotFound(e)) throw notFound('Chef');
     throw e;
@@ -191,7 +191,7 @@ router.post('/:id/restore', requirePermission('chef:restore'), async (req, res) 
       where: { id },
       data: { deletedAt: null },
     });
-    req.flash('success', 'Chef restored successfully.');
+    req.flash('success', 'Đã khôi phục đầu bếp.');
   } catch (e) {
     if (isNotFound(e)) throw notFound('Chef');
     throw e;

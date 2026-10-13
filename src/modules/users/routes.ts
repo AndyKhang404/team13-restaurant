@@ -39,7 +39,7 @@ router.get('/', requirePermission('user:manage'), async (req, res) => {
 
   res.render('pages/admin/users/index', {
     layout: 'admin',
-    title: 'User Management',
+    title: 'Quản lý người dùng',
     users,
     roles: ROLES,
     pagination: buildPagination(page, total, filters),
@@ -53,13 +53,13 @@ router.post('/:id/role', requirePermission('user:manage'), async (req, res) => {
 
   // Safeguard 1: Cannot change own role
   if (targetId === currentUserId) {
-    req.flash('error', 'You cannot change your own role.');
+    req.flash('error', 'Bạn không thể đổi vai trò của chính mình.');
     return res.redirect('/admin/users');
   }
 
   const parsed = UpdateRoleSchema.safeParse(req.body);
   if (!parsed.success) {
-    req.flash('error', 'Invalid role selected.');
+    req.flash('error', 'Vai trò được chọn không hợp lệ.');
     return res.redirect('/admin/users');
   }
 
@@ -71,7 +71,7 @@ router.post('/:id/role', requirePermission('user:manage'), async (req, res) => {
   if (targetUser.role === Role.ADMIN && newRole !== Role.ADMIN) {
     const adminCount = await prisma.profile.count({ where: { role: Role.ADMIN } });
     if (adminCount <= 1) {
-      req.flash('error', 'Cannot demote the last remaining ADMIN.');
+      req.flash('error', 'Không thể hạ quyền ADMIN cuối cùng còn lại.');
       return res.redirect('/admin/users');
     }
   }
@@ -81,7 +81,7 @@ router.post('/:id/role', requirePermission('user:manage'), async (req, res) => {
     data: { role: newRole },
   });
 
-  req.flash('success', `Role for ${targetUser.email} changed to ${newRole}.`);
+  req.flash('success', `Đã đổi vai trò của ${targetUser.email} thành ${newRole}.`);
   res.redirect('/admin/users');
 });
 

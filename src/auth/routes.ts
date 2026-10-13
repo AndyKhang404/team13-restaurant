@@ -7,24 +7,28 @@ import { createSupabaseForRequest } from '../lib/supabase.js';
 import { safeNext } from '../lib/http.js';
 import { toFieldErrors } from '../lib/validation.js';
 import { can } from './permissions.js';
+import { authRateLimit } from '../middleware/rate-limit.js';
 
 const router = Router();
 
 const LoginSchema = z.object({
-  email: z.email('Enter a valid email').trim(),
-  password: z.string().min(1, 'Password is required'),
+  email: z.email('Email không hợp lệ').trim(),
+  password: z.string().min(1, 'Vui lòng nhập mật khẩu'),
 });
 
 const RegisterSchema = z
   .object({
-    displayName: z.string().trim().max(100).optional(),
-    email: z.email('Enter a valid email').trim(),
-    password: z.string().min(6, 'Password must be at least 6 characters').max(72),
+    displayName: z.string().trim().max(100, 'Tên hiển thị tối đa 100 ký tự').optional(),
+    email: z.email('Email không hợp lệ').trim(),
+    password: z
+      .string()
+      .min(6, 'Mật khẩu phải ít nhất 6 ký tự')
+      .max(72, 'Mật khẩu tối đa 72 ký tự'),
     confirmPassword: z.string(),
   })
   .refine((d) => d.password === d.confirmPassword, {
     path: ['confirmPassword'],
-    message: 'Passwords do not match',
+    message: 'Mật khẩu nhập lại không khớp',
   });
 
 /** Where to send a user after login: requested page, else /admin for staff, else home. */
@@ -43,7 +47,7 @@ router.get('/login', (req, res) => {
   res.render('pages/auth/login', { title: 'Sign in', next: req.query.next ?? '', values: {} });
 });
 
-router.post('/login', async (req, res) => {
+router.post('/login', authRateLimit(), async (req, res) => {
   const next = req.body?.next;
   const parsed = LoginSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -63,11 +67,11 @@ router.post('/login', async (req, res) => {
       values: { email: parsed.data.email },
       formError:
         error?.code === 'email_not_confirmed'
-          ? 'Please confirm your email address first.'
-          : 'Invalid email or password.',
+          ? 'Vui lòng xác nhận địa chỉ email trước.'
+          : 'Email hoặc mật khẩu không đúng.',
     });
   }
-  req.flash('success', 'Signed in successfully.');
+  req.flash('success', 'Đăng nhập thành công.');
   res.redirect(await landingFor(data.user.id, data.user.email ?? parsed.data.email, next));
 });
 
@@ -76,7 +80,7 @@ router.get('/register', (req, res) => {
   res.render('pages/auth/register', { title: 'Create account', values: {} });
 });
 
-router.post('/register', async (req, res) => {
+router.post('/register', authRateLimit(), async (req, res) => {
   const parsed = RegisterSchema.safeParse(req.body);
   const values = { displayName: req.body?.displayName, email: req.body?.email };
   if (!parsed.success) {
@@ -87,12 +91,14 @@ router.post('/register', async (req, res) => {
     });
   }
   const { email, password, displayName } = parsed.data;
+  // Whitespace-only names become null so profiles never store "".
+  const cleanName = displayName && displayName.trim() !== '' ? displayName : null;
   const supabase = createSupabaseForRequest(req, res);
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
-      data: displayName ? { display_name: displayName } : {},
+      data: cleanName ? { display_name: cleanName } : {},
       emailRedirectTo: `${env.APP_URL}/auth/callback`,
     },
   });
@@ -106,13 +112,13 @@ router.post('/register', async (req, res) => {
   if (data.user) {
     await prisma.profile.upsert({
       where: { id: data.user.id },
-      create: { id: data.user.id, email, displayName: displayName ?? null },
+      create: { id: data.user.id, email, displayName: cleanName },
       update: {},
     });
   }
   if (data.session) {
     // Email confirmation disabled: user is signed in immediately.
-    req.flash('success', 'Welcome! Your account has been created.');
+    req.flash('success', 'Chào mừng! Tài khoản của bạn đã được tạo.');
     return res.redirect('/');
   }
   res.render('pages/auth/check-email', { title: 'Check your email', email });
@@ -121,7 +127,7 @@ router.post('/register', async (req, res) => {
 router.post('/logout', async (req, res) => {
   const supabase = createSupabaseForRequest(req, res);
   await supabase.auth.signOut();
-  req.flash('info', 'You have been signed out.');
+  req.flash('info', 'Bạn đã đăng xuất.');
   res.redirect('/');
 });
 
@@ -139,10 +145,10 @@ router.get('/auth/callback', async (req, res) => {
       : { data: { user: null }, error: new Error('Missing confirmation code') };
 
   if (error || !data.user) {
-    req.flash('error', 'That confirmation link is invalid or has expired. Please sign in.');
+    req.flash('error', 'Liên kết xác nhận không hợp lệ hoặc đã hết hạn. Vui lòng đăng nhập.');
     return res.redirect('/login');
   }
-  req.flash('success', 'Your email is confirmed. Welcome!');
+  req.flash('success', 'Email đã được xác nhận. Chào mừng bạn!');
   res.redirect(await landingFor(data.user.id, data.user.email ?? '', req.query.next));
 });
 

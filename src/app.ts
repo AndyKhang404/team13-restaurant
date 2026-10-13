@@ -75,12 +75,14 @@ export function createApp() {
   app.use(express.json());
   app.use(cookieParser(env.CSRF_SECRET));
 
-  // Multipart parser (for image uploads)
-  app.use(multipart);
-
-  // Browser ID cookie for CSRF binding + Flash messages
+  // Browser ID cookie for CSRF binding + Flash messages.
+  // NOTE: `flash` runs before `multipart` so oversized uploads can redirect
+  // back with a friendly message instead of a bare 500 page.
   app.use(browserId);
   app.use(flash);
+
+  // Multipart parser (for image uploads)
+  app.use(multipart);
 
   // Double-submit CSRF protection + inject csrfToken helper to res.locals
   app.use(csrfProtection);

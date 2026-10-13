@@ -16,26 +16,26 @@
 
       <div class="field">
         <label for="name">Tên món <span class="req">*</span></label>
-        <input type="text" id="name" name="name" value="{{values.name}}" required placeholder="VD: Phở bò tái lăn" />
+        <input type="text" id="name" name="name" value="{{values.name}}" required maxlength="120" placeholder="VD: Phở bò tái lăn" />
         {{#if errors.name}}<p class="err">{{errors.name}}</p>{{/if}}
       </div>
 
       <div class="field">
         <label for="slug">URL slug</label>
-        <input type="text" id="slug" name="slug" value="{{values.slug}}" placeholder="pho-bo-tai-lan" />
+        <input type="text" id="slug" name="slug" value="{{values.slug}}" maxlength="120" placeholder="pho-bo-tai-lan" />
         {{#if errors.slug}}<p class="err">{{errors.slug}}</p>{{/if}}
         <p class="hint">Để trống sẽ tự sinh từ tên món.</p>
       </div>
 
       <div class="field full">
         <label for="description">Mô tả</label>
-        <textarea id="description" name="description" rows="3" placeholder="Mô tả ngắn về món ăn, nguồn gốc hoặc hương vị...">{{values.description}}</textarea>
+        <textarea id="description" name="description" rows="3" maxlength="2000" placeholder="Mô tả ngắn về món ăn, nguồn gốc hoặc hương vị...">{{values.description}}</textarea>
         {{#if errors.description}}<p class="err">{{errors.description}}</p>{{/if}}
       </div>
 
       <div class="field">
         <label for="price">Giá (VNĐ) <span class="req">*</span></label>
-        <input type="number" id="price" name="price" step="1000" min="0" value="{{values.price}}" required placeholder="55000" />
+        <input type="number" id="price" name="price" step="any" min="0" value="{{values.price}}" required placeholder="55000" />
         {{#if errors.price}}<p class="err">{{errors.price}}</p>{{/if}}
       </div>
 
@@ -65,6 +65,7 @@
             </option>
           {{/each}}
         </select>
+        {{#if errors.chefId}}<p class="err">{{errors.chefId}}</p>{{/if}}
       </div>
 
       <div class="field full">
@@ -95,17 +96,18 @@
           </div>
           <button type="button" class="btn btn-quiet btn-sm" id="add-ingredient-btn">+ Thêm dòng</button>
         </div>
+        {{#if errors.ingredients}}<p class="err">{{errors.ingredients}}</p>{{/if}}
         <div id="ingredient-rows-container" class="ing-rows">
           {{#each dishIngredients}}
             <div class="ing-row">
               <select name="ingredient_id" class="ing-sel" required>
                 <option value="">Chọn nguyên liệu</option>
                 {{#each ../ingredients}}
-                  <option value="{{id}}" {{#if (eq ../ingredientId id)}}selected{{/if}}>{{name}} ({{unit}}){{#if isDeleted}} [đã xóa]{{/if}}</option>
+                  <option value="{{id}}" data-unit="{{unit}}" {{#if (eq ../ingredientId id)}}selected{{/if}}>{{name}} ({{unit}}){{#if isDeleted}} [đã xóa]{{/if}}</option>
                 {{/each}}
               </select>
               <input type="number" step="any" min="0.01" name="quantity" value="{{quantity}}" placeholder="SL" class="ing-qty" required />
-              <input type="text" name="unit" value="{{unit}}" placeholder="ĐVT" class="ing-unit" />
+              <input type="text" name="unit" value="{{unit}}" maxlength="30" placeholder="ĐVT" class="ing-unit" />
               <button type="button" class="remove-row-btn" title="Xóa dòng">✕</button>
             </div>
           {{/each}}
@@ -128,7 +130,7 @@
   const ingredientOptions = `
     <option value="">Chọn nguyên liệu</option>
     {{#each ingredients}}
-      <option value="{{id}}">{{name}} ({{unit}}){{#if isDeleted}} [đã xóa]{{/if}}</option>
+      <option value="{{id}}" data-unit="{{unit}}">{{name}} ({{unit}}){{#if isDeleted}} [đã xóa]{{/if}}</option>
     {{/each}}
   `;
 
@@ -138,7 +140,7 @@
     row.innerHTML = `
       <select name="ingredient_id" class="ing-sel" required>${ingredientOptions}</select>
       <input type="number" step="any" min="0.01" name="quantity" placeholder="SL" class="ing-qty" required />
-      <input type="text" name="unit" placeholder="ĐVT" value="g" class="ing-unit" />
+      <input type="text" name="unit" maxlength="30" placeholder="ĐVT" class="ing-unit" />
       <button type="button" class="remove-row-btn" title="Xóa dòng">✕</button>
     `;
     container.appendChild(row);
@@ -148,5 +150,15 @@
   container.addEventListener('click', (e) => {
     const btn = e.target.closest('.remove-row-btn');
     if (btn) btn.closest('.ing-row').remove();
+  });
+
+  container.addEventListener('change', (e) => {
+    if (!e.target.matches('select[name="ingredient_id"]')) return;
+    const row = e.target.closest('.ing-row');
+    const unitInput = row && row.querySelector('input[name="unit"]');
+    const opt = e.target.selectedOptions && e.target.selectedOptions[0];
+    if (unitInput && opt && !unitInput.value.trim()) {
+      unitInput.value = opt.dataset.unit || 'g';
+    }
   });
 </script>

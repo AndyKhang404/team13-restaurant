@@ -16,31 +16,31 @@
 
       <div class="field">
         <label for="name">Họ và tên <span class="req">*</span></label>
-        <input type="text" id="name" name="name" value="{{values.name}}" required placeholder="VD: Nguyễn Văn An" />
+        <input type="text" id="name" name="name" value="{{values.name}}" required maxlength="120" placeholder="VD: Nguyễn Văn An" />
         {{#if errors.name}}<p class="err">{{errors.name}}</p>{{/if}}
       </div>
 
       <div class="field">
         <label for="specialty">Chuyên môn</label>
-        <input type="text" id="specialty" name="specialty" value="{{values.specialty}}" placeholder="VD: Món Việt, Món Âu, Sushi" />
+        <input type="text" id="specialty" name="specialty" value="{{values.specialty}}" maxlength="120" placeholder="VD: Món Việt, Món Âu, Sushi" />
         {{#if errors.specialty}}<p class="err">{{errors.specialty}}</p>{{/if}}
       </div>
 
       <div class="field">
         <label for="experienceYears">Số năm kinh nghiệm</label>
-        <input type="number" id="experienceYears" name="experienceYears" min="0" value="{{values.experienceYears}}" placeholder="5" />
+        <input type="number" id="experienceYears" name="experienceYears" min="0" max="100" step="1" value="{{values.experienceYears}}" placeholder="5" />
         {{#if errors.experienceYears}}<p class="err">{{errors.experienceYears}}</p>{{/if}}
       </div>
 
       <div class="field">
         <label for="phone">Số điện thoại</label>
-        <input type="tel" id="phone" name="phone" value="{{values.phone}}" placeholder="+84 901 234 567" />
+        <input type="tel" id="phone" name="phone" value="{{values.phone}}" maxlength="30" placeholder="+84 901 234 567" />
         {{#if errors.phone}}<p class="err">{{errors.phone}}</p>{{/if}}
       </div>
 
       <div class="field full">
         <label for="bio">Tiểu sử</label>
-        <textarea id="bio" name="bio" rows="3" placeholder="Công việc và thành tựu ẩm thực ngắn gọn...">{{values.bio}}</textarea>
+        <textarea id="bio" name="bio" rows="3" maxlength="1000" placeholder="Công việc và thành tựu ẩm thực ngắn gọn...">{{values.bio}}</textarea>
         {{#if errors.bio}}<p class="err">{{errors.bio}}</p>{{/if}}
       </div>
 

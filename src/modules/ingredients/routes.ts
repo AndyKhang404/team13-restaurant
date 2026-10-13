@@ -11,14 +11,29 @@ import { requirePermission } from '../../auth/middleware.js';
 
 const router = Router();
 
-const IngredientSchema = z.object({
-  name: requiredText('Name', 120),
-  unit: requiredText('Unit', 30).default('g'),
-  stockQuantity: decimal('Stock quantity', 0).default(0),
-  pricePerUnit: decimal('Price per unit', 0).default(0),
+export const IngredientSchema = z.object({
+  name: requiredText('Tên nguyên liệu', 120),
+  unit: requiredText('Đơn vị', 30).default('g'),
+  stockQuantity: decimal('Tồn kho', 0).default(0),
+  pricePerUnit: decimal('Giá mỗi đơn vị', 0).default(0),
   isAvailable: checkbox,
   removeImage: checkbox,
 });
+
+const DUPLICATE_NAME_ERROR = 'Nguyên liệu này đã tồn tại';
+
+/** Case-insensitive name clash (the DB unique index is case-sensitive,
+ * so "Thịt bò" vs "THỊT BÒ" would otherwise slip through as duplicates).
+ */
+async function findNameClash(name: string, excludeId?: string) {
+  return prisma.ingredient.findFirst({
+    where: {
+      name: { equals: name, mode: 'insensitive' },
+      ...(excludeId ? { id: { not: excludeId } } : {}),
+    },
+    select: { id: true },
+  });
+}
 
 router.get('/', requirePermission('ingredient:create'), async (req, res) => {
   const { page, q, showDeleted, filters } = listParams(req);
@@ -39,7 +54,7 @@ router.get('/', requirePermission('ingredient:create'), async (req, res) => {
 
   res.render('pages/admin/ingredients/index', {
     layout: 'admin',
-    title: 'Ingredients',
+    title: 'Kho nguyên liệu',
     ingredients,
     pagination: buildPagination(page, total, filters),
     q,
@@ -50,7 +65,7 @@ router.get('/', requirePermission('ingredient:create'), async (req, res) => {
 router.get('/new', requirePermission('ingredient:create'), (_req, res) => {
   res.render('pages/admin/ingredients/form', {
     layout: 'admin',
-    title: 'New Ingredient',
+    title: 'Nguyên liệu mới',
     isNew: true,
     values: { unit: 'g', stockQuantity: 0, pricePerUnit: 0, isAvailable: true },
     errors: {},
@@ -67,10 +82,20 @@ router.post('/', requirePermission('ingredient:create'), async (req, res) => {
     if (imageErr) errors['image'] = imageErr;
     return res.status(422).render('pages/admin/ingredients/form', {
       layout: 'admin',
-      title: 'New Ingredient',
+      title: 'Nguyên liệu mới',
       isNew: true,
       values: req.body,
       errors,
+    });
+  }
+
+  if (await findNameClash(parsed.data.name)) {
+    return res.status(422).render('pages/admin/ingredients/form', {
+      layout: 'admin',
+      title: 'Nguyên liệu mới',
+      isNew: true,
+      values: req.body,
+      errors: { name: DUPLICATE_NAME_ERROR },
     });
   }
 
@@ -92,16 +117,16 @@ router.post('/', requirePermission('ingredient:create'), async (req, res) => {
     if (isUniqueViolation(e, 'name')) {
       return res.status(422).render('pages/admin/ingredients/form', {
         layout: 'admin',
-        title: 'New Ingredient',
+        title: 'Nguyên liệu mới',
         isNew: true,
         values: req.body,
-        errors: { name: 'An ingredient with this name already exists' },
+        errors: { name: DUPLICATE_NAME_ERROR },
       });
     }
     throw e;
   }
 
-  req.flash('success', `Ingredient "${data.name}" created successfully.`);
+  req.flash('success', `Đã tạo nguyên liệu "${data.name}".`);
   res.redirect('/admin/ingredients');
 });
 
@@ -112,7 +137,7 @@ router.get('/:id/edit', requirePermission('ingredient:update'), async (req, res)
 
   res.render('pages/admin/ingredients/form', {
     layout: 'admin',
-    title: `Edit Ingredient: ${ingredient.name}`,
+    title: `Sửa nguyên liệu: ${ingredient.name}`,
     isNew: false,
     ingredient,
     values: ingredient,
@@ -134,11 +159,22 @@ router.post('/:id', requirePermission('ingredient:update'), async (req, res) => 
     if (imageErr) errors['image'] = imageErr;
     return res.status(422).render('pages/admin/ingredients/form', {
       layout: 'admin',
-      title: `Edit Ingredient: ${ingredient.name}`,
+      title: `Sửa nguyên liệu: ${ingredient.name}`,
       isNew: false,
       ingredient,
       values: req.body,
       errors,
+    });
+  }
+
+  if (await findNameClash(parsed.data.name, id)) {
+    return res.status(422).render('pages/admin/ingredients/form', {
+      layout: 'admin',
+      title: `Sửa nguyên liệu: ${ingredient.name}`,
+      isNew: false,
+      ingredient,
+      values: req.body,
+      errors: { name: DUPLICATE_NAME_ERROR },
     });
   }
 
@@ -169,17 +205,17 @@ router.post('/:id', requirePermission('ingredient:update'), async (req, res) => 
     if (isUniqueViolation(e, 'name')) {
       return res.status(422).render('pages/admin/ingredients/form', {
         layout: 'admin',
-        title: `Edit Ingredient: ${ingredient.name}`,
+        title: `Sửa nguyên liệu: ${ingredient.name}`,
         isNew: false,
         ingredient,
         values: req.body,
-        errors: { name: 'An ingredient with this name already exists' },
+        errors: { name: DUPLICATE_NAME_ERROR },
       });
     }
     throw e;
   }
 
-  req.flash('success', `Ingredient "${data.name}" updated successfully.`);
+  req.flash('success', `Đã cập nhật nguyên liệu "${data.name}".`);
   res.redirect('/admin/ingredients');
 });
 
@@ -190,7 +226,7 @@ router.post('/:id/delete', requirePermission('ingredient:delete'), async (req, r
       where: { id },
       data: { deletedAt: new Date() },
     });
-    req.flash('success', 'Ingredient moved to deleted list.');
+    req.flash('success', 'Đã chuyển nguyên liệu vào danh sách đã xóa.');
   } catch (e) {
     if (isNotFound(e)) throw notFound('Ingredient');
     throw e;
@@ -205,7 +241,7 @@ router.post('/:id/restore', requirePermission('ingredient:restore'), async (req,
       where: { id },
       data: { deletedAt: null },
     });
-    req.flash('success', 'Ingredient restored successfully.');
+    req.flash('success', 'Đã khôi phục nguyên liệu.');
   } catch (e) {
     if (isNotFound(e)) throw notFound('Ingredient');
     throw e;

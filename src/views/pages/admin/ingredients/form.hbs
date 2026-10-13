@@ -16,13 +16,22 @@
 
       <div class="field">
         <label for="name">Tên nguyên liệu <span class="req">*</span></label>
-        <input type="text" id="name" name="name" value="{{values.name}}" required placeholder="VD: Thịt bò tái, cà chua" />
+        <input type="text" id="name" name="name" value="{{values.name}}" required maxlength="120" placeholder="VD: Thịt bò tái, cà chua" />
         {{#if errors.name}}<p class="err">{{errors.name}}</p>{{/if}}
       </div>
 
       <div class="field">
         <label for="unit">Đơn vị tính <span class="req">*</span></label>
-        <input type="text" id="unit" name="unit" value="{{values.unit}}" required placeholder="g, kg, ml, lít, cái" />
+        <input type="text" id="unit" name="unit" value="{{values.unit}}" required maxlength="30" list="unit-suggestions" placeholder="g, kg, ml, lít, cái" />
+        <datalist id="unit-suggestions">
+          <option value="g"></option>
+          <option value="kg"></option>
+          <option value="ml"></option>
+          <option value="lít"></option>
+          <option value="cái"></option>
+          <option value="gói"></option>
+          <option value="miếng"></option>
+        </datalist>
         {{#if errors.unit}}<p class="err">{{errors.unit}}</p>{{/if}}
       </div>
 
