@@ -1,26 +1,35 @@
 <aside class="sidebar">
-  <div class="side-brand">Team13 <i>Admin</i></div>
-  <div class="side-label">Quản trị dữ liệu</div>
-  <a class="side-link {{#if (eq title 'Dishes')}}active{{/if}}" href="/admin/dishes"><span class="n">01</span> Món ăn</a>
-  <a class="side-link {{#if (eq title 'Chefs')}}active{{/if}}" href="/admin/chefs"><span class="n">02</span> Đầu bếp</a>
-  <a class="side-link {{#if (eq title 'Ingredients')}}active{{/if}}" href="/admin/ingredients"><span class="n">03</span> Nguyên liệu</a>
-  {{#if (can user 'user:manage')}}
-    <a class="side-link {{#if (eq title 'User Management')}}active{{/if}}" href="/admin/users"><span class="n">04</span> Người dùng</a>
-  {{/if}}
-  <div class="side-label">Khác</div>
-  <a class="side-link" href="/"><span class="n">05</span> Trang người dùng</a>
+  <input type="checkbox" id="admin-nav-toggle" class="admin-nav-toggle" aria-label="Mở menu quản trị" />
+  <div class="side-bar">
+    <a class="side-brand" href="/admin">Team13 <i>Admin</i></a>
+    <label for="admin-nav-toggle" class="side-toggle" aria-label="Menu quản trị">
+      <span class="side-toggle-text">Menu</span>
+      <span class="side-burger"><span></span><span></span><span></span></span>
+    </label>
+  </div>
+  <div class="side-menu">
+    <div class="side-label">Quản trị dữ liệu</div>
+    <a class="side-link {{#if (eq title 'Dishes')}}active{{/if}}" href="/admin/dishes"><span class="n">01</span> Món ăn</a>
+    <a class="side-link {{#if (eq title 'Chefs')}}active{{/if}}" href="/admin/chefs"><span class="n">02</span> Đầu bếp</a>
+    <a class="side-link {{#if (eq title 'Ingredients')}}active{{/if}}" href="/admin/ingredients"><span class="n">03</span> Nguyên liệu</a>
+    {{#if (can user 'user:manage')}}
+      <a class="side-link {{#if (eq title 'User Management')}}active{{/if}}" href="/admin/users"><span class="n">04</span> Người dùng</a>
+    {{/if}}
+    <div class="side-label">Khác</div>
+    <a class="side-link" href="/"><span class="n">05</span> Trang người dùng</a>
 
-  <div class="side-foot">
-    <div class="userbox">
-      <span class="avatar">T13</span>
-      <div>
-        <b>{{#if user.displayName}}{{user.displayName}}{{else}}Quản trị viên{{/if}}</b>
-        <span>{{user.email}}</span>
+    <div class="side-foot">
+      <div class="userbox">
+        <span class="avatar">T13</span>
+        <div>
+          <b>{{#if user.displayName}}{{user.displayName}}{{else}}Quản trị viên{{/if}}</b>
+          <span>{{user.email}}</span>
+        </div>
       </div>
+      <form action="/logout" method="POST">
+        <input type="hidden" name="_csrf" value="{{csrfToken}}" />
+        <button type="submit" class="side-link" style="width:100%;border:0;background:none;font:inherit;text-align:left;cursor:pointer"><span class="n">06</span> Đăng xuất</button>
+      </form>
     </div>
-    <form action="/logout" method="POST">
-      <input type="hidden" name="_csrf" value="{{csrfToken}}" />
-      <button type="submit" class="side-link" style="width:100%;border:0;background:none;font:inherit;text-align:left;cursor:pointer"><span class="n">06</span> Đăng xuất</button>
-    </form>
   </div>
 </aside>

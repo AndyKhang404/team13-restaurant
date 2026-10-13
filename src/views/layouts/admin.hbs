@@ -51,6 +51,21 @@
       apply();
     }
   });
+
+  var navToggle = document.getElementById('admin-nav-toggle');
+  if (navToggle) {
+    document.addEventListener('click', function (e) {
+      var sidebar = document.querySelector('.sidebar');
+      if (navToggle.checked && sidebar && !sidebar.contains(e.target)) {
+        navToggle.checked = false;
+      }
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && navToggle.checked) {
+        navToggle.checked = false;
+      }
+    });
+  }
 })();
 </script>
 </body>
