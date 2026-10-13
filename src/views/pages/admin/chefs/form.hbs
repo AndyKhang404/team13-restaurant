@@ -48,7 +48,7 @@
         <label for="avatar">Ảnh chân dung</label>
         {{#if values.avatarUrl}}
           <div class="form-photo">
-            <img class="img-preview" src="{{values.avatarUrl}}" alt="Ảnh hiện tại" />
+            {{> avatar url=values.avatarUrl name="Ảnh hiện tại" size=96 }}
             <label class="check"><input type="checkbox" name="removeImage" value="on" /> Gỡ ảnh hiện tại</label>
           </div>
         {{/if}}

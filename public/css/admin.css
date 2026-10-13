@@ -340,3 +340,9 @@ tbody tr:hover .cell-item .thumb,tbody tr:hover .cell-item .thumb-ph{box-shadow:
   .ing-row .ing-sel{grid-column:1/-1}
   .ing-row .remove-row-btn{grid-column:1/-1}
 }
+
+/* Avatar dau bep: anh that hoac fallback kieu Facebook (tron, dong nhat .thumb) */
+.avatar-img{border-radius:50%;object-fit:cover;flex:none}
+.avatar-fb{display:inline-grid;place-items:center;border-radius:50%;flex:none;background:#d9e5f1;border:1px solid #c4d2e0;color:#7d90a6}
+.avatar-fb svg{width:62%;height:62%;fill:currentColor}
+.thumb-round{border-radius:50%}
