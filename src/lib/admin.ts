@@ -1,5 +1,6 @@
 import type { Request } from 'express';
 import { Prisma } from '../generated/prisma/client.js';
+import { notFound } from './http.js';
 import { parsePage } from './pagination.js';
 
 export function listParams(req: Request) {
@@ -17,9 +18,15 @@ export function listParams(req: Request) {
   };
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Route :id param. Garbage IDs become 404 instead of crashing Prisma (500),
+ * since Prisma rejects malformed UUIDs with a validation error.
+ */
 export function paramId(raw: unknown): string {
-  if (Array.isArray(raw)) return String(raw[0] ?? '');
-  return typeof raw === 'string' ? raw : String(raw ?? '');
+  const id = Array.isArray(raw) ? String(raw[0] ?? '') : typeof raw === 'string' ? raw : String(raw ?? '');
+  if (!UUID_RE.test(id)) throw notFound();
+  return id;
 }
 
 export function isUniqueViolation(e: unknown, field?: string): boolean {

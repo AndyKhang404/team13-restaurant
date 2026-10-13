@@ -2,10 +2,10 @@
   <div class="flex items-center justify-between pb-6 mb-6 border-b border-slate-100">
     <div>
       <h2 class="text-xl font-bold text-slate-900 tracking-tight">{{title}}</h2>
-      <p class="text-xs text-slate-500 mt-1">Manage kitchen ingredient inventory and cost.</p>
+      <p class="text-xs text-slate-500 mt-1">Quản lý tồn kho và giá vốn nguyên liệu.</p>
     </div>
     <a href="/admin/ingredients" class="text-xs font-semibold text-slate-600 hover:text-slate-900">
-      ← Back to Ingredients
+      ← Về danh sách nguyên liệu
     </a>
   </div>
 
@@ -16,7 +16,7 @@
       <!-- Ingredient Name -->
       <div>
         <label for="name" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-          Ingredient Name <span class="text-rose-500">*</span>
+          Tên nguyên liệu <span class="text-rose-500">*</span>
         </label>
         <input
           type="text"
@@ -24,6 +24,7 @@
           name="name"
           value="{{values.name}}"
           required
+          maxlength="120"
           class="w-full px-3.5 py-2.5 rounded-lg border {{#if errors.name}}border-rose-400 bg-rose-50/30{{else}}border-slate-300{{/if}} text-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500"
           placeholder="e.g. Thịt bò tái, Cà chua"
         />
@@ -33,7 +34,7 @@
       <!-- Unit -->
       <div>
         <label for="unit" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-          Unit of Measurement <span class="text-rose-500">*</span>
+          Đơn vị tính <span class="text-rose-500">*</span>
         </label>
         <input
           type="text"
@@ -41,9 +42,20 @@
           name="unit"
           value="{{values.unit}}"
           required
+          maxlength="30"
+          list="unit-suggestions"
           class="w-full px-3.5 py-2.5 rounded-lg border {{#if errors.unit}}border-rose-400 bg-rose-50/30{{else}}border-slate-300{{/if}} text-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500"
-          placeholder="g, kg, ml, liter, cái"
+          placeholder="g, kg, ml, lít, cái"
         />
+        <datalist id="unit-suggestions">
+          <option value="g"></option>
+          <option value="kg"></option>
+          <option value="ml"></option>
+          <option value="lít"></option>
+          <option value="cái"></option>
+          <option value="gói"></option>
+          <option value="miếng"></option>
+        </datalist>
         {{#if errors.unit}}<p class="text-xs text-rose-600 mt-1">{{errors.unit}}</p>{{/if}}
       </div>
     </div>
@@ -52,7 +64,7 @@
       <!-- Stock Quantity -->
       <div>
         <label for="stockQuantity" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-          Stock Quantity
+          Tồn kho
         </label>
         <input
           type="number"
@@ -70,7 +82,7 @@
       <!-- Price Per Unit -->
       <div>
         <label for="pricePerUnit" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-          Cost per Unit (VND)
+          Giá mỗi đơn vị (VND)
         </label>
         <input
           type="number"
@@ -88,17 +100,17 @@
 
     <!-- Image Upload -->
     <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
-      <label for="image" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider">Ingredient Photo</label>
+      <label for="image" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider">Ảnh nguyên liệu</label>
 
       {{#if values.imageUrl}}
         <div class="flex items-center gap-4">
-          <img src="{{values.imageUrl}}" alt="Current ingredient" class="w-16 h-16 rounded-lg object-cover border border-slate-300" />
+          <img src="{{values.imageUrl}}" alt="Ảnh hiện tại" class="w-16 h-16 rounded-lg object-cover border border-slate-300" />
           <div>
             <label class="inline-flex items-center gap-2 text-xs font-medium text-rose-600 cursor-pointer">
               <input type="checkbox" name="removeImage" value="on" class="rounded border-slate-300 text-rose-600 focus:ring-rose-500" />
-              Remove existing photo
+              Xóa ảnh hiện tại
             </label>
-            <p class="text-[11px] text-slate-400 mt-1">Or choose a new file below to replace it.</p>
+            <p class="text-[11px] text-slate-400 mt-1">Hoặc chọn file mới bên dưới để thay thế.</p>
           </div>
         </div>
       {{/if}}
@@ -111,27 +123,27 @@
         class="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100"
       />
       {{#if errors.image}}<p class="text-xs text-rose-600 mt-1">{{errors.image}}</p>{{/if}}
-      <p class="text-[11px] text-slate-400">Accepted formats: JPG, PNG, WebP (max 2 MB).</p>
+      <p class="text-[11px] text-slate-400">Định dạng: JPG, PNG, WebP (tối đa 2 MB).</p>
     </div>
 
     <!-- Available Checkbox -->
     <div>
       <label class="inline-flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
         <input type="checkbox" name="isAvailable" value="on" {{#if values.isAvailable}}checked{{/if}} class="rounded border-slate-300 text-amber-600 focus:ring-amber-500" />
-        <span>Available in stock for recipes</span>
+        <span>Còn hàng để nấu</span>
       </label>
     </div>
 
     <!-- Submit buttons -->
     <div class="pt-6 border-t border-slate-200 flex items-center justify-end gap-3">
       <a href="/admin/ingredients" class="px-4 py-2 rounded-lg border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
-        Cancel
+        Hủy
       </a>
       <button
         type="submit"
         class="px-5 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold shadow-xs transition-colors"
       >
-        {{#if isNew}}Create Ingredient{{else}}Save Changes{{/if}}
+        {{#if isNew}}Tạo nguyên liệu{{else}}Lưu thay đổi{{/if}}
       </button>
     </div>
   </form>

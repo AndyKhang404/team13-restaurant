@@ -61,16 +61,41 @@
       <div class="section">
         <h3>Đầu bếp phụ trách</h3>
         <div class="chef-card">
-          {{#if chef.avatarUrl}}
-            <img src="{{chef.avatarUrl}}" alt="{{chef.name}}" loading="lazy" />
-          {{/if}}
+          <button type="button" class="chef-open" data-chef-open aria-haspopup="dialog" aria-controls="chef-dialog" title="Xem thông tin {{chef.name}}">
+            {{> avatar url=chef.avatarUrl name=chef.name size=74}}
+            <span>
+              <span class="role">{{#if chef.specialty}}{{chef.specialty}}{{else}}Bếp trưởng{{/if}}</span>
+              <b class="chef-name">{{chef.name}}</b>
+            </span>
+          </button>
           <div>
-            <span class="role">{{#if chef.specialty}}{{chef.specialty}}{{else}}Bếp trưởng{{/if}}</span>
-            <b>{{chef.name}}</b>
             {{#if chef.bio}}<p>{{chef.bio}}</p>{{/if}}
           </div>
         </div>
       </div>
+
+      <dialog id="chef-dialog" class="chef-dialog" aria-labelledby="chef-dialog-name">
+        <div class="chef-dialog-card">
+          <button type="button" class="chef-dialog-close" data-chef-close aria-label="Đóng">×</button>
+          {{> avatar url=chef.avatarUrl name=chef.name size=96}}
+          <span class="role">{{#if chef.specialty}}{{chef.specialty}}{{else}}Bếp trưởng{{/if}}</span>
+          <h3 id="chef-dialog-name">{{chef.name}}</h3>
+          {{#if chef.bio}}<p>{{chef.bio}}</p>{{/if}}
+          {{#if chef.experienceYears}}<p class="muted">Kinh nghiệm: {{chef.experienceYears}} năm</p>{{/if}}
+        </div>
+      </dialog>
+      <script>
+      (function () {
+        var btn = document.querySelector('[data-chef-open]');
+        var dlg = document.getElementById('chef-dialog');
+        if (!btn || !dlg || typeof dlg.showModal !== 'function') return;
+        btn.addEventListener('click', function () { dlg.showModal(); });
+        dlg.addEventListener('click', function (e) {
+          if (e.target === dlg) dlg.close();
+          if (e.target.closest('[data-chef-close]')) dlg.close();
+        });
+      })();
+      </script>
     {{/if}}
 
     <div class="actions-row">

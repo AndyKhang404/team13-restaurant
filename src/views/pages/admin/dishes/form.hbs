@@ -2,10 +2,10 @@
   <div class="flex items-center justify-between pb-6 mb-6 border-b border-slate-100">
     <div>
       <h2 class="text-xl font-bold text-slate-900 tracking-tight">{{title}}</h2>
-      <p class="text-xs text-slate-500 mt-1">Fill in the meal details and select ingredients.</p>
+      <p class="text-xs text-slate-500 mt-1">Điền thông tin món ăn và chọn nguyên liệu.</p>
     </div>
     <a href="/admin/dishes" class="text-xs font-semibold text-slate-600 hover:text-slate-900">
-      ← Back to Dishes
+      ← Về danh sách món
     </a>
   </div>
 
@@ -16,7 +16,7 @@
       <!-- Dish Name -->
       <div>
         <label for="name" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-          Dish Name <span class="text-rose-500">*</span>
+          Tên món <span class="text-rose-500">*</span>
         </label>
         <input
           type="text"
@@ -24,8 +24,9 @@
           name="name"
           value="{{values.name}}"
           required
+          maxlength="120"
           class="w-full px-3.5 py-2.5 rounded-lg border {{#if errors.name}}border-rose-400 bg-rose-50/30{{else}}border-slate-300{{/if}} text-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500"
-          placeholder="e.g. Phở Bò Tái Lăn"
+          placeholder="vd. Phở Bò Tái Lăn"
         />
         {{#if errors.name}}<p class="text-xs text-rose-600 mt-1">{{errors.name}}</p>{{/if}}
       </div>
@@ -33,30 +34,32 @@
       <!-- URL Slug -->
       <div>
         <label for="slug" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-          URL Slug
+          Slug URL
         </label>
         <input
           type="text"
           id="slug"
           name="slug"
           value="{{values.slug}}"
+          maxlength="120"
           class="w-full px-3.5 py-2.5 rounded-lg border {{#if errors.slug}}border-rose-400 bg-rose-50/30{{else}}border-slate-300{{/if}} text-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500 font-mono text-xs"
-          placeholder="e.g. pho-bo-tai-lan (leave blank to auto-generate)"
+          placeholder="vd. pho-bo-tai-lan (để trống để tự tạo)"
         />
         {{#if errors.slug}}<p class="text-xs text-rose-600 mt-1">{{errors.slug}}</p>{{/if}}
-        <p class="text-[11px] text-slate-400 mt-1">Leaves blank to auto-generate from dish name.</p>
+        <p class="text-[11px] text-slate-400 mt-1">Để trống để tự tạo từ tên món.</p>
       </div>
     </div>
 
     <!-- Description -->
     <div>
-      <label for="description" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Description</label>
+      <label for="description" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Mô tả</label>
       <textarea
         id="description"
         name="description"
         rows="3"
+        maxlength="2000"
         class="w-full px-3.5 py-2.5 rounded-lg border {{#if errors.description}}border-rose-400 bg-rose-50/30{{else}}border-slate-300{{/if}} text-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500"
-        placeholder="Brief description of the dish, heritage, or tasting notes..."
+        placeholder="Mô tả ngắn về món ăn, nguồn gốc, hương vị..."
       >{{values.description}}</textarea>
       {{#if errors.description}}<p class="text-xs text-rose-600 mt-1">{{errors.description}}</p>{{/if}}
     </div>
@@ -65,13 +68,13 @@
       <!-- Price -->
       <div>
         <label for="price" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-          Price (VND) <span class="text-rose-500">*</span>
+          Giá bán (VND) <span class="text-rose-500">*</span>
         </label>
         <input
           type="number"
           id="price"
           name="price"
-          step="1000"
+          step="any"
           min="0"
           value="{{values.price}}"
           required
@@ -84,7 +87,7 @@
       <!-- Category -->
       <div>
         <label for="category" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-          Category <span class="text-rose-500">*</span>
+          Danh mục <span class="text-rose-500">*</span>
         </label>
         <select
           id="category"
@@ -102,7 +105,7 @@
       <!-- Prep Time -->
       <div>
         <label for="prepTimeMinutes" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-          Prep Time (Mins)
+          Thời gian chế biến (phút)
         </label>
         <input
           type="number"
@@ -119,34 +122,35 @@
 
     <!-- Chef Assignment -->
     <div>
-      <label for="chefId" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Assigned Chef</label>
+      <label for="chefId" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Đầu bếp phụ trách</label>
       <select
         id="chefId"
         name="chefId"
-        class="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500"
+        class="w-full px-3.5 py-2.5 rounded-lg border {{#if errors.chefId}}border-rose-400 bg-rose-50/30{{else}}border-slate-300{{/if}} text-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500"
       >
-        <option value="">No specific chef</option>
+        <option value="">Không chỉ định bếp</option>
         {{#each chefs}}
           <option value="{{id}}" {{#if (eq ../values.chefId id)}}selected{{/if}}>
-            {{name}} {{#if specialty}}({{specialty}}){{/if}} {{#if isDeleted}}[Deleted]{{/if}}
+            {{name}} {{#if specialty}}({{specialty}}){{/if}} {{#if isDeleted}}[Đã xóa]{{/if}}
           </option>
         {{/each}}
       </select>
+      {{#if errors.chefId}}<p class="text-xs text-rose-600 mt-1">{{errors.chefId}}</p>{{/if}}
     </div>
 
     <!-- Image Upload & Preview -->
     <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
-      <label for="image" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider">Dish Photo</label>
+      <label for="image" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider">Ảnh món ăn</label>
 
       {{#if values.imageUrl}}
         <div class="flex items-center gap-4">
-          <img src="{{values.imageUrl}}" alt="Current photo" class="w-20 h-20 rounded-lg object-cover border border-slate-300" />
+          <img src="{{values.imageUrl}}" alt="Ảnh hiện tại" class="w-20 h-20 rounded-lg object-cover border border-slate-300" />
           <div>
             <label class="inline-flex items-center gap-2 text-xs font-medium text-rose-600 cursor-pointer">
               <input type="checkbox" name="removeImage" value="on" class="rounded border-slate-300 text-rose-600 focus:ring-rose-500" />
-              Remove existing image
+              Xóa ảnh hiện tại
             </label>
-            <p class="text-[11px] text-slate-400 mt-1">Or choose a new file below to replace it.</p>
+            <p class="text-[11px] text-slate-400 mt-1">Hoặc chọn file mới bên dưới để thay thế.</p>
           </div>
         </div>
       {{/if}}
@@ -159,19 +163,19 @@
         class="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100"
       />
       {{#if errors.image}}<p class="text-xs text-rose-600 mt-1">{{errors.image}}</p>{{/if}}
-      <p class="text-[11px] text-slate-400">Accepted formats: JPG, PNG, WebP (max 2 MB).</p>
+      <p class="text-[11px] text-slate-400">Định dạng: JPG, PNG, WebP (tối đa 2 MB).</p>
     </div>
 
     <!-- Checkboxes -->
     <div class="flex flex-wrap gap-6 pt-2">
       <label class="inline-flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
         <input type="checkbox" name="isAvailable" value="on" {{#if values.isAvailable}}checked{{/if}} class="rounded border-slate-300 text-amber-600 focus:ring-amber-500" />
-        <span>Available for orders</span>
+        <span>Đang bán</span>
       </label>
 
       <label class="inline-flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
         <input type="checkbox" name="isFeatured" value="on" {{#if values.isFeatured}}checked{{/if}} class="rounded border-slate-300 text-amber-600 focus:ring-amber-500" />
-        <span>Feature on homepage</span>
+        <span>Hiện ở trang chủ</span>
       </label>
     </div>
 
@@ -179,26 +183,27 @@
     <div class="pt-6 border-t border-slate-200">
       <div class="flex items-center justify-between mb-3">
         <div>
-          <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wider">Dish Ingredients & Proportions</h3>
-          <p class="text-xs text-slate-500">Specify ingredients required for this dish recipe.</p>
+          <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wider">Nguyên liệu & định lượng</h3>
+          <p class="text-xs text-slate-500">Ghi rõ nguyên liệu cần cho công thức món.</p>
         </div>
         <button
           type="button"
           id="add-ingredient-btn"
           class="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700 transition-colors"
         >
-          + Add Ingredient Row
+          + Thêm dòng nguyên liệu
         </button>
       </div>
+      {{#if errors.ingredients}}<p class="text-xs text-rose-600 mb-3">{{errors.ingredients}}</p>{{/if}}
 
       <div id="ingredient-rows-container" class="space-y-3">
         {{#each dishIngredients}}
           <div class="ingredient-row flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
             <select name="ingredient_id" required class="flex-1 px-3 py-2 text-xs rounded-lg border border-slate-300">
-              <option value="">Select ingredient</option>
+              <option value="">Chọn nguyên liệu</option>
               {{#each ../ingredients}}
-                <option value="{{id}}" {{#if (eq ../ingredientId id)}}selected{{/if}}>
-                  {{name}} (unit: {{unit}}) {{#if isDeleted}}[Deleted]{{/if}}
+                <option value="{{id}}" data-unit="{{unit}}" {{#if (eq ../ingredientId id)}}selected{{/if}}>
+                  {{name}} (đơn vị: {{unit}}) {{#if isDeleted}}[Đã xóa]{{/if}}
                 </option>
               {{/each}}
             </select>
@@ -208,7 +213,7 @@
               min="0.01"
               name="quantity"
               value="{{quantity}}"
-              placeholder="Quantity"
+              placeholder="Số lượng"
               required
               class="w-28 px-3 py-2 text-xs rounded-lg border border-slate-300"
             />
@@ -216,10 +221,11 @@
               type="text"
               name="unit"
               value="{{unit}}"
-              placeholder="Unit (e.g. g)"
+              maxlength="30"
+              placeholder="Đơn vị (vd. g)"
               class="w-20 px-3 py-2 text-xs rounded-lg border border-slate-300"
             />
-            <button type="button" class="remove-row-btn px-2.5 py-2 text-xs text-rose-600 hover:bg-rose-50 rounded-lg">
+            <button type="button" aria-label="Xóa dòng nguyên liệu" class="remove-row-btn px-2.5 py-2 text-xs text-rose-600 hover:bg-rose-50 rounded-lg">
               ✕
             </button>
           </div>
@@ -230,13 +236,13 @@
     <!-- Submit buttons -->
     <div class="pt-6 border-t border-slate-200 flex items-center justify-end gap-3">
       <a href="/admin/dishes" class="px-4 py-2 rounded-lg border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
-        Cancel
+        Hủy
       </a>
       <button
         type="submit"
         class="px-5 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold shadow-xs transition-colors"
       >
-        {{#if isNew}}Create Dish{{else}}Save Changes{{/if}}
+        {{#if isNew}}Tạo món{{else}}Lưu thay đổi{{/if}}
       </button>
     </div>
   </form>
@@ -249,9 +255,9 @@
 
   // Ingredient options template
   const ingredientOptions = `
-    <option value="">Select ingredient</option>
+    <option value="">Chọn nguyên liệu</option>
     {{#each ingredients}}
-      <option value="{{id}}">{{name}} (unit: {{unit}}) {{#if isDeleted}}[Deleted]{{/if}}</option>
+      <option value="{{id}}" data-unit="{{unit}}">{{name}} (đơn vị: {{unit}}) {{#if isDeleted}}[Đã xóa]{{/if}}</option>
     {{/each}}
   `;
 
@@ -262,9 +268,9 @@
       <select name="ingredient_id" required class="flex-1 px-3 py-2 text-xs rounded-lg border border-slate-300">
         ${ingredientOptions}
       </select>
-      <input type="number" step="any" min="0.01" name="quantity" placeholder="Quantity" required class="w-28 px-3 py-2 text-xs rounded-lg border border-slate-300" />
-      <input type="text" name="unit" placeholder="Unit (g)" value="g" class="w-20 px-3 py-2 text-xs rounded-lg border border-slate-300" />
-      <button type="button" class="remove-row-btn px-2.5 py-2 text-xs text-rose-600 hover:bg-rose-50 rounded-lg">✕</button>
+      <input type="number" step="any" min="0.01" name="quantity" placeholder="Số lượng" required class="w-28 px-3 py-2 text-xs rounded-lg border border-slate-300" />
+      <input type="text" name="unit" maxlength="30" placeholder="Đơn vị (vd. g)" class="w-20 px-3 py-2 text-xs rounded-lg border border-slate-300" />
+      <button type="button" aria-label="Xóa dòng nguyên liệu" class="remove-row-btn px-2.5 py-2 text-xs text-rose-600 hover:bg-rose-50 rounded-lg">✕</button>
     `;
     container.appendChild(row);
   });
@@ -272,6 +278,17 @@
   container.addEventListener('click', (e) => {
     if (e.target.classList.contains('remove-row-btn')) {
       e.target.closest('.ingredient-row').remove();
+    }
+  });
+
+  // Auto-fill unit from the selected ingredient (only when the unit box is empty)
+  container.addEventListener('change', (e) => {
+    if (!e.target.matches('select[name="ingredient_id"]')) return;
+    const row = e.target.closest('.ingredient-row');
+    const unitInput = row && row.querySelector('input[name="unit"]');
+    const opt = e.target.selectedOptions && e.target.selectedOptions[0];
+    if (unitInput && opt && !unitInput.value.trim()) {
+      unitInput.value = opt.dataset.unit || 'g';
     }
   });
 </script>

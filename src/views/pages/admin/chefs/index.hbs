@@ -37,11 +37,7 @@
           {{#each chefs}}
             <tr>
               <td>
-                {{#if avatarUrl}}
-                  <img class="thumb" style="border-radius:50%" src="{{avatarUrl}}" alt="{{name}}" loading="lazy" />
-                {{else}}
-                  <span class="thumb-ph">DB</span>
-                {{/if}}
+                {{> avatar url=avatarUrl name=name size=50 cls="thumb thumb-round"}}
               </td>
               <td>
                 <div class="cell-item">

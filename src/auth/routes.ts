@@ -7,24 +7,28 @@ import { createSupabaseForRequest } from '../lib/supabase.js';
 import { safeNext } from '../lib/http.js';
 import { toFieldErrors } from '../lib/validation.js';
 import { can } from './permissions.js';
+import { authRateLimit } from '../middleware/rate-limit.js';
 
 const router = Router();
 
 const LoginSchema = z.object({
-  email: z.email('Enter a valid email').trim(),
-  password: z.string().min(1, 'Password is required'),
+  email: z.email('Email không hợp lệ').trim(),
+  password: z.string().min(1, 'Vui lòng nhập mật khẩu'),
 });
 
 const RegisterSchema = z
   .object({
-    displayName: z.string().trim().max(100).optional(),
-    email: z.email('Enter a valid email').trim(),
-    password: z.string().min(8, 'Password must be at least 8 characters').max(72),
+    displayName: z.string().trim().max(100, 'Tên hiển thị tối đa 100 ký tự').optional(),
+    email: z.email('Email không hợp lệ').trim(),
+    password: z
+      .string()
+      .min(8, 'Mật khẩu phải ít nhất 8 ký tự')
+      .max(72, 'Mật khẩu tối đa 72 ký tự'),
     confirmPassword: z.string(),
   })
   .refine((d) => d.password === d.confirmPassword, {
     path: ['confirmPassword'],
-    message: 'Passwords do not match',
+    message: 'Mật khẩu nhập lại không khớp',
   });
 
 /** Where to send a user after login: requested page, else /admin for staff, else home. */
@@ -43,7 +47,7 @@ router.get('/login', (req, res) => {
   res.render('pages/auth/login', { title: 'Sign in', next: req.query.next ?? '', values: {} });
 });
 
-router.post('/login', async (req, res) => {
+router.post('/login', authRateLimit(), async (req, res) => {
   const next = req.body?.next;
   const parsed = LoginSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -76,7 +80,7 @@ router.get('/register', (req, res) => {
   res.render('pages/auth/register', { title: 'Create account', values: {} });
 });
 
-router.post('/register', async (req, res) => {
+router.post('/register', authRateLimit(), async (req, res) => {
   const parsed = RegisterSchema.safeParse(req.body);
   const values = { displayName: req.body?.displayName, email: req.body?.email };
   if (!parsed.success) {
@@ -87,12 +91,14 @@ router.post('/register', async (req, res) => {
     });
   }
   const { email, password, displayName } = parsed.data;
+  // Whitespace-only names become null so profiles never store "".
+  const cleanName = displayName && displayName.trim() !== '' ? displayName : null;
   const supabase = createSupabaseForRequest(req, res);
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
-      data: displayName ? { display_name: displayName } : {},
+      data: cleanName ? { display_name: cleanName } : {},
       emailRedirectTo: `${env.APP_URL}/auth/callback`,
     },
   });
@@ -106,7 +112,7 @@ router.post('/register', async (req, res) => {
   if (data.user) {
     await prisma.profile.upsert({
       where: { id: data.user.id },
-      create: { id: data.user.id, email, displayName: displayName ?? null },
+      create: { id: data.user.id, email, displayName: cleanName },
       update: {},
     });
   }

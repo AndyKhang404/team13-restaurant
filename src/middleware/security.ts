@@ -66,7 +66,22 @@ const multipartParser = multer({
 
 export const multipart: RequestHandler = (req, res, next) => {
   if (!req.is('multipart/form-data')) return next();
-  multipartParser(req, res, next);
+  multipartParser(req, res, (err: unknown) => {
+    if (!err) return next();
+    // Files above the multer ceiling never reach validateImage (which gives
+    // the friendly 2 MB form error), so turn them into a flash + back
+    // instead of a bare 500 page. Requires `flash` before `multipart`.
+    const code = (err as { code?: string } | null)?.code;
+    if (code === 'LIMIT_FILE_SIZE') {
+      req.flash('error', 'Ảnh quá lớn. Mỗi ảnh tối đa 5MB (khuyên dùng dưới 2MB).');
+      return res.redirect('back');
+    }
+    if (code === 'LIMIT_FILE_COUNT' || code === 'LIMIT_FIELD_COUNT' || code === 'LIMIT_UNEXPECTED_FILE') {
+      req.flash('error', 'Gửi quá nhiều file hoặc trường dữ liệu. Vui lòng thử lại.');
+      return res.redirect('back');
+    }
+    return next(err);
+  });
 };
 
 const { doubleCsrfProtection, generateCsrfToken } = doubleCsrf({
