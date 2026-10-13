@@ -227,7 +227,7 @@ async function main() {
       prepTimeMinutes: 10,
       chefId: chefChristine.id,
       imageUrl:
-        'https://images.unsplash.com/photo-1548946526-f69e2424cf45?auto=format&fit=crop&w=800&q=80',
+        'https://live.staticflickr.com/7356/11468058513_ac3e9f7044_b.jpg', // Goi Cuon Vietnamese Fresh Spring Rolls With Pork (Flickr, by-nc-nd)
       ingredients: [{ name: 'Hành hoa & Ngò gai', quantity: 50, unit: 'g' }],
     },
     {
