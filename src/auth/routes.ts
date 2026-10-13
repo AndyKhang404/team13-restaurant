@@ -19,7 +19,7 @@ const RegisterSchema = z
   .object({
     displayName: z.string().trim().max(100).optional(),
     email: z.email('Enter a valid email').trim(),
-    password: z.string().min(8, 'Password must be at least 8 characters').max(72),
+    password: z.string().min(6, 'Password must be at least 6 characters').max(72),
     confirmPassword: z.string(),
   })
   .refine((d) => d.password === d.confirmPassword, {

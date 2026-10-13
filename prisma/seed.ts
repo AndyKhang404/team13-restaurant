@@ -1,25 +1,53 @@
 import 'dotenv/config';
+import { z } from 'zod';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { createClient } from '@supabase/supabase-js';
 import { PrismaClient } from '../src/generated/prisma/client.js';
 import { Role, DishCategory } from '../src/generated/prisma/enums.js';
 
-const databaseUrl = process.env.DATABASE_URL;
-const supabaseUrl = process.env.SUPABASE_URL;
-const secretKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
-const bucketName = process.env.STORAGE_BUCKET || 'images';
-const seedAdminEmail = process.env.SEED_ADMIN_EMAIL || 'admin@example.com';
-const rawPass = process.env.SEED_ADMIN_PASSWORD?.trim() || '';
-const seedAdminPassword =
-  rawPass.length >= 6 ? rawPass : rawPass ? `${rawPass}123456` : 'AdminPass123!#';
-if (rawPass && rawPass.length < 6) {
-  console.log(`ℹ️ SEED_ADMIN_PASSWORD was under 6 chars, using "${seedAdminPassword}" for Supabase Auth requirements.`);
+const SeedEnvSchema = z.object({
+  DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
+  SUPABASE_URL: z.url('SUPABASE_URL must be a valid URL'),
+  SUPABASE_SECRET_KEY: z
+    .string()
+    .min(1, 'SUPABASE_SECRET_KEY (or SUPABASE_SERVICE_ROLE_KEY) is required'),
+  STORAGE_BUCKET: z.string().min(1, 'STORAGE_BUCKET is required'),
+  SEED_ADMIN_EMAIL: z.email('SEED_ADMIN_EMAIL must be a valid email').trim(),
+  SEED_ADMIN_PASSWORD: z
+    .string()
+    .trim()
+    .min(6, 'SEED_ADMIN_PASSWORD must be at least 6 characters (Supabase Auth requirement)'),
+});
+
+function loadSeedEnv() {
+  const parsed = SeedEnvSchema.safeParse({
+    DATABASE_URL: process.env.DATABASE_URL,
+    SUPABASE_URL: process.env.SUPABASE_URL,
+    SUPABASE_SECRET_KEY:
+      process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY,
+    STORAGE_BUCKET: process.env.STORAGE_BUCKET,
+    SEED_ADMIN_EMAIL: process.env.SEED_ADMIN_EMAIL,
+    SEED_ADMIN_PASSWORD: process.env.SEED_ADMIN_PASSWORD,
+  });
+
+  if (!parsed.success) {
+    const issues = parsed.error.issues
+      .map((i) => `  - ${i.path.join('.')}: ${i.message}`)
+      .join('\n');
+    throw new Error(`Missing or invalid environment variables for seed script:\n${issues}`);
+  }
+
+  return parsed.data;
 }
 
-if (!databaseUrl || !supabaseUrl || !secretKey) {
-  console.error('❌ Missing DATABASE_URL, SUPABASE_URL, or SUPABASE_SECRET_KEY in .env');
-  process.exit(1);
-}
+const env = loadSeedEnv();
+
+const databaseUrl = env.DATABASE_URL;
+const supabaseUrl = env.SUPABASE_URL;
+const secretKey = env.SUPABASE_SECRET_KEY;
+const bucketName = env.STORAGE_BUCKET;
+const seedAdminEmail = env.SEED_ADMIN_EMAIL;
+const seedAdminPassword = env.SEED_ADMIN_PASSWORD;
 
 const adapter = new PrismaPg({ connectionString: databaseUrl });
 const prisma = new PrismaClient({ adapter });
@@ -46,12 +74,13 @@ async function main() {
     } else {
       console.log(`ℹ️ Storage bucket "${bucketName}" already exists`);
     }
-  } catch (e: any) {
-    console.warn('⚠️ Storage bucket check skipped:', e.message);
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e);
+    console.warn('⚠️ Storage bucket check skipped:', message);
   }
 
   // 2. Create or find initial Admin in Supabase Auth
-  let adminUserId: string | null = null;
+  let adminUserId: string;
   const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
   const existingAdmin = existingUsers?.users?.find((u) => u.email === seedAdminEmail);
 
