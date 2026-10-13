@@ -26,25 +26,28 @@
 </div>
 
 {{#if flat}}
-  <div class="eyebrow" style="margin-top:38px">
-    Kết quả{{#if q}} cho "{{q}}"{{/if}}
-    <span style="color:var(--ink-2)">— {{resultCount}} món</span>
-  </div>
-  {{#if dishes.length}}
-    <div class="grid" style="margin-top:22px">
-      {{#each dishes}}
-        {{> dish-card}}
-      {{/each}}
+  <div class="menu-skel">
+    <div class="eyebrow" style="margin-top:38px">
+      Kết quả{{#if q}} cho "{{q}}"{{/if}}
+      <span style="color:var(--ink-2)">— {{resultCount}} món</span>
     </div>
-  {{else}}
-    <div class="empty" style="margin-top:36px">
-      <b>Không tìm thấy món nào</b>
-      Thử từ khóa khác, bỏ bớt bộ lọc, hoặc xem toàn bộ thực đơn.
-      <div class="actions-row" style="justify-content:center;margin-top:20px">
-        <a class="btn btn-solid" href="/menu">Xem tất cả</a>
+    {{#if dishes.length}}
+      <div class="grid" style="margin-top:22px">
+        {{#each dishes}}
+          {{> dish-card}}
+        {{/each}}
       </div>
-    </div>
-  {{/if}}
+      {{> skeleton-overlay}}
+    {{else}}
+      <div class="empty" style="margin-top:36px">
+        <b>Không tìm thấy món nào</b>
+        Thử từ khóa khác, bỏ bớt bộ lọc, hoặc xem toàn bộ thực đơn.
+        <div class="actions-row" style="justify-content:center;margin-top:20px">
+          <a class="btn btn-solid" href="/menu">Xem tất cả</a>
+        </div>
+      </div>
+    {{/if}}
+  </div>
 {{else}}
   {{#if groups.length}}
     <div class="menu-skel">
@@ -57,14 +60,7 @@
         </div>
       {{/each}}
 
-      <div class="skeleton-overlay" aria-hidden="true">
-        <div class="skel-grid">
-          <div class="sk-card"><div class="sk sk-img"></div><div class="sk sk-line w85"></div><div class="sk sk-line w60"></div><div class="sk sk-meta"></div></div>
-          <div class="sk-card"><div class="sk sk-img"></div><div class="sk sk-line w85"></div><div class="sk sk-line w40"></div><div class="sk sk-meta"></div></div>
-          <div class="sk-card"><div class="sk sk-img"></div><div class="sk sk-line w60"></div><div class="sk sk-line w85"></div><div class="sk sk-meta"></div></div>
-          <div class="sk-card"><div class="sk sk-img"></div><div class="sk sk-line w85"></div><div class="sk sk-line w40"></div><div class="sk sk-meta"></div></div>
-        </div>
-      </div>
+      {{> skeleton-overlay}}
     </div>
   {{else}}
     <div class="empty" style="margin-top:48px">

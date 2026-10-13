@@ -49,7 +49,7 @@
         {{#if values.avatarUrl}}
           <div class="form-photo">
             {{> avatar url=values.avatarUrl name="Ảnh hiện tại" size=96 }}
-            <label class="check"><input type="checkbox" name="removeImage" value="on" /> Gỡ ảnh hiện tại</label>
+            <button type="submit" name="removeImage" value="on" class="btn btn-sm btn-danger" onclick="return confirm('Gỡ ảnh hiện tại và lưu thay đổi?')">Gỡ ảnh hiện tại</button>
           </div>
         {{/if}}
         <input type="file" id="avatar" name="avatar" accept="image/jpeg,image/png,image/webp" />

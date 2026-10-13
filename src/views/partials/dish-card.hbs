@@ -1,12 +1,12 @@
 <article class="dish-card">
-  <a class="dish-media" href="/dishes/{{slug}}">
+  <a class="dish-media fade-late" href="/dishes/{{slug}}">
     {{#if imageUrl}}
       <img src="{{imageUrl}}" alt="{{name}}" loading="lazy" />
     {{else}}
       <span class="media-ph">{{name}}</span>
     {{/if}}
   </a>
-  <div class="dish-body">
+  <div class="dish-body fade-late">
     <div class="dish-meta">
       <span>{{categoryLabel category}}</span>
       {{#if prepTimeMinutes}}<span>{{prepTimeMinutes}} phút</span>{{/if}}

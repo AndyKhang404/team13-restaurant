@@ -46,48 +46,163 @@
   </div>
 </div>
 
-<div class="band">
-  <a class="band-item" href="/menu">
-    {{#if featured.[0].imageUrl}}<img src="{{featured.[0].imageUrl}}" alt="" loading="lazy" />{{/if}}
-    <span>Món nổi bật</span>
-  </a>
-  <a class="band-item" href="/menu">
-    {{#if featured.[1].imageUrl}}<img src="{{featured.[1].imageUrl}}" alt="" loading="lazy" />{{/if}}
-    <span>Nguyên liệu trong nước</span>
-  </a>
-  <a class="band-item" href="/menu">
-    {{#if featured.[2].imageUrl}}<img src="{{featured.[2].imageUrl}}" alt="" loading="lazy" />{{/if}}
-    <span>Đầu bếp nhiều năm</span>
-  </a>
-</div>
-
-<section>
+{{#if featured.length}}
+<section class="feat">
   <div class="eyebrow">Món nổi bật trong tuần</div>
-  <div class="grid" style="margin-top:26px">
-    {{#each featured}}
-      <article class="dish-card">
-        <a class="dish-media" href="/dishes/{{slug}}">
-          {{#if imageUrl}}
-            <img src="{{imageUrl}}" alt="{{name}}" loading="lazy" />
-          {{else}}
-            <span class="media-ph">{{name}}</span>
-          {{/if}}
-        </a>
-        <div class="dish-body">
-          <div class="dish-meta">
-            <span>{{categoryLabel category}}</span>
-            {{#if prepTimeMinutes}}<span>{{prepTimeMinutes}} phút</span>{{/if}}
+
+  <div class="feat-stage">
+    <button type="button" class="feat-peek feat-peek--prev" data-dir="-1" aria-label="Xem món liền trước"><img alt="" /></button>
+
+    <button type="button" class="btn btn-quiet feat-btn" data-dir="-1" aria-label="Món trước">←</button>
+
+    <div class="feat-center">
+      {{#each featured}}
+        <article class="feat-slide{{#if @first}} is-active{{/if}}" data-img="{{imageUrl}}"{{#unless @first}} aria-hidden="true"{{/unless}}>
+          <a class="feat-media" href="/dishes/{{slug}}">
+            {{#if imageUrl}}
+              <img src="{{imageUrl}}" alt="{{name}}" />
+            {{else}}
+              <span class="media-ph">{{name}}</span>
+            {{/if}}
+          </a>
+          <div class="feat-info">
+            <div class="feat-meta">
+              <span>{{categoryLabel category}}</span>
+              {{#if prepTimeMinutes}}<span>{{prepTimeMinutes}} phút</span>{{/if}}
+            </div>
+            <h3 class="feat-name">{{name}}</h3>
+            {{#if description}}<p class="feat-desc">{{description}}</p>{{/if}}
+            <div class="feat-foot">
+              <span class="price">{{formatVnd price}}</span>
+              <a class="btn btn-solid" href="/dishes/{{slug}}">Chi tiết</a>
+            </div>
           </div>
-          <h3 class="dish-name"><a href="/dishes/{{slug}}">{{name}}</a></h3>
-          <div class="dish-foot">
-            <span class="price">{{formatVnd price}}</span>
-            <a class="link-more" href="/dishes/{{slug}}">Chi tiết</a>
-          </div>
-        </div>
-      </article>
-    {{/each}}
+        </article>
+      {{/each}}
+    </div>
+
+    <button type="button" class="btn btn-quiet feat-btn" data-dir="1" aria-label="Món sau">→</button>
+
+    <button type="button" class="feat-peek feat-peek--next" data-dir="1" aria-label="Xem món liền sau"><img alt="" /></button>
   </div>
+
+  <div class="feat-status">
+    <span class="feat-count" aria-live="polite"><b>01</b> / {{featured.length}}</span>
+    <div class="feat-pips">
+      {{#each featured}}
+        <button type="button" class="feat-pip{{#if @first}} is-active{{/if}}" data-i="{{@index}}" aria-label="Chọn món {{add @index 1}}"></button>
+      {{/each}}
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var stage = document.querySelector('.feat-stage');
+      if (!stage) return;
+      var center = stage.querySelector('.feat-center');
+      var slides = Array.prototype.slice.call(stage.querySelectorAll('.feat-slide'));
+      var btns = Array.prototype.slice.call(stage.querySelectorAll('.feat-btn'));
+      var peekPrev = stage.querySelector('.feat-peek--prev');
+      var peekNext = stage.querySelector('.feat-peek--next');
+      var countEl = document.querySelector('.feat-count');
+      var pips = Array.prototype.slice.call(document.querySelectorAll('.feat-pip'));
+      if (!slides.length) return;
+
+      var i = 0, busy = false, timer = null;
+      var canInert = 'inert' in HTMLElement.prototype;
+
+      function pad(n) { return n < 10 ? '0' + n : '' + n; }
+
+      function makePeek(el, slide) {
+        if (!el || !slide) return;
+        var img = el.querySelector('img');
+        var src = slide.getAttribute('data-img') || '';
+        img.style.opacity = '0';
+        window.setTimeout(function () {
+          if (src) { img.src = src; el.classList.remove('is-blank'); }
+          else { img.removeAttribute('src'); el.classList.add('is-blank'); }
+          img.style.opacity = '';
+        }, 150);
+      }
+
+      function update() {
+        if (countEl) countEl.innerHTML = '<b>' + pad(i + 1) + '</b> / ' + pad(slides.length);
+        pips.forEach(function (p, k) {
+          p.classList.toggle('is-active', k === i);
+          if (k === i) p.setAttribute('aria-current', 'true');
+          else p.removeAttribute('aria-current');
+        });
+        if (slides.length > 1) {
+          makePeek(peekPrev, slides[(i - 1 + slides.length) % slides.length]);
+          makePeek(peekNext, slides[(i + 1) % slides.length]);
+        }
+      }
+
+      function setActive(slide, on) {
+        if (canInert) slide.inert = !on;
+        if (on) slide.removeAttribute('aria-hidden');
+        else slide.setAttribute('aria-hidden', 'true');
+      }
+
+      function goTo(target) {
+        target = (target + slides.length) % slides.length;
+        if (busy || target === i) return;
+        if (slides.length < 2) return;
+        busy = true;
+        var dir = target > i ? 1 : -1;
+        if (i === slides.length - 1 && target === 0) dir = 1;
+        if (i === 0 && target === slides.length - 1) dir = -1;
+        var out = slides[i];
+        var into = slides[target];
+        out.style.setProperty('--dir', String(-dir));
+        into.style.setProperty('--dir', String(dir));
+        out.classList.remove('is-active');
+        out.classList.add('is-leaving');
+        setActive(out, false);
+        into.classList.add('is-active');
+        setActive(into, true);
+        i = target;
+        update();
+        window.clearTimeout(timer);
+        timer = window.setTimeout(function () {
+          out.classList.remove('is-leaving');
+          busy = false;
+        }, 780);
+      }
+
+      if (slides.length < 2) {
+        btns.concat([peekPrev, peekNext]).forEach(function (el) { if (el) el.style.display = 'none'; });
+        pips.forEach(function (p) { p.style.display = 'none'; });
+        if (countEl) countEl.style.display = 'none';
+        return;
+      }
+
+      btns.forEach(function (b) {
+        b.addEventListener('click', function () { goTo(i + Number(b.dataset.dir)); });
+      });
+      [peekPrev, peekNext].forEach(function (el) {
+        if (el) el.addEventListener('click', function () { goTo(i + Number(el.dataset.dir)); });
+      });
+      pips.forEach(function (p) {
+        p.addEventListener('click', function () { goTo(Number(p.dataset.i)); });
+      });
+
+      var tx = 0, ty = 0;
+      center.addEventListener('touchstart', function (e) {
+        tx = e.touches[0].clientX; ty = e.touches[0].clientY;
+      }, { passive: true });
+      center.addEventListener('touchend', function (e) {
+        var dx = e.changedTouches[0].clientX - tx;
+        var dy = e.changedTouches[0].clientY - ty;
+        if (Math.abs(dx) > 44 && Math.abs(dx) > Math.abs(dy) * 1.4) goTo(i + (dx < 0 ? 1 : -1));
+      }, { passive: true });
+
+      slides.forEach(function (s, k) { setActive(s, k === 0); });
+      update();
+    })();
+  </script>
 </section>
+{{/if}}
 
 <div class="why">
   <div class="why-item">

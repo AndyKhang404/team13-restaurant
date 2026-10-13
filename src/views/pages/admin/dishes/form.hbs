@@ -73,7 +73,7 @@
         {{#if values.imageUrl}}
           <div class="form-photo">
             <img class="img-preview" src="{{values.imageUrl}}" alt="Ảnh hiện tại" />
-            <label class="check"><input type="checkbox" name="removeImage" value="on" /> Gỡ ảnh hiện tại</label>
+            <button type="submit" name="removeImage" value="on" class="btn btn-sm btn-danger" onclick="return confirm('Gỡ ảnh hiện tại và lưu thay đổi?')">Gỡ ảnh hiện tại</button>
           </div>
         {{/if}}
         <input type="file" id="image" name="image" accept="image/jpeg,image/png,image/webp" />
