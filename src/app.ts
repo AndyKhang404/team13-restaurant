@@ -5,9 +5,10 @@ import morgan from 'morgan';
 import helmet from 'helmet';
 
 import { env, isProd } from './config/env.js';
+import { corsMiddleware } from './middleware/cors.js';
 import { browserId, multipart, csrfProtection, csrfToken } from './middleware/security.js';
 import { loadUser } from './auth/middleware.js';
-import { HttpError, sendError, type ApiErrorCode } from './lib/http.js';
+import { HttpError, isBusinessError, sendBusinessError, technicalErrorBody, type ApiErrorCode } from './lib/http.js';
 
 import publicRouter from './modules/public/routes.js';
 import authRouter from './auth/routes.js';
@@ -28,6 +29,9 @@ export function createApp() {
   if (!isProd) {
     app.use(morgan('dev'));
   }
+
+  // CORS (must run before CSRF so preflight OPTIONS is answered)
+  app.use(corsMiddleware);
 
   // Static assets: public files and built SPA client bundle
   app.use(express.static(publicDir));
@@ -59,7 +63,9 @@ export function createApp() {
   // SPA fallback for HTML navigation (production) or 404 for API
   app.use((req, res, next) => {
     if (req.path.startsWith('/api')) {
-      return sendError(res, 404, 'NOT_FOUND', `Endpoint ${req.method} ${req.path} not found`);
+      return res
+        .status(404)
+        .json(technicalErrorBody('NOT_FOUND', `Endpoint ${req.method} ${req.path} not found`));
     }
     if (req.method === 'GET' && req.accepts('html')) {
       return res.sendFile(path.join(clientDistDir, 'index.html'), (err) => {
@@ -87,7 +93,14 @@ export function createApp() {
       console.error('[API Server Error]', err);
     }
 
-    return sendError(res, status, code, isProd && status >= 500 ? 'An unexpected server error occurred.' : message, fields);
+    // Handler-produced business errors: HTTP 200 + { ok:false, error } (deck slide 13).
+    if (isBusinessError(err)) {
+      return sendBusinessError(res, code, message, fields);
+    }
+
+    // Technical errors (wrong URL, crash, auth): real status, body without `ok`.
+    const safeMessage = isProd && status >= 500 ? 'An unexpected server error occurred.' : message;
+    return res.status(status).json(technicalErrorBody(code, safeMessage, fields));
   };
 
   app.use(errorHandler);

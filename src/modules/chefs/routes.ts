@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import type { Prisma } from '../../generated/prisma/client.js';
 import { prisma } from '../../lib/prisma.js';
-import { notFound, sendOk, sendError } from '../../lib/http.js';
+import { badRequest, notFound, sendOk } from '../../lib/http.js';
 import { buildPagination, skipFor } from '../../lib/pagination.js';
 import { listParams, isNotFound, paramId } from '../../lib/admin.js';
 import { requiredText, optionalText, optionalInt, optionalPhone, checkbox, toFieldErrors } from '../../lib/validation.js';
@@ -22,9 +22,9 @@ export const ChefSchema = z.object({
 });
 
 router.get('/', requirePermission('chef:create'), async (req, res) => {
-  const { page, q, showDeleted, filters } = listParams(req);
+  const { page, q, filters } = listParams(req);
   const where: Prisma.ChefWhereInput = {
-    ...(showDeleted ? { deletedAt: { not: null } } : { deletedAt: null }),
+    deletedAt: null,
     ...(q
       ? {
           OR: [
@@ -49,7 +49,6 @@ router.get('/', requirePermission('chef:create'), async (req, res) => {
     chefs,
     pagination: buildPagination(page, total, filters),
     q,
-    showDeleted,
   });
 });
 
@@ -68,7 +67,7 @@ router.post('/', requirePermission('chef:create'), async (req, res) => {
   if (!parsed.success || imageErr) {
     const errors = parsed.success ? {} : toFieldErrors(parsed.error);
     if (imageErr) errors['avatar'] = imageErr;
-    return sendError(res, 400, 'VALIDATION_ERROR', 'Thông tin đầu bếp không hợp lệ', errors);
+    throw badRequest('Thông tin đầu bếp không hợp lệ', 'VALIDATION_FAILED', errors);
   }
 
   const data = parsed.data;
@@ -90,7 +89,7 @@ router.post('/', requirePermission('chef:create'), async (req, res) => {
     },
   );
 
-  return sendOk(res, { chef: createdChef, message: `Đã tạo đầu bếp "${data.name}".` }, 201);
+  return sendOk(res, { chef: createdChef, message: `Đã tạo đầu bếp "${data.name}".` });
 });
 
 router.patch('/:id', requirePermission('chef:update'), async (req, res) => {
@@ -105,7 +104,7 @@ router.patch('/:id', requirePermission('chef:update'), async (req, res) => {
   if (!parsed.success || imageErr) {
     const errors = parsed.success ? {} : toFieldErrors(parsed.error);
     if (imageErr) errors['avatar'] = imageErr;
-    return sendError(res, 400, 'VALIDATION_ERROR', 'Thông tin đầu bếp không hợp lệ', errors);
+    throw badRequest('Thông tin đầu bếp không hợp lệ', 'VALIDATION_FAILED', errors);
   }
 
   const data = parsed.data;
@@ -139,25 +138,8 @@ router.patch('/:id', requirePermission('chef:update'), async (req, res) => {
 router.delete('/:id', requirePermission('chef:delete'), async (req, res) => {
   const id = paramId(req.params.id);
   try {
-    await prisma.chef.update({
-      where: { id },
-      data: { deletedAt: new Date() },
-    });
-    return sendOk(res, { id, message: 'Đã chuyển đầu bếp vào danh sách đã xóa.' });
-  } catch (e) {
-    if (isNotFound(e)) throw notFound('Đầu bếp');
-    throw e;
-  }
-});
-
-router.post('/:id/restore', requirePermission('chef:restore'), async (req, res) => {
-  const id = paramId(req.params.id);
-  try {
-    await prisma.chef.update({
-      where: { id },
-      data: { deletedAt: null },
-    });
-    return sendOk(res, { id, message: 'Đã khôi phục đầu bếp.' });
+    await prisma.chef.delete({ where: { id } });
+    return sendOk(res, null);
   } catch (e) {
     if (isNotFound(e)) throw notFound('Đầu bếp');
     throw e;

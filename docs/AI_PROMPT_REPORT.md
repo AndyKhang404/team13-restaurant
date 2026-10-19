@@ -37,7 +37,8 @@
 | 15 | `dòng chữ Mở cửa 09:00 — 22:00... chạy liên tục` | Ticker cuộn vô hạn liền mạch (2 nửa trùng nhau + `translateX(-50%)`), fade 2 đầu |
 | 16 | `dòng chữ bị trùng màu với dark theme nên không thấy được, đồng thời làm các hiểu ứng hover nổi bật hơn` | Ticker cố định màu cao contrast ở cả 2 mode; thêm "hover boost": viền accent, gradient band, gạch trên why-item… |
 | 17 | `Tạo reponsive cho trang web` | 
-| 17 | `Thêm search món ăn và các filter và sort theo tiêu các tiêu chí giá tiền, tên,...` | 
+| 18 | `Thêm search món ăn và các filter và sort theo tiêu các tiêu chí giá tiền, tên,...` | 
+| 19 | `Hiện các món ăn nổi bật trong tuần theo kiểu game character selection có 2 nút qua trái và qua phải kèm theo animation trượt qua trái hoặc qua phải` | 
 ---
 
 ## 2. Phong cách prompt

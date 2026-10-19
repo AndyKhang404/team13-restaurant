@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { DishCategory } from '../../generated/prisma/enums.js';
 import type { Prisma } from '../../generated/prisma/client.js';
 import { prisma } from '../../lib/prisma.js';
-import { notFound, sendOk, sendError } from '../../lib/http.js';
+import { badRequest, conflict, notFound, sendOk } from '../../lib/http.js';
 import { buildPagination, skipFor } from '../../lib/pagination.js';
 import { listParams, isNotFound, isUniqueViolation, paramId } from '../../lib/admin.js';
 import { slugify, nextFreeSlug } from '../../lib/slug.js';
@@ -183,13 +183,13 @@ router.get('/form-deps', requirePermission('dish:create'), async (req, res) => {
 });
 
 router.get('/', requirePermission('dish:create'), async (req, res) => {
-  const { page, q, showDeleted, filters } = listParams(req);
+  const { page, q, filters } = listParams(req);
   const rawCat = typeof req.query.category === 'string' ? req.query.category : '';
   const category = CATEGORIES.includes(rawCat as DishCategory) ? (rawCat as DishCategory) : undefined;
   if (category) filters['category'] = category;
 
   const where: Prisma.DishWhereInput = {
-    ...(showDeleted ? { deletedAt: { not: null } } : { deletedAt: null }),
+    deletedAt: null,
     ...(category ? { category } : {}),
     ...(q ? { name: { contains: q, mode: 'insensitive' } } : {}),
   };
@@ -211,7 +211,6 @@ router.get('/', requirePermission('dish:create'), async (req, res) => {
     q,
     category,
     categories: CATEGORIES.map((c) => ({ key: c, label: CATEGORY_LABELS[c] ?? c })),
-    showDeleted,
   });
 });
 
@@ -246,7 +245,7 @@ router.post('/', requirePermission('dish:create'), async (req, res) => {
     const errors: FieldErrors = parsed.success ? {} : toFieldErrors(parsed.error);
     Object.assign(errors, rowErrors);
     if (imageErr) errors['image'] = imageErr;
-    return sendError(res, 400, 'VALIDATION_ERROR', 'Thông tin món ăn không hợp lệ', errors);
+    throw badRequest('Thông tin món ăn không hợp lệ', 'VALIDATION_FAILED', errors);
   }
 
   const data = parsed.data;
@@ -287,10 +286,10 @@ router.post('/', requirePermission('dish:create'), async (req, res) => {
       });
     });
 
-    return sendOk(res, { dish: createdDish, message: `Đã tạo món "${data.name}".` }, 201);
+    return sendOk(res, { dish: createdDish, message: `Đã tạo món "${data.name}".` });
   } catch (e) {
     if (isUniqueViolation(e, 'slug')) {
-      return sendError(res, 409, 'CONFLICT', 'Slug này đã được dùng', { slug: 'Slug này đã được dùng' });
+      throw conflict('Slug này đã được dùng', { slug: 'Slug này đã được dùng' });
     }
     throw e;
   }
@@ -312,7 +311,7 @@ router.patch('/:id', requirePermission('dish:update'), async (req, res) => {
     const errors: FieldErrors = parsed.success ? {} : toFieldErrors(parsed.error);
     Object.assign(errors, rowErrors);
     if (imageErr) errors['image'] = imageErr;
-    return sendError(res, 400, 'VALIDATION_ERROR', 'Thông tin món ăn không hợp lệ', errors);
+    throw badRequest('Thông tin món ăn không hợp lệ', 'VALIDATION_FAILED', errors);
   }
 
   const data = parsed.data;
@@ -369,7 +368,7 @@ router.patch('/:id', requirePermission('dish:update'), async (req, res) => {
     return sendOk(res, { dish: updatedDish, message: `Đã cập nhật món "${data.name}".` });
   } catch (e) {
     if (isUniqueViolation(e, 'slug')) {
-      return sendError(res, 409, 'CONFLICT', 'Slug này đã được dùng', { slug: 'Slug này đã được dùng' });
+      throw conflict('Slug này đã được dùng', { slug: 'Slug này đã được dùng' });
     }
     throw e;
   }
@@ -378,25 +377,8 @@ router.patch('/:id', requirePermission('dish:update'), async (req, res) => {
 router.delete('/:id', requirePermission('dish:delete'), async (req, res) => {
   const id = paramId(req.params.id);
   try {
-    await prisma.dish.update({
-      where: { id },
-      data: { deletedAt: new Date() },
-    });
-    return sendOk(res, { id, message: 'Đã chuyển món vào danh sách đã xóa.' });
-  } catch (e) {
-    if (isNotFound(e)) throw notFound('Món ăn');
-    throw e;
-  }
-});
-
-router.post('/:id/restore', requirePermission('dish:restore'), async (req, res) => {
-  const id = paramId(req.params.id);
-  try {
-    await prisma.dish.update({
-      where: { id },
-      data: { deletedAt: null },
-    });
-    return sendOk(res, { id, message: 'Đã khôi phục món ăn.' });
+    await prisma.dish.delete({ where: { id } });
+    return sendOk(res, null);
   } catch (e) {
     if (isNotFound(e)) throw notFound('Món ăn');
     throw e;

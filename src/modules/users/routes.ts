@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { Role } from '../../generated/prisma/enums.js';
 import type { Prisma } from '../../generated/prisma/client.js';
 import { prisma } from '../../lib/prisma.js';
-import { notFound, sendOk, sendError } from '../../lib/http.js';
+import { badRequest, notFound, sendOk } from '../../lib/http.js';
 import { buildPagination, skipFor } from '../../lib/pagination.js';
 import { listParams, paramId } from '../../lib/admin.js';
 import { requirePermission } from '../../auth/middleware.js';
@@ -51,12 +51,12 @@ async function handleUpdateRole(req: Request, res: Response) {
 
   // Safeguard 1: Cannot change own role
   if (targetId === currentUserId) {
-    return sendError(res, 400, 'SELF_ROLE_CHANGE', 'Bạn không thể đổi vai trò của chính mình.');
+    throw badRequest('Bạn không thể đổi vai trò của chính mình.', 'SELF_ROLE_CHANGE');
   }
 
   const parsed = UpdateRoleSchema.safeParse(req.body);
   if (!parsed.success) {
-    return sendError(res, 400, 'VALIDATION_ERROR', 'Vai trò được chọn không hợp lệ.');
+    throw badRequest('Vai trò được chọn không hợp lệ.', 'VALIDATION_FAILED');
   }
 
   const newRole = parsed.data.role;
@@ -67,7 +67,7 @@ async function handleUpdateRole(req: Request, res: Response) {
   if (targetUser.role === Role.ADMIN && newRole !== Role.ADMIN) {
     const adminCount = await prisma.profile.count({ where: { role: Role.ADMIN } });
     if (adminCount <= 1) {
-      return sendError(res, 400, 'LAST_ADMIN', 'Không thể hạ quyền ADMIN cuối cùng còn lại.');
+      throw badRequest('Không thể hạ quyền ADMIN cuối cùng còn lại.', 'LAST_ADMIN');
     }
   }
 

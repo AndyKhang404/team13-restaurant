@@ -19,6 +19,10 @@ const EnvSchema = z.object({
     .default(() => process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''),
   STORAGE_BUCKET: z.string().min(1).default('images'),
 
+  // Extra browser origin(s) allowed to call the API, comma-separated (CORS).
+  // In development, localhost/127.0.0.1 origins are allowed automatically.
+  SPA_ORIGIN: z.string().optional(),
+
   CSRF_SECRET: z.string().min(32, 'CSRF_SECRET must be at least 32 characters'),
 });
 

@@ -13,4 +13,13 @@ public/css/app.css
 *.log
 .DS_Store
 
+# Python
+__pycache__/
+*.pyc
+
+# TypeScript / lint caches
+*.tsbuildinfo
+.eslintcache
+
 .opencode
+block6-deck.html

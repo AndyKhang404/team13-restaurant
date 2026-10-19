@@ -9,7 +9,7 @@ export interface Pagination {
   hasNext: boolean;
   prevPage: number;
   nextPage: number;
-  /** Query string (without page) to preserve filters in pagination links, e.g. "q=pho&deleted=1". */
+  /** Query string (without page) to preserve filters in pagination links, e.g. "q=pho". */
   baseQuery: string;
 }
 

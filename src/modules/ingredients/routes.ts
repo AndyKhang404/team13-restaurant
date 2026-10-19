@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import type { Prisma } from '../../generated/prisma/client.js';
 import { prisma } from '../../lib/prisma.js';
-import { notFound, sendOk, sendError } from '../../lib/http.js';
+import { badRequest, conflict, notFound, sendOk } from '../../lib/http.js';
 import { buildPagination, skipFor } from '../../lib/pagination.js';
 import { listParams, isNotFound, isUniqueViolation, paramId } from '../../lib/admin.js';
 import { requiredText, decimal, checkbox, toFieldErrors } from '../../lib/validation.js';
@@ -28,14 +28,14 @@ async function findNameClash(name: string, excludeId?: string) {
       name: { equals: name, mode: 'insensitive' },
       ...(excludeId ? { id: { not: excludeId } } : {}),
     },
-    select: { id: true },
+    select: { id: true, deletedAt: true },
   });
 }
 
 router.get('/', requirePermission('ingredient:create'), async (req, res) => {
-  const { page, q, showDeleted, filters } = listParams(req);
+  const { page, q, filters } = listParams(req);
   const where: Prisma.IngredientWhereInput = {
-    ...(showDeleted ? { deletedAt: { not: null } } : { deletedAt: null }),
+    deletedAt: null,
     ...(q ? { name: { contains: q, mode: 'insensitive' } } : {}),
   };
 
@@ -53,7 +53,6 @@ router.get('/', requirePermission('ingredient:create'), async (req, res) => {
     ingredients,
     pagination: buildPagination(page, total, filters),
     q,
-    showDeleted,
   });
 });
 
@@ -72,33 +71,42 @@ router.post('/', requirePermission('ingredient:create'), async (req, res) => {
   if (!parsed.success || imageErr) {
     const errors = parsed.success ? {} : toFieldErrors(parsed.error);
     if (imageErr) errors['image'] = imageErr;
-    return sendError(res, 400, 'VALIDATION_ERROR', 'Thông tin nguyên liệu không hợp lệ', errors);
+    throw badRequest('Thông tin nguyên liệu không hợp lệ', 'VALIDATION_FAILED', errors);
   }
 
-  if (await findNameClash(parsed.data.name)) {
-    return sendError(res, 409, 'CONFLICT', DUPLICATE_NAME_ERROR, { name: DUPLICATE_NAME_ERROR });
+  // A soft-deleted ingredient with the same name is revived instead of
+  // reported as a duplicate, so "add → delete → add again" works.
+  const clash = await findNameClash(parsed.data.name);
+  if (clash && clash.deletedAt === null) {
+    throw conflict(DUPLICATE_NAME_ERROR, { name: DUPLICATE_NAME_ERROR });
   }
 
   const data = parsed.data;
   try {
     let createdIngredient: Awaited<ReturnType<typeof prisma.ingredient.create>> | null = null;
     await saveWithImage({ folder: 'ingredients', file }, async (imageUrl) => {
-      createdIngredient = await prisma.ingredient.create({
-        data: {
-          name: data.name,
-          unit: data.unit,
-          stockQuantity: data.stockQuantity,
-          pricePerUnit: data.pricePerUnit,
-          isAvailable: data.isAvailable,
-          imageUrl: imageUrl ?? null,
-        },
-      });
+      const fields = {
+        name: data.name,
+        unit: data.unit,
+        stockQuantity: data.stockQuantity,
+        pricePerUnit: data.pricePerUnit,
+        isAvailable: data.isAvailable,
+        ...(imageUrl !== undefined ? { imageUrl } : {}),
+      };
+      createdIngredient = clash
+        ? await prisma.ingredient.update({
+            where: { id: clash.id },
+            data: { ...fields, deletedAt: null },
+          })
+        : await prisma.ingredient.create({
+            data: { ...fields, imageUrl: imageUrl ?? null },
+          });
     });
 
-    return sendOk(res, { ingredient: createdIngredient, message: `Đã tạo nguyên liệu "${data.name}".` }, 201);
+    return sendOk(res, { ingredient: createdIngredient, message: `Đã tạo nguyên liệu "${data.name}".` });
   } catch (e) {
     if (isUniqueViolation(e, 'name')) {
-      return sendError(res, 409, 'CONFLICT', DUPLICATE_NAME_ERROR, { name: DUPLICATE_NAME_ERROR });
+      throw conflict(DUPLICATE_NAME_ERROR, { name: DUPLICATE_NAME_ERROR });
     }
     throw e;
   }
@@ -116,11 +124,11 @@ router.patch('/:id', requirePermission('ingredient:update'), async (req, res) =>
   if (!parsed.success || imageErr) {
     const errors = parsed.success ? {} : toFieldErrors(parsed.error);
     if (imageErr) errors['image'] = imageErr;
-    return sendError(res, 400, 'VALIDATION_ERROR', 'Thông tin nguyên liệu không hợp lệ', errors);
+    throw badRequest('Thông tin nguyên liệu không hợp lệ', 'VALIDATION_FAILED', errors);
   }
 
   if (await findNameClash(parsed.data.name, id)) {
-    return sendError(res, 409, 'CONFLICT', DUPLICATE_NAME_ERROR, { name: DUPLICATE_NAME_ERROR });
+    throw conflict(DUPLICATE_NAME_ERROR, { name: DUPLICATE_NAME_ERROR });
   }
 
   const data = parsed.data;
@@ -151,7 +159,7 @@ router.patch('/:id', requirePermission('ingredient:update'), async (req, res) =>
     return sendOk(res, { ingredient: updatedIngredient, message: `Đã cập nhật nguyên liệu "${data.name}".` });
   } catch (e) {
     if (isUniqueViolation(e, 'name')) {
-      return sendError(res, 409, 'CONFLICT', DUPLICATE_NAME_ERROR, { name: DUPLICATE_NAME_ERROR });
+      throw conflict(DUPLICATE_NAME_ERROR, { name: DUPLICATE_NAME_ERROR });
     }
     throw e;
   }
@@ -160,25 +168,8 @@ router.patch('/:id', requirePermission('ingredient:update'), async (req, res) =>
 router.delete('/:id', requirePermission('ingredient:delete'), async (req, res) => {
   const id = paramId(req.params.id);
   try {
-    await prisma.ingredient.update({
-      where: { id },
-      data: { deletedAt: new Date() },
-    });
-    return sendOk(res, { id, message: 'Đã chuyển nguyên liệu vào danh sách đã xóa.' });
-  } catch (e) {
-    if (isNotFound(e)) throw notFound('Nguyên liệu');
-    throw e;
-  }
-});
-
-router.post('/:id/restore', requirePermission('ingredient:restore'), async (req, res) => {
-  const id = paramId(req.params.id);
-  try {
-    await prisma.ingredient.update({
-      where: { id },
-      data: { deletedAt: null },
-    });
-    return sendOk(res, { id, message: 'Đã khôi phục nguyên liệu.' });
+    await prisma.ingredient.delete({ where: { id } });
+    return sendOk(res, null);
   } catch (e) {
     if (isNotFound(e)) throw notFound('Nguyên liệu');
     throw e;
