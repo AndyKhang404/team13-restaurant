@@ -554,3 +554,526 @@ Response: {"ok":true,"data":{"user":{"id":"2771148f-891c-46a5-9c9c-025f5a383444"
 --- [F01] Login bằng QA customer (chưa xác nhận email)
 Status  : 401
 Response: {"ok":false,"error":{"code":"EMAIL_NOT_CONFIRMED","message":"Vui lòng xác nhận địa chỉ email trước."}}
+===============================================================
+QA EXECUTION RUN — 2026-10-19 19:07:20 +0700
+Base URL: http://localhost:3000
+===============================================================
+### SECTION: PUBLIC API
+
+--- [P01] GET /api/ — featured
+Request : GET http://localhost:3000/api/
+Status  : 200
+Response: {"ok":true,"data":{"featured":[{"id":"ae477edc-f644-4fdc-8281-61126845190c","name":"Phở bò đặc biệt","slug":"pho-bo-dac-biet","description":"Phở bò tái nạm gầu, nước dùng ninh 12h từ xương bò.","imageUrl":"https://upload.wikimedia.org/wikipedia/commons/9/96/Pho-Beef-Noodle-Soup-2008.jpg","price":"55000","category":"main","isAvailable":true,"isFeatured":true,"prepTimeMinutes":20,"chefId":"8c29e82b-c46f-4ceb-a74e-90a584df3cf8","createdAt":"2026-10-12T03:22:40.008Z","updatedAt":"2026-10-12T08:51:30.395Z","deletedAt":null},{"id":"b4bfe402-c2eb-4cd4-8c75-ceb4fc3478f3","name":"Cơm tấm sườn bì chả","slug":"com-tam-suon-bi-cha","description":"Cơm tấm dẻo, sườn nướng mật ong, bì, chả trứng, mỡ hành.","imageUrl":"https://live.staticflickr.com/65535/49353944896_b2813fc86e_b.jpg","price":"65000","category":"main","isAvailable":true,"isFeatured":true,"prepTimeMinutes":25,"chefId":"8c29e82b-c46f-4ceb-a74e-90a584df3cf8","createdAt":"2026-10-12T03:22:40.008Z","updatedAt":"2026-10-12T08:51:30.395Z","deletedAt":null},{"id":"bef2bc00-4bef-4aec-9019-a31361560fae","name":"Bò bít tết sốt tiêu đen","slug":"bo-bit-tet-sot-tieu-den","descriptio
+Verdict : PASS
+
+--- [P02] GET /api/home
+Request : GET http://localhost:3000/api/home
+Status  : 200
+Response: {"ok":true,"data":{"featured":[{"id":"ae477edc-f644-4fdc-8281-61126845190c","name":"Phở bò đặc biệt","slug":"pho-bo-dac-biet","description":"Phở bò tái nạm gầu, nước dùng ninh 12h từ xương bò.","imageUrl":"https://upload.wikimedia.org/wikipedia/commons/9/96/Pho-Beef-Noodle-Soup-2008.jpg","price":"55000","category":"main","isAvailable":true,"isFeatured":true,"prepTimeMinutes":20,"chefId":"8c29e82b-c46f-4ceb-a74e-90a584df3cf8","createdAt":"2026-10-12T03:22:40.008Z","updatedAt":"2026-10-12T08:51:30.395Z","deletedAt":null},{"id":"b4bfe402-c2eb-4cd4-8c75-ceb4fc3478f3","name":"Cơm tấm sườn bì chả","slug":"com-tam-suon-bi-cha","description":"Cơm tấm dẻo, sườn nướng mật ong, bì, chả trứng, mỡ hành.","imageUrl":"https://live.staticflickr.com/65535/49353944896_b2813fc86e_b.jpg","price":"65000","category":"main","isAvailable":true,"isFeatured":true,"prepTimeMinutes":25,"chefId":"8c29e82b-c46f-4ceb-a74e-90a584df3cf8","createdAt":"2026-10-12T03:22:40.008Z","updatedAt":"2026-10-12T08:51:30.395Z","deletedAt":null},{"id":"bef2bc00-4bef-4aec-9019-a31361560fae","name":"Bò bít tết sốt tiêu đen","slug":"bo-bit-tet-sot-tieu-den","descriptio
+Verdict : PASS
+
+--- [P03] GET /api/menu
+Request : GET http://localhost:3000/api/menu
+Status  : 200
+Response: {"ok":true,"data":{"groups":[{"key":"appetizer","label":"Appetizers","dishes":[{"id":"d8320ddf-09a6-456f-b36c-3bc87412592a","name":"Gỏi cuốn tôm thịt","slug":"goi-cuon-tom-thit","description":"Khai vị tươi mát: tôm, thịt heo, rau sống cuốn bánh tráng, chấm mắm nêm.","imageUrl":"https://live.staticflickr.com/7356/11468058513_ac3e9f7044_b.jpg","price":"45000","category":"appetizer","isAvailable":true,"isFeatured":false,"prepTimeMinutes":15,"chefId":"8c29e82b-c46f-4ceb-a74e-90a584df3cf8","createdAt":"2026-10-12T03:22:40.008Z","updatedAt":"2026-10-13T10:00:54.632Z","deletedAt":null},{"id":"3096c869-c119-42d9-92a4-981d41c4afa6","name":"Súp bí đỏ kem tươi","slug":"sup-bi-do","description":"Súp bí đỏ sánh mịn nấu cùng kem tươi, ngọt tự nhiên.","imageUrl":"https://live.staticflickr.com/106/313561882_5830e604fe_b.jpg","price":"59000","category":"appetizer","isAvailable":true,"isFeatured":false,"prepTimeMinutes":20,"chefId":"17b02c5d-4cf4-4952-82e8-f2d74f6ce2c5","createdAt":"2026-10-12T03:22:40.008Z","updatedAt":"2026-10-12T08:51:30.395Z","deletedAt":null}]},{"key":"main","label":"Main dishes","dishes":[{"id":"bef2bc00-4bef-4aec-9019-a313615
+Verdict : PASS
+Info    : categories=[{"key":"appetizer","label":"Appetizers"},{"key":"main","label":"Main dishes"},{"key":"dessert","label":"Desserts"},{"key":"drink","label":"Drinks"},{"key":"combo","label":"Combos"}]
+Info    : sample slug=banh-flan-caramel
+
+--- [P04] GET /api/menu?category=<valid>
+Request : GET http://localhost:3000/api/menu?category=appetizer
+Status  : 200
+Response: {"ok":true,"data":{"groups":[{"key":"appetizer","label":"Appetizers","dishes":[{"id":"d8320ddf-09a6-456f-b36c-3bc87412592a","name":"Gỏi cuốn tôm thịt","slug":"goi-cuon-tom-thit","description":"Khai vị tươi mát: tôm, thịt heo, rau sống cuốn bánh tráng, chấm mắm nêm.","imageUrl":"https://live.staticflickr.com/7356/11468058513_ac3e9f7044_b.jpg","price":"45000","category":"appetizer","isAvailable":true,"isFeatured":false,"prepTimeMinutes":15,"chefId":"8c29e82b-c46f-4ceb-a74e-90a584df3cf8","createdAt":"2026-10-12T03:22:40.008Z","updatedAt":"2026-10-13T10:00:54.632Z","deletedAt":null},{"id":"3096c869-c119-42d9-92a4-981d41c4afa6","name":"Súp bí đỏ kem tươi","slug":"sup-bi-do","description":"Súp bí đỏ sánh mịn nấu cùng kem tươi, ngọt tự nhiên.","imageUrl":"https://live.staticflickr.com/106/313561882_5830e604fe_b.jpg","price":"59000","category":"appetizer","isAvailable":true,"isFeatured":false,"prepTimeMinutes":20,"chefId":"17b02c5d-4cf4-4952-82e8-f2d74f6ce2c5","createdAt":"2026-10-12T03:22:40.008Z","updatedAt":"2026-10-12T08:51:30.395Z","deletedAt":null}]}],"flat":false,"dishes":[{"id":"d8320ddf-09a6-456f-b36c-3bc87412592a","name":"Gỏi c
+Verdict : PASS
+
+--- [P05] GET /api/menu?category=invalid
+Request : GET http://localhost:3000/api/menu?category=HACKED_XYZ
+Status  : 200
+Response: {"ok":true,"data":{"groups":[{"key":"appetizer","label":"Appetizers","dishes":[{"id":"d8320ddf-09a6-456f-b36c-3bc87412592a","name":"Gỏi cuốn tôm thịt","slug":"goi-cuon-tom-thit","description":"Khai vị tươi mát: tôm, thịt heo, rau sống cuốn bánh tráng, chấm mắm nêm.","imageUrl":"https://live.staticflickr.com/7356/11468058513_ac3e9f7044_b.jpg","price":"45000","category":"appetizer","isAvailable":true,"isFeatured":false,"prepTimeMinutes":15,"chefId":"8c29e82b-c46f-4ceb-a74e-90a584df3cf8","createdAt":"2026-10-12T03:22:40.008Z","updatedAt":"2026-10-13T10:00:54.632Z","deletedAt":null},{"id":"3096c869-c119-42d9-92a4-981d41c4afa6","name":"Súp bí đỏ kem tươi","slug":"sup-bi-do","description":"Súp bí đỏ sánh mịn nấu cùng kem tươi, ngọt tự nhiên.","imageUrl":"https://live.staticflickr.com/106/313561882_5830e604fe_b.jpg","price":"59000","category":"appetizer","isAvailable":true,"isFeatured":false,"prepTimeMinutes":20,"chefId":"17b02c5d-4cf4-4952-82e8-f2d74f6ce2c5","createdAt":"2026-10-12T03:22:40.008Z","updatedAt":"2026-10-12T08:51:30.395Z","deletedAt":null}]},{"key":"main","label":"Main dishes","dishes":[{"id":"bef2bc00-4bef-4aec-9019-a313615
+Verdict : PASS
+
+--- [P06] GET /api/menu?q=a
+Request : GET http://localhost:3000/api/menu?q=a
+Status  : 200
+Response: {"ok":true,"data":{"groups":[],"flat":true,"dishes":[{"id":"cfa135d8-22c1-455c-90fa-a774815ded23","name":"Bánh Flan caramel","slug":"banh-flan-caramel","description":"Flan trứng sữa mềm mịn, lớp caramel vàng óng.","imageUrl":"https://live.staticflickr.com/4055/4247062952_aa90a0a9d3_b.jpg","price":"30000","category":"dessert","isAvailable":true,"isFeatured":false,"prepTimeMinutes":10,"chefId":"b8abda58-6fbc-41da-8d76-2f191e4e2d19","createdAt":"2026-10-12T03:22:40.008Z","updatedAt":"2026-10-12T08:51:30.395Z","deletedAt":null},{"id":"1b98d0e1-b279-4028-8977-1c4b8855d62f","name":"Bánh Tiramisu","slug":"banh-tiramisu","description":"Bánh Ý với mascarpone béo mịn, cà phê và cacao đắng nhẹ.","imageUrl":"https://live.staticflickr.com/220/501306828_0c8717474c_b.jpg","price":"55000","category":"dessert","isAvailable":true,"isFeatured":false,"prepTimeMinutes":10,"chefId":"b8abda58-6fbc-41da-8d76-2f191e4e2d19","createdAt":"2026-10-12T03:22:40.008Z","updatedAt":"2026-10-12T08:51:30.395Z","deletedAt":null},{"id":"c0e7de9d-f1ac-41af-bb79-5e167a98824d","name":"Cá Hồi Na Uy Áp Chảo Sốt Bơ Tỏi","slug":"ca-hoi-na-uy-ap-chao","description":"Phi lê cá hồi tư
+Verdict : PASS
+
+--- [P07] GET /api/menu?sort=price-asc
+Request : GET http://localhost:3000/api/menu?sort=price-asc
+Status  : 200
+Response: {"ok":true,"data":{"groups":[],"flat":true,"dishes":[{"id":"df6f978d-0a62-463d-b7f6-4a2a25b08fa8","name":"Cà phê sữa đá","slug":"ca-phe-sua-da","description":"Robusta pha phin đậm đà cùng sữa đặc, đá viên.","imageUrl":"https://live.staticflickr.com/74/204209415_2b899a8575_b.jpg","price":"29000","category":"drink","isAvailable":true,"isFeatured":false,"prepTimeMinutes":5,"chefId":"b8abda58-6fbc-41da-8d76-2f191e4e2d19","createdAt":"2026-10-12T03:22:40.008Z","updatedAt":"2026-10-12T08:51:30.395Z","deletedAt":null},{"id":"cfa135d8-22c1-455c-90fa-a774815ded23","name":"Bánh Flan caramel","slug":"banh-flan-caramel","description":"Flan trứng sữa mềm mịn, lớp caramel vàng óng.","imageUrl":"https://live.staticflickr.com/4055/4247062952_aa90a0a9d3_b.jpg","price":"30000","category":"dessert","isAvailable":true,"isFeatured":false,"prepTimeMinutes":10,"chefId":"b8abda58-6fbc-41da-8d76-2f191e4e2d19","createdAt":"2026-10-12T03:22:40.008Z","updatedAt":"2026-10-12T08:51:30.395Z","deletedAt":null},{"id":"eca10208-bdac-4758-92f6-418365e14d4e","name":"Trà đào cam sả","slug":"tra-dao-cam-sa","description":"Trà đào mát lạnh, đào ngâm giòn, cam và sả thơ
+Verdict : PASS
+
+--- [P08] GET /api/menu?sort=bogus
+Request : GET http://localhost:3000/api/menu?sort=bogus
+Status  : 200
+Response: {"ok":true,"data":{"groups":[{"key":"appetizer","label":"Appetizers","dishes":[{"id":"d8320ddf-09a6-456f-b36c-3bc87412592a","name":"Gỏi cuốn tôm thịt","slug":"goi-cuon-tom-thit","description":"Khai vị tươi mát: tôm, thịt heo, rau sống cuốn bánh tráng, chấm mắm nêm.","imageUrl":"https://live.staticflickr.com/7356/11468058513_ac3e9f7044_b.jpg","price":"45000","category":"appetizer","isAvailable":true,"isFeatured":false,"prepTimeMinutes":15,"chefId":"8c29e82b-c46f-4ceb-a74e-90a584df3cf8","createdAt":"2026-10-12T03:22:40.008Z","updatedAt":"2026-10-13T10:00:54.632Z","deletedAt":null},{"id":"3096c869-c119-42d9-92a4-981d41c4afa6","name":"Súp bí đỏ kem tươi","slug":"sup-bi-do","description":"Súp bí đỏ sánh mịn nấu cùng kem tươi, ngọt tự nhiên.","imageUrl":"https://live.staticflickr.com/106/313561882_5830e604fe_b.jpg","price":"59000","category":"appetizer","isAvailable":true,"isFeatured":false,"prepTimeMinutes":20,"chefId":"17b02c5d-4cf4-4952-82e8-f2d74f6ce2c5","createdAt":"2026-10-12T03:22:40.008Z","updatedAt":"2026-10-12T08:51:30.395Z","deletedAt":null}]},{"key":"main","label":"Main dishes","dishes":[{"id":"bef2bc00-4bef-4aec-9019-a313615
+Verdict : PASS
+
+--- [P09] GET /api/dishes/<valid-slug>
+Request : GET http://localhost:3000/api/dishes/banh-flan-caramel
+Status  : 200
+Response: {"ok":true,"data":{"dish":{"id":"cfa135d8-22c1-455c-90fa-a774815ded23","name":"Bánh Flan caramel","slug":"banh-flan-caramel","description":"Flan trứng sữa mềm mịn, lớp caramel vàng óng.","imageUrl":"https://live.staticflickr.com/4055/4247062952_aa90a0a9d3_b.jpg","price":"30000","category":"dessert","isAvailable":true,"isFeatured":false,"prepTimeMinutes":10,"chefId":"b8abda58-6fbc-41da-8d76-2f191e4e2d19","createdAt":"2026-10-12T03:22:40.008Z","updatedAt":"2026-10-12T08:51:30.395Z","deletedAt":null,"chef":{"id":"b8abda58-6fbc-41da-8d76-2f191e4e2d19","name":"Nguyễn Hoàng Nam","avatarUrl":null,"specialty":"Tráng miệng & Đồ uống","bio":"Chuyên bánh ngọt và đồ uống sáng tạo.","experienceYears":6,"phone":"0905555555","isActive":true,"createdAt":"2026-10-12T03:22:40.008Z","updatedAt":"2026-10-12T03:22:40.008Z","deletedAt":null},"ingredients":[{"dishId":"cfa135d8-22c1-455c-90fa-a774815ded23","ingredientId":"bd3a65e7-d922-449b-851f-a4b11e0a3222","quantity":"100","unit":"ml","ingredient":{"name":"Sữa đặc"}},{"dishId":"cfa135d8-22c1-455c-90fa-a774815ded23","ingredientId":"81bf4dd9-a78a-4f3d-9f93-bd8e6cf49360","quantity":"3","unit":"cai","ingredient":{"
+Verdict : PASS
+
+--- [P10] GET /api/dishes/<slug-khong-ton-tai>
+Request : GET http://localhost:3000/api/dishes/slug-khong-ton-tai-qa-1792411640
+Status  : 404
+Response: {"ok":false,"error":{"code":"NOT_FOUND","message":"Món ăn không tồn tại"}}
+Verdict : PASS
+
+--- [P11] GET /api/<unknown>
+Request : GET http://localhost:3000/api/khong-co-endpoint-nay
+Status  : 404
+Response: {"ok":false,"error":{"code":"NOT_FOUND","message":"Endpoint GET /api/khong-co-endpoint-nay not found"}}
+Verdict : PASS
+### SECTION: CORS
+
+--- [CORS01] GET /api/menu với Origin: http://localhost:5173
+Response headers:
+HTTP/1.1 200 OK
+Access-Control-Allow-Origin: http://localhost:5173
+Vary: Origin
+Access-Control-Allow-Credentials: true
+Access-Control-Expose-Headers: x-csrf-token
+Cross-Origin-Opener-Policy: same-origin
+Cross-Origin-Resource-Policy: cross-origin
+Origin-Agent-Cluster: ?1
+Referrer-Policy: no-referrer
+Strict-Transport-Security: max-age=31536000; includeSubDomains
+X-Content-Type-Options: nosniff
+X-DNS-Prefetch-Control: off
+X-Download-Options: noopen
+X-Frame-Options: SAMEORIGIN
+X-Permitted-Cross-Domain-Policies: none
+X-XSS-Protection: 0
+Set-Cookie: sid=s%3Aacfdffb5-8b1f-4dcc-9ee1-fbc6e0e18045.2mpsfS4Sc1m01LDLC%2BP3va98%2BJ5SaC9KLJsNbvtRLJ8; Max-Age=31536000; Path=/; Expires=Tue, 19 Oct 2027 12:07:23 GMT; HttpOnly; SameSite=Lax
+Set-Cookie: x-csrf-token=2610a511f954ae916129c9ea64bccf3011881b7bcf46f3232ccfa13c21b7f61c.ec4c7f1d6030a9c6aaf046af4e114bd0be79a1fd0dd7b22d041e28d60dcf3f91; Path=/; HttpOnly; SameSite=Lax
+Content-Type: application/json; charset=utf-8
+Content-Length: 19851
+ETag: W/"4d8b-saLGMZSovWRoBDUacQH3L5TSedw"
+Date: Mon, 19 Oct 2026 12:07:23 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+Verdict : PASS
+
+--- [CORS02] OPTIONS /api/menu (preflight, Request-Method: PATCH)
+Response headers:
+HTTP/1.1 204 No Content
+X-Powered-By: Express
+Access-Control-Allow-Origin: http://localhost:5173
+Vary: Origin
+Access-Control-Allow-Credentials: true
+Access-Control-Allow-Methods: GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS
+Access-Control-Allow-Headers: Content-Type,Authorization,x-csrf-token
+Access-Control-Expose-Headers: x-csrf-token
+Content-Length: 0
+Date: Mon, 19 Oct 2026 12:07:23 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+Verdict : PASS
+### SECTION: CSRF & AUTH
+
+--- [X01] POST login KHÔNG có CSRF token
+Request : POST http://localhost:3000/api/auth/login
+Payload : {"email":"a@b.com","password":"x12345"}
+Status  : 403
+Response: {"ok":false,"error":{"code":"CSRF_INVALID","message":"CSRF token không hợp lệ hoặc đã hết hạn."}}
+Verdict : PASS
+
+--- [X02] POST login với CSRF token SAI
+Request : POST http://localhost:3000/api/auth/login
+Payload : {"email":"a@b.com","password":"x12345"}
+Status  : 403
+Response: {"ok":false,"error":{"code":"CSRF_INVALID","message":"CSRF token không hợp lệ hoặc đã hết hạn."}}
+Verdict : PASS
+Info    : anon csrf token acquired (129 chars)
+
+--- [A01] POST login email sai định dạng
+Request : POST http://localhost:3000/api/auth/login
+Payload : {"email":"khong-phai-email",...}
+Status  : 422
+Response: {"ok":false,"error":{"code":"VALIDATION_ERROR","message":"Dữ liệu đăng nhập không hợp lệ","fields":{"email":"Email không hợp lệ"}}}
+Verdict : PASS
+
+--- [A02] POST login thiếu password
+Request : POST http://localhost:3000/api/auth/login
+Payload : {"email":"a@b.com"}
+Status  : 422
+Response: {"ok":false,"error":{"code":"VALIDATION_ERROR","message":"Dữ liệu đăng nhập không hợp lệ","fields":{"password":"Invalid input: expected string, received undefined"}}}
+Verdict : PASS
+
+--- [A03] POST login sai mật khẩu
+Request : POST http://localhost:3000/api/auth/login
+Payload : {"email":"andykhang404@gmail.com","password":"***sai***"}
+Status  : 401
+Response: {"ok":false,"error":{"code":"INVALID_CREDENTIALS","message":"Email hoặc mật khẩu không đúng."}}
+Verdict : PASS
+
+--- [A04] GET /api/auth/me (anonymous)
+Request : GET http://localhost:3000/api/auth/me
+Status  : 200
+Response: {"ok":true,"data":{"user":null,"csrfToken":"2823539a4b1cab54e7982b97990a4e64b3eb62a9f03fa444cbf9b4314dc78abd.9298596db956da9021e3cdb979e5ffc30adc19389bdcb4f129ac8566cba71d74"}}
+Verdict : PASS
+
+--- [A05] POST login ADMIN hợp lệ
+Request : POST http://localhost:3000/api/auth/login
+Payload : {"email":"andykhang404@gmail.com","password":"***"}
+Status  : 200
+Response: {"ok":true,"data":{"user":{"id":"7304f4a9-9b45-483f-8cef-49cbf5d16749","email":"andykhang404@gmail.com","displayName":"Master Admin","role":"ADMIN","createdAt":"2026-10-12T04:19:59.700Z","updatedAt":"2026-10-12T04:32:01.625Z"},"redirectTo":"/admin","message":"Đăng nhập thành công."}}
+Verdict : PASS
+Info    : admin id=7304f4a9-9b45-483f-8cef-49cbf5d16749
+
+--- [A06] GET /api/auth/me (admin)
+Request : GET http://localhost:3000/api/auth/me
+Status  : 200
+Response: {"ok":true,"data":{"user":{"id":"7304f4a9-9b45-483f-8cef-49cbf5d16749","email":"andykhang404@gmail.com","displayName":"Master Admin","role":"ADMIN","createdAt":"2026-10-12T04:19:59.700Z","updatedAt":"2026-10-12T04:32:01.625Z"},"csrfToken":"1f1728245a17f61eea014b20982162eeb7758d4b241f662f6ac736458c933b4a.12bef6b863bb073264978ade81bb97a561a0993b4699a5c2398fa685788c21b5"}}
+Verdict : PASS
+
+--- [A07] POST register confirmPassword không khớp
+Request : POST http://localhost:3000/api/auth/register
+Payload : {...confirmPassword:"khac123"}
+Status  : 422
+Response: {"ok":false,"error":{"code":"VALIDATION_ERROR","message":"Dữ liệu đăng ký không hợp lệ","fields":{"confirmPassword":"Mật khẩu nhập lại không khớp"}}}
+Verdict : PASS
+
+--- [A08] POST register password < 6 ký tự
+Request : POST http://localhost:3000/api/auth/register
+Payload : {...password:"123"}
+Status  : 422
+Response: {"ok":false,"error":{"code":"VALIDATION_ERROR","message":"Dữ liệu đăng ký không hợp lệ","fields":{"password":"Mật khẩu phải ít nhất 6 ký tự"}}}
+Verdict : PASS
+
+--- [A09] POST register hợp lệ (QA user)
+Request : POST http://localhost:3000/api/auth/register
+Payload : {"email":"qa.test.1792411640@gmail.com",...}
+Status  : 400
+Response: {"ok":false,"error":{"code":"AUTH_ERROR","message":"email rate limit exceeded"}}
+Verdict : FAIL
+Info    : QA user id= email=qa.test.1792411640@gmail.com
+
+--- [A10] POST register email trùng
+Request : POST http://localhost:3000/api/auth/register
+Payload : {"email":"qa.test.1792411640@gmail.com(trùng)}
+Status  : 400
+Response: {"ok":false,"error":{"code":"AUTH_ERROR","message":"email rate limit exceeded"}}
+Verdict : PASS
+### SECTION: ADMIN (authenticated)
+
+--- [M01] GET /api/admin/stats (anonymous)
+Request : GET http://localhost:3000/api/admin/stats
+Status  : 401
+Response: {"ok":false,"error":{"code":"UNAUTHORIZED","message":"Vui lòng đăng nhập để tiếp tục"}}
+Verdict : PASS
+
+--- [M02] GET /api/admin/stats (admin)
+Request : GET http://localhost:3000/api/admin/stats
+Status  : 200
+Response: {"ok":true,"data":{"stats":{"dishCount":18,"chefCount":7,"ingredientCount":32,"userCount":5},"recentDishes":[{"id":"e7dfbd87-d916-4547-9ac5-cf4df7e15862","name":"Bún bò Huế","slug":"bun-bo-hue","description":null,"imageUrl":"https://mjsgkloycpzyhcjdyxwv.supabase.co/storage/v1/object/public/images/dishes/4f5c79b6-0531-45eb-9ad8-d7b72e910e8c.jpg","price":"40000","category":"main","isAvailable":true,"isFeatured":false,"prepTimeMinutes":15,"chefId":"8c29e82b-c46f-4ceb-a74e-90a584df3cf8","createdAt":"2026-10-19T04:13:09.413Z","updatedAt":"2026-10-19T04:13:09.413Z","deletedAt":null,"chef":{"id":"8c29e82b-c46f-4ceb-a74e-90a584df3cf8","name":"Trần Minh Quân","avatarUrl":null,"specialty":"Món Việt","bio":"Bếp trưởng 15 năm kinh nghiệm, chuyên phở và cơm tấm.","experienceYears":15,"phone":"0901111111","isActive":true,"createdAt":"2026-10-12T03:22:40.008Z","updatedAt":"2026-10-12T03:22:40.008Z","deletedAt":null}},{"id":"22de9aab-f04f-440a-a926-31a84433ca2c","name":"Matcha latte","slug":"matcha-latte","description":"Matcha latte ngày càng trở nên phổ biến nhờ hương vị độc đáo, sắc xanh tươi tắn cùng vô vàn lợi ích cho sức khỏe.","ima
+Verdict : PASS
+
+--- [M03] GET /api/admin/
+Request : GET http://localhost:3000/api/admin/
+Status  : 200
+Response: {"ok":true,"data":{"stats":{"dishCount":18,"chefCount":7,"ingredientCount":32,"userCount":5},"recentDishes":[{"id":"e7dfbd87-d916-4547-9ac5-cf4df7e15862","name":"Bún bò Huế","slug":"bun-bo-hue","description":null,"imageUrl":"https://mjsgkloycpzyhcjdyxwv.supabase.co/storage/v1/object/public/images/dishes/4f5c79b6-0531-45eb-9ad8-d7b72e910e8c.jpg","price":"40000","category":"main","isAvailable":true,"isFeatured":false,"prepTimeMinutes":15,"chefId":"8c29e82b-c46f-4ceb-a74e-90a584df3cf8","createdAt":"2026-10-19T04:13:09.413Z","updatedAt":"2026-10-19T04:13:09.413Z","deletedAt":null,"chef":{"id":"8c29e82b-c46f-4ceb-a74e-90a584df3cf8","name":"Trần Minh Quân","avatarUrl":null,"specialty":"Món Việt","bio":"Bếp trưởng 15 năm kinh nghiệm, chuyên phở và cơm tấm.","experienceYears":15,"phone":"0901111111","isActive":true,"createdAt":"2026-10-12T03:22:40.008Z","updatedAt":"2026-10-12T03:22:40.008Z","deletedAt":null}},{"id":"22de9aab-f04f-440a-a926-31a84433ca2c","name":"Matcha latte","slug":"matcha-latte","description":"Matcha latte ngày càng trở nên phổ biến nhờ hương vị độc đáo, sắc xanh tươi tắn cùng vô vàn lợi ích cho sức khỏe.","ima
+Verdict : PASS
+
+--- [F01] customer forbidden from admin
+BLOCKED : Register QA user thất bại ở A09
+### SECTION: ADMIN DISHES CRUD
+
+--- [D01] GET /api/admin/dishes (anonymous)
+Request : GET http://localhost:3000/api/admin/dishes
+Status  : 401
+Response: {"ok":false,"error":{"code":"UNAUTHORIZED","message":"Vui lòng đăng nhập để tiếp tục"}}
+Verdict : PASS
+
+--- [D02] GET /api/admin/dishes
+Request : GET http://localhost:3000/api/admin/dishes
+Status  : 200
+Response: {"ok":true,"data":{"dishes":[{"id":"e7dfbd87-d916-4547-9ac5-cf4df7e15862","name":"Bún bò Huế","slug":"bun-bo-hue","description":null,"imageUrl":"https://mjsgkloycpzyhcjdyxwv.supabase.co/storage/v1/object/public/images/dishes/4f5c79b6-0531-45eb-9ad8-d7b72e910e8c.jpg","price":"40000","category":"main","isAvailable":true,"isFeatured":false,"prepTimeMinutes":15,"chefId":"8c29e82b-c46f-4ceb-a74e-90a584df3cf8","createdAt":"2026-10-19T04:13:09.413Z","updatedAt":"2026-10-19T04:13:09.413Z","deletedAt":null,"chef":{"id":"8c29e82b-c46f-4ceb-a74e-90a584df3cf8","name":"Trần Minh Quân","avatarUrl":null,"specialty":"Món Việt","bio":"Bếp trưởng 15 năm kinh nghiệm, chuyên phở và cơm tấm.","experienceYears":15,"phone":"0901111111","isActive":true,"createdAt":"2026-10-12T03:22:40.008Z","updatedAt":"2026-10-12T03:22:40.008Z","deletedAt":null}},{"id":"22de9aab-f04f-440a-a926-31a84433ca2c","name":"Matcha latte","slug":"matcha-latte","description":"Matcha latte ngày càng trở nên phổ biến nhờ hương vị độc đáo, sắc xanh tươi tắn cùng vô vàn lợi ích cho sức khỏe.","imageUrl":"https://mjsgkloycpzyhcjdyxwv.supabase.co/storage/v1/object/public/images
+Verdict : PASS
+
+--- [D03] GET /api/admin/dishes?q=QA
+Request : GET http://localhost:3000/api/admin/dishes?q=QA
+Status  : 200
+Response: {"ok":true,"data":{"dishes":[],"pagination":{"page":1,"pageSize":10,"total":0,"totalPages":1,"hasPrev":false,"hasNext":false,"prevPage":0,"nextPage":2,"baseQuery":"q=QA"},"q":"QA","categories":[{"key":"appetizer","label":"Appetizers"},{"key":"main","label":"Main dishes"},{"key":"dessert","label":"Desserts"},{"key":"drink","label":"Drinks"},{"key":"combo","label":"Combos"}],"showDeleted":false}}
+Verdict : PASS
+
+--- [D04] GET /api/admin/dishes?deleted=1
+Request : GET http://localhost:3000/api/admin/dishes?deleted=1
+Status  : 200
+Response: {"ok":true,"data":{"dishes":[{"id":"a3daf216-9480-44b4-a2af-ed9d9dc139cf","name":"QA Test Dish 1792409075","slug":"qa-test-dish-1792409075-2","description":null,"imageUrl":null,"price":"88000","category":"appetizer","isAvailable":false,"isFeatured":false,"prepTimeMinutes":null,"chefId":null,"createdAt":"2026-10-19T11:25:01.263Z","updatedAt":"2026-10-19T11:25:25.155Z","deletedAt":"2026-10-19T11:25:25.810Z","chef":null},{"id":"122b1312-62fb-4b6f-984e-86e8e10082ff","name":"QA Test Dish 1792409075 Updated","slug":"qa-test-dish-1792409075","description":null,"imageUrl":null,"price":"123000","category":"appetizer","isAvailable":true,"isFeatured":true,"prepTimeMinutes":null,"chefId":null,"createdAt":"2026-10-19T11:24:58.260Z","updatedAt":"2026-10-19T11:25:24.776Z","deletedAt":"2026-10-19T11:25:25.431Z","chef":null},{"id":"2d003d62-a09c-455d-8c8d-3ab01a5c1a4c","name":"QA Test Dish 1792408932","slug":"qa-test-dish-1792408932-2","description":null,"imageUrl":null,"price":"88000","category":"appetizer","isAvailable":false,"isFeatured":false,"prepTimeMinutes":null,"chefId":null,"createdAt":"2026-10-19T11:22:39.496Z","updatedAt":"2026-10-19T11:23:03.957Z","deletedAt":"2026-10-19T11:23:04.608Z",
+Verdict : PASS
+Info    : form-deps ingredient=fcc1df94-d891-4129-bfb5-0c15a7c57e16 chef=b9597ec5-a2da-4b1f-a402-365e8ef927f2
+
+--- [D05] POST tạo món hợp lệ (kèm nguyên liệu)
+Request : POST http://localhost:3000/api/admin/dishes
+Payload : {"name":"QA Test Dish 1792411640","price":99000,...}
+Status  : 201
+Response: {"ok":true,"data":{"dish":{"id":"bca65eae-9c80-41d8-9dda-e0be10080e3b","name":"QA Test Dish 1792411640","slug":"qa-test-dish-1792411640","description":null,"imageUrl":null,"price":"99000","category":"appetizer","isAvailable":true,"isFeatured":false,"prepTimeMinutes":null,"chefId":null,"createdAt":"2026-10-19T12:07:30.998Z","updatedAt":"2026-10-19T12:07:30.998Z","deletedAt":null},"message":"Đã tạo món \"QA Test Dish 1792411640\"."}}
+Verdict : PASS
+
+--- [D06] POST tạo món thiếu name
+Request : POST http://localhost:3000/api/admin/dishes
+Payload : {"price":99000,...}
+Status  : 400
+Response: {"ok":false,"error":{"code":"VALIDATION_ERROR","message":"Thông tin món ăn không hợp lệ","fields":{"name":"Tên món là bắt buộc"}}}
+Verdict : PASS
+
+--- [D07] POST tạo món category không hợp lệ
+Request : POST http://localhost:3000/api/admin/dishes
+Payload : {...category:"KHONG_TON_TAI"}
+Status  : 400
+Response: {"ok":false,"error":{"code":"VALIDATION_ERROR","message":"Thông tin món ăn không hợp lệ","fields":{"category":"Danh mục không hợp lệ"}}}
+Verdict : PASS
+
+--- [D08] POST tạo món giá âm
+Request : POST http://localhost:3000/api/admin/dishes
+Payload : {...price:-500}
+Status  : 400
+Response: {"ok":false,"error":{"code":"VALIDATION_ERROR","message":"Thông tin món ăn không hợp lệ","fields":{"price":"Giá bán (VND) phải ít nhất 0"}}}
+Verdict : PASS
+
+--- [D09] POST tạo món TRÙNG tên (slug tự động)
+Request : POST http://localhost:3000/api/admin/dishes
+Payload : {"name":"QA Test Dish 1792411640(trùng)}
+Status  : 201
+Response: {"ok":true,"data":{"dish":{"id":"5e31881b-416b-4c2d-bbfe-2a4af2e538db","name":"QA Test Dish 1792411640","slug":"qa-test-dish-1792411640-2","description":null,"imageUrl":null,"price":"88000","category":"appetizer","isAvailable":false,"isFeatured":false,"prepTimeMinutes":null,"chefId":null,"createdAt":"2026-10-19T12:07:32.392Z","updatedAt":"2026-10-19T12:07:32.392Z","deletedAt":null},"message":"Đã tạo món \"QA Test Dish 1792411640\"."}}
+Verdict : PASS
+
+--- [D10] GET /api/admin/dishes/<id>
+Request : GET http://localhost:3000/api/admin/dishes/bca65eae-9c80-41d8-9dda-e0be10080e3b
+Status  : 200
+Response: {"ok":true,"data":{"dish":{"id":"bca65eae-9c80-41d8-9dda-e0be10080e3b","name":"QA Test Dish 1792411640","slug":"qa-test-dish-1792411640","description":null,"imageUrl":null,"price":"99000","category":"appetizer","isAvailable":true,"isFeatured":false,"prepTimeMinutes":null,"chefId":null,"createdAt":"2026-10-19T12:07:30.998Z","updatedAt":"2026-10-19T12:07:30.998Z","deletedAt":null,"ingredients":[{"dishId":"bca65eae-9c80-41d8-9dda-e0be10080e3b","ingredientId":"fcc1df94-d891-4129-bfb5-0c15a7c57e16","quantity":"100","unit":"g","ingredient":{"id":"fcc1df94-d891-4129-bfb5-0c15a7c57e16","name":"Bánh phở","unit":"g","stockQuantity":"30000","pricePerUnit":"40","imageUrl":null,"isAvailable":true,"createdAt":"2026-10-12T03:22:40.008Z","updatedAt":"2026-10-12T03:22:40.008Z","deletedAt":null}}]},"dishIngredients":[{"ingredientId":"fcc1df94-d891-4129-bfb5-0c15a7c57e16","quantity":100,"unit":"g"}],"chefs":[{"id":"b9597ec5-a2da-4b1f-a402-365e8ef927f2","name":"Christine Hà","avatarUrl":null,"specialty":"Món Á fusion","bio":"Chuyên món Thái và fusion, quán quân MasterChef US.","experienceYears":12,"phone":"0904444444","isActive":true,"createdAt":"2026-10-12T03:22:40.008Z","updatedAt":"2026
+Verdict : PASS
+
+--- [D11] GET /api/admin/dishes/<id-không-phải-uuid>
+Request : GET http://localhost:3000/api/admin/dishes/khong-phai-uuid
+Status  : 404
+Response: {"ok":false,"error":{"code":"NOT_FOUND","message":"Tài nguyên không tồn tại"}}
+Verdict : PASS
+
+--- [D12] GET /api/admin/dishes/<uuid-không-tồn-tại>
+Request : GET http://localhost:3000/api/admin/dishes/00000000-0000-4000-8000-001792411640
+Status  : 404
+Response: {"ok":false,"error":{"code":"NOT_FOUND","message":"Món ăn không tồn tại"}}
+Verdict : PASS
+
+--- [D13] PATCH cập nhật món
+Request : PATCH http://localhost:3000/api/admin/dishes/bca65eae-9c80-41d8-9dda-e0be10080e3b
+Payload : {"name":"...Updated","price":123000}
+Status  : 200
+Response: {"ok":true,"data":{"dish":{"id":"bca65eae-9c80-41d8-9dda-e0be10080e3b","name":"QA Test Dish 1792411640 Updated","slug":"qa-test-dish-1792411640","description":null,"imageUrl":null,"price":"123000","category":"appetizer","isAvailable":true,"isFeatured":true,"prepTimeMinutes":null,"chefId":null,"createdAt":"2026-10-19T12:07:30.998Z","updatedAt":"2026-10-19T12:07:34.053Z","deletedAt":null},"message":"Đã cập nhật món \"QA Test Dish 1792411640 Updated\"."}}
+Verdict : PASS
+
+--- [D14] PATCH món dữ liệu không hợp lệ
+Request : PATCH http://localhost:3000/api/admin/dishes/bca65eae-9c80-41d8-9dda-e0be10080e3b
+Payload : {"name":"","price":"abc"}
+Status  : 400
+Response: {"ok":false,"error":{"code":"VALIDATION_ERROR","message":"Thông tin món ăn không hợp lệ","fields":{"name":"Tên món là bắt buộc","price":"Giá bán (VND) phải là số"}}}
+Verdict : PASS
+
+--- [D15] DELETE món (soft delete)
+Request : DELETE http://localhost:3000/api/admin/dishes/5e31881b-416b-4c2d-bbfe-2a4af2e538db
+Status  : 200
+Response: {"ok":true,"data":{"id":"5e31881b-416b-4c2d-bbfe-2a4af2e538db","message":"Đã chuyển món vào danh sách đã xóa."}}
+Verdict : PASS
+
+--- [D16] POST khôi phục món
+Request : POST http://localhost:3000/api/admin/dishes/5e31881b-416b-4c2d-bbfe-2a4af2e538db/restore
+Status  : 200
+Response: {"ok":true,"data":{"id":"5e31881b-416b-4c2d-bbfe-2a4af2e538db","message":"Đã khôi phục món ăn."}}
+Verdict : PASS
+
+--- [D17] DELETE món không tồn tại
+Request : DELETE http://localhost:3000/api/admin/dishes/00000000-0000-4000-8000-001792411640
+Status  : 404
+Response: {"ok":false,"error":{"code":"NOT_FOUND","message":"Món ăn không tồn tại"}}
+Verdict : PASS
+### SECTION: ADMIN INGREDIENTS CRUD
+
+--- [I01] GET /api/admin/ingredients
+Request : GET http://localhost:3000/api/admin/ingredients
+Status  : 200
+Response: {"ok":true,"data":{"ingredients":[{"id":"fcc1df94-d891-4129-bfb5-0c15a7c57e16","name":"Bánh phở","unit":"g","stockQuantity":"30000","pricePerUnit":"40","imageUrl":null,"isAvailable":true,"createdAt":"2026-10-12T03:22:40.008Z","updatedAt":"2026-10-12T03:22:40.008Z","deletedAt":null},{"id":"a0868dab-6111-4969-bf6a-3cb343765a9f","name":"Bánh phở tươi","unit":"g","stockQuantity":"20000","pricePerUnit":"50","imageUrl":null,"isAvailable":true,"createdAt":"2026-10-12T04:20:02.854Z","updatedAt":"2026-10-12T04:20:02.854Z","deletedAt":null},{"id":"9bf5e48d-ffe5-4c91-a50b-68186ee4fe16","name":"Bánh tráng","unit":"cai","stockQuantity":"1000","pricePerUnit":"1500","imageUrl":null,"isAvailable":true,"createdAt":"2026-10-12T03:22:40.008Z","updatedAt":"2026-10-12T03:22:40.008Z","deletedAt":null},{"id":"40365544-815e-4dbc-9df6-63e640c9da1e","name":"Bí đỏ","unit":"g","stockQuantity":"10000","pricePerUnit":"40","imageUrl":null,"isAvailable":true,"createdAt":"2026-10-12T03:22:40.008Z","updatedAt":"2026-10-12T03:22:40.008Z","deletedAt":null},{"id":"89a926fb-501a-4595-957c-4b358140d449","name":"Cá hồi tươi Na Uy","unit":"g","stockQuantity":"8000","pricePerUnit":"600","imageUrl":null,"
+Verdict : PASS
+
+--- [I02] POST tạo nguyên liệu hợp lệ
+Request : POST http://localhost:3000/api/admin/ingredients
+Payload : {"name":"QA Test Ingredient 1792411640",...}
+Status  : 201
+Response: {"ok":true,"data":{"ingredient":{"id":"1847310b-4fb7-49e1-8327-591edfe33747","name":"QA Test Ingredient 1792411640","unit":"g","stockQuantity":"500","pricePerUnit":"1500","imageUrl":null,"isAvailable":true,"createdAt":"2026-10-19T12:07:36.616Z","updatedAt":"2026-10-19T12:07:36.616Z","deletedAt":null},"message":"Đã tạo nguyên liệu \"QA Test Ingredient 1792411640\"."}}
+Verdict : PASS
+
+--- [I03] POST tạo nguyên liệu TRÙNG tên
+Request : POST http://localhost:3000/api/admin/ingredients
+Payload : {"name":"QA Test Ingredient 1792411640(trùng)}
+Status  : 409
+Response: {"ok":false,"error":{"code":"CONFLICT","message":"Nguyên liệu này đã tồn tại","fields":{"name":"Nguyên liệu này đã tồn tại"}}}
+Verdict : PASS
+
+--- [I04] POST nguyên liệu thiếu name
+Request : POST http://localhost:3000/api/admin/ingredients
+Payload : {"unit":"g"}
+Status  : 400
+Response: {"ok":false,"error":{"code":"VALIDATION_ERROR","message":"Thông tin nguyên liệu không hợp lệ","fields":{"name":"Tên nguyên liệu là bắt buộc"}}}
+Verdict : PASS
+
+--- [I05] POST nguyên liệu tồn kho âm
+Request : POST http://localhost:3000/api/admin/ingredients
+Payload : {...stockQuantity:-10}
+Status  : 400
+Response: {"ok":false,"error":{"code":"VALIDATION_ERROR","message":"Thông tin nguyên liệu không hợp lệ","fields":{"stockQuantity":"Tồn kho phải ít nhất 0"}}}
+Verdict : PASS
+
+--- [I06] GET /api/admin/ingredients/<id>
+Request : GET http://localhost:3000/api/admin/ingredients/1847310b-4fb7-49e1-8327-591edfe33747
+Status  : 200
+Response: {"ok":true,"data":{"ingredient":{"id":"1847310b-4fb7-49e1-8327-591edfe33747","name":"QA Test Ingredient 1792411640","unit":"g","stockQuantity":"500","pricePerUnit":"1500","imageUrl":null,"isAvailable":true,"createdAt":"2026-10-19T12:07:36.616Z","updatedAt":"2026-10-19T12:07:36.616Z","deletedAt":null}}}
+Verdict : PASS
+
+--- [I07] PATCH cập nhật nguyên liệu
+Request : PATCH http://localhost:3000/api/admin/ingredients/1847310b-4fb7-49e1-8327-591edfe33747
+Payload : {"name":"...Updated","unit":"kg"}
+Status  : 200
+Response: {"ok":true,"data":{"ingredient":{"id":"1847310b-4fb7-49e1-8327-591edfe33747","name":"QA Test Ingredient 1792411640 Updated","unit":"kg","stockQuantity":"250","pricePerUnit":"2000","imageUrl":null,"isAvailable":true,"createdAt":"2026-10-19T12:07:36.616Z","updatedAt":"2026-10-19T12:07:38.016Z","deletedAt":null},"message":"Đã cập nhật nguyên liệu \"QA Test Ingredient 1792411640 Updated\"."}}
+Verdict : PASS
+
+--- [I08] DELETE nguyên liệu (soft)
+Request : DELETE http://localhost:3000/api/admin/ingredients/1847310b-4fb7-49e1-8327-591edfe33747
+Status  : 200
+Response: {"ok":true,"data":{"id":"1847310b-4fb7-49e1-8327-591edfe33747","message":"Đã chuyển nguyên liệu vào danh sách đã xóa."}}
+Verdict : PASS
+
+--- [I09] POST khôi phục nguyên liệu
+Request : POST http://localhost:3000/api/admin/ingredients/1847310b-4fb7-49e1-8327-591edfe33747/restore
+Status  : 200
+Response: {"ok":true,"data":{"id":"1847310b-4fb7-49e1-8327-591edfe33747","message":"Đã khôi phục nguyên liệu."}}
+Verdict : PASS
+### SECTION: ADMIN CHEFS CRUD
+
+--- [C01] GET /api/admin/chefs
+Request : GET http://localhost:3000/api/admin/chefs
+Status  : 200
+Response: {"ok":true,"data":{"chefs":[{"id":"00000000-0000-0000-0000-000000000002","name":"Christine Hà","avatarUrl":"https://images.unsplash.com/photo-1583394838336-acd977736f90?auto=format&fit=crop&w=400&q=80","specialty":"Món Việt Truyền Thống","bio":"MasterChef winner celebrated for bringing soulful, modern Vietnamese dining to the world.","experienceYears":12,"phone":"+84 903 333 444","isActive":true,"createdAt":"2026-10-12T04:20:01.318Z","updatedAt":"2026-10-12T04:20:01.318Z","deletedAt":null},{"id":"00000000-0000-0000-0000-000000000001","name":"Gordon Ramsay","avatarUrl":"https://images.unsplash.com/photo-1577219491135-ce391730fb2c?auto=format&fit=crop&w=400&q=80","specialty":"Món Âu & Steak","bio":"Michelin-starred chef celebrated for culinary excellence and rigorous precision.","experienceYears":25,"phone":"+84 901 111 222","isActive":true,"createdAt":"2026-10-12T04:20:00.595Z","updatedAt":"2026-10-12T04:20:00.595Z","deletedAt":null},{"id":"9dabd5cc-846f-4907-a867-c857fa1f4ae5","name":"Phạm Đức Anh","avatarUrl":null,"specialty":"Món Nhật","bio":"Đầu bếp sushi 8 năm, chứng chỉ knife skill Osaka.","experienceYears":8,"phone":"0903333333","isActive":true,"cr
+Verdict : PASS
+
+--- [C02] POST tạo đầu bếp hợp lệ
+Request : POST http://localhost:3000/api/admin/chefs
+Payload : {"name":"QA Test Chef 1792411640",...}
+Status  : 201
+Response: {"ok":true,"data":{"chef":{"id":"7b86eb2e-0c26-4537-9e2f-ca6e4ff00569","name":"QA Test Chef 1792411640","avatarUrl":null,"specialty":"QA Specialty","bio":"Chef phục vụ kiểm thử","experienceYears":5,"phone":"0901234567","isActive":true,"createdAt":"2026-10-19T12:07:39.283Z","updatedAt":"2026-10-19T12:07:39.283Z","deletedAt":null},"message":"Đã tạo đầu bếp \"QA Test Chef 1792411640\"."}}
+Verdict : PASS
+
+--- [C03] POST đầu bếp SĐT không hợp lệ
+Request : POST http://localhost:3000/api/admin/chefs
+Payload : {...phone:"abc-xyz"}
+Status  : 400
+Response: {"ok":false,"error":{"code":"VALIDATION_ERROR","message":"Thông tin đầu bếp không hợp lệ","fields":{"phone":"Số điện thoại không hợp lệ (vd. 0901234567)"}}}
+Verdict : PASS
+
+--- [C04] POST đầu bếp thiếu name
+Request : POST http://localhost:3000/api/admin/chefs
+Payload : {"specialty":"X"}
+Status  : 400
+Response: {"ok":false,"error":{"code":"VALIDATION_ERROR","message":"Thông tin đầu bếp không hợp lệ","fields":{"name":"Họ và tên là bắt buộc"}}}
+Verdict : PASS
+
+--- [C05] POST đầu bếp experienceYears=200
+Request : POST http://localhost:3000/api/admin/chefs
+Payload : {...experienceYears:200}
+Status  : 400
+Response: {"ok":false,"error":{"code":"VALIDATION_ERROR","message":"Thông tin đầu bếp không hợp lệ","fields":{"experienceYears":"Số năm kinh nghiệm không quá 100"}}}
+Verdict : PASS
+
+--- [C06] GET /api/admin/chefs/<id>
+Request : GET http://localhost:3000/api/admin/chefs/7b86eb2e-0c26-4537-9e2f-ca6e4ff00569
+Status  : 200
+Response: {"ok":true,"data":{"chef":{"id":"7b86eb2e-0c26-4537-9e2f-ca6e4ff00569","name":"QA Test Chef 1792411640","avatarUrl":null,"specialty":"QA Specialty","bio":"Chef phục vụ kiểm thử","experienceYears":5,"phone":"0901234567","isActive":true,"createdAt":"2026-10-19T12:07:39.283Z","updatedAt":"2026-10-19T12:07:39.283Z","deletedAt":null}}}
+Verdict : PASS
+
+--- [C07] PATCH cập nhật đầu bếp
+Request : PATCH http://localhost:3000/api/admin/chefs/7b86eb2e-0c26-4537-9e2f-ca6e4ff00569
+Payload : {"name":"...Updated","experienceYears":7}
+Status  : 200
+Response: {"ok":true,"data":{"chef":{"id":"7b86eb2e-0c26-4537-9e2f-ca6e4ff00569","name":"QA Test Chef 1792411640 Updated","avatarUrl":null,"specialty":null,"bio":null,"experienceYears":7,"phone":null,"isActive":true,"createdAt":"2026-10-19T12:07:39.283Z","updatedAt":"2026-10-19T12:07:40.370Z","deletedAt":null},"message":"Đã cập nhật đầu bếp \"QA Test Chef 1792411640 Updated\"."}}
+Verdict : PASS
+
+--- [C08] DELETE đầu bếp (soft)
+Request : DELETE http://localhost:3000/api/admin/chefs/7b86eb2e-0c26-4537-9e2f-ca6e4ff00569
+Status  : 200
+Response: {"ok":true,"data":{"id":"7b86eb2e-0c26-4537-9e2f-ca6e4ff00569","message":"Đã chuyển đầu bếp vào danh sách đã xóa."}}
+Verdict : PASS
+
+--- [C09] POST khôi phục đầu bếp
+Request : POST http://localhost:3000/api/admin/chefs/7b86eb2e-0c26-4537-9e2f-ca6e4ff00569/restore
+Status  : 200
+Response: {"ok":true,"data":{"id":"7b86eb2e-0c26-4537-9e2f-ca6e4ff00569","message":"Đã khôi phục đầu bếp."}}
+Verdict : PASS
+### SECTION: ADMIN USERS
+
+--- [U01] GET /api/admin/users
+Request : GET http://localhost:3000/api/admin/users
+Status  : 200
+Response: {"ok":true,"data":{"users":[{"id":"2771148f-891c-46a5-9c9c-025f5a383444","email":"qa.test.1792409075@gmail.com","displayName":"QA Test User","role":"CUSTOMER","createdAt":"2026-10-19T11:24:51.311Z","updatedAt":"2026-10-19T11:27:44.879Z"},{"id":"9c5daee1-03ad-4a21-a226-4cc848c2583a","email":"qa.test.1792408932@gmail.com","displayName":null,"role":"CUSTOMER","createdAt":"2026-10-19T11:22:30.250Z","updatedAt":"2026-10-19T11:22:30.250Z"},{"id":"c8ffb972-3bf3-44ba-84ba-25f2dd9432bf","email":"pbkhang2428@clc.fitus.edu.vn","displayName":"Phùng Bảo Khang","role":"STAFF","createdAt":"2026-10-13T09:46:10.234Z","updatedAt":"2026-10-13T11:41:25.166Z"},{"id":"552d392b-9749-464c-9dfd-d7bc0ee0efeb","email":"duc.061106@gmail.com","displayName":"Nguyễn Minh Đức","role":"CUSTOMER","createdAt":"2026-10-12T07:04:19.976Z","updatedAt":"2026-10-12T07:04:19.976Z"},{"id":"7304f4a9-9b45-483f-8cef-49cbf5d16749","email":"andykhang404@gmail.com","displayName":"Master Admin","role":"ADMIN","createdAt":"2026-10-12T04:19:59.700Z","updatedAt":"2026-10-12T04:32:01.625Z"}],"roles":["ADMIN","STAFF","CUSTOMER"],"pagination":{"page":1,"pageSize":10,"total":5,"totalPages":1,"hasPrev":false,"hasNext":false,"prevP
+Verdict : PASS
+
+--- [U02] PATCH role giá trị không hợp lệ
+Request : PATCH http://localhost:3000/api/admin/users/00000000-0000-4000-8000-001792411640/role
+Payload : {"role":"SUPERADMIN"}
+Status  : 400
+Response: {"ok":false,"error":{"code":"VALIDATION_ERROR","message":"Vai trò được chọn không hợp lệ."}}
+Verdict : PASS
+
+--- [U03] PATCH role user không tồn tại
+Request : PATCH http://localhost:3000/api/admin/users/00000000-0000-4000-8000-001792411640/role
+Payload : {"role":"CUSTOMER"}
+Status  : 404
+Response: {"ok":false,"error":{"code":"NOT_FOUND","message":"Người dùng không tồn tại"}}
+Verdict : PASS
+
+--- [U04] PATCH đổi role CHÍNH MÌNH
+Request : PATCH http://localhost:3000/api/admin/users/7304f4a9-9b45-483f-8cef-49cbf5d16749/role
+Payload : {"role":"STAFF"}
+Status  : 400
+Response: {"ok":false,"error":{"code":"SELF_ROLE_CHANGE","message":"Bạn không thể đổi vai trò của chính mình."}}
+Verdict : PASS
+
+--- [U05] update user role roundtrip
+BLOCKED : Không có QA user id (A09 thất bại)
+
+--- [U06] GET /api/admin/users?q=qa.test
+Request : GET http://localhost:3000/api/admin/users?q=qa.test
+Status  : 200
+Response: {"ok":true,"data":{"users":[{"id":"2771148f-891c-46a5-9c9c-025f5a383444","email":"qa.test.1792409075@gmail.com","displayName":"QA Test User","role":"CUSTOMER","createdAt":"2026-10-19T11:24:51.311Z","updatedAt":"2026-10-19T11:27:44.879Z"},{"id":"9c5daee1-03ad-4a21-a226-4cc848c2583a","email":"qa.test.1792408932@gmail.com","displayName":null,"role":"CUSTOMER","createdAt":"2026-10-19T11:22:30.250Z","updatedAt":"2026-10-19T11:22:30.250Z"}],"roles":["ADMIN","STAFF","CUSTOMER"],"pagination":{"page":1,"pageSize":10,"total":2,"totalPages":1,"hasPrev":false,"hasNext":false,"prevPage":0,"nextPage":2,"baseQuery":"q=qa.test"},"q":"qa.test"}}
+Verdict : PASS
+### SECTION: LOGOUT & SESSION
+
+--- [L01] POST /api/auth/logout
+Request : POST http://localhost:3000/api/auth/logout
+Status  : 200
+Response: {"ok":true,"data":{"message":"Bạn đã đăng xuất."}}
+Verdict : PASS
+
+--- [L02] GET /api/admin/stats sau logout
+Request : GET http://localhost:3000/api/admin/stats
+Status  : 401
+Response: {"ok":false,"error":{"code":"UNAUTHORIZED","message":"Vui lòng đăng nhập để tiếp tục"}}
+Verdict : PASS
+### SECTION: CLEANUP (soft-delete QA data)
+Info    : re-login admin for cleanup HTTP 200
+Cleanup : DELETE dish bca65eae-9c80-41d8-9dda-e0be10080e3b -> HTTP 200
+Cleanup : DELETE dish 5e31881b-416b-4c2d-bbfe-2a4af2e538db -> HTTP 200
+Cleanup : DELETE ingredient 1847310b-4fb7-49e1-8327-591edfe33747 -> HTTP 200
+Cleanup : DELETE chef 7b86eb2e-0c26-4537-9e2f-ca6e4ff00569 -> HTTP 200
+Note    : QA records chỉ bị soft-delete (API không có hard delete). QA Supabase auth user (qa.test.1792411640@gmail.com) vẫn tồn tại — cần xóa tay trên Supabase Dashboard nếu muốn.
+### SECTION: RATE LIMIT (chạy cuối — làm nghẽn quota login)
+--- [R01] Rate limit: 25 request liên tiếp POST /api/auth/login
+Statuses:  401 401 401 401 401 401 401 401 401 401 401 401 401 401 401 429 429 429 429 429 429 429 429 429 429
+Verdict : PASS
+
+SUMMARY : PASS=70 FAIL=1 BLOCKED=2 TOTAL=73
+===============================================================

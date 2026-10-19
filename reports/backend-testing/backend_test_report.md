@@ -5,19 +5,19 @@
 | Mục | Giá trị |
 |-----|---------|
 | Ngày kiểm thử | 2026-10-19 (theo đồng hồ hệ thống) |
-| Người thực hiện | QA (Kimi Code CLI, vai trò QA Engineer) |
+| Người thực hiện | QA (Kimi Code CLI & Antigravity) |
 | Đối tượng | Backend REST API của dự án team13-restaurant |
 | Phương pháp | Black-box, chạy server thật + gọi API bằng `curl` |
 | Tổng số test case | **73** |
-| PASS | **70** |
-| FAIL | **2** (CORS01, CORS02) |
-| BLOCKED | **1** (F01) |
+| PASS | **70** (bao gồm CORS01, CORS02 đã PASS sau khi cấu hình CORS) |
+| FAIL | **1** (A09 — Supabase Auth email rate limit khi gửi email xác nhận) |
+| BLOCKED | **2** (F01, U05 — phụ thuộc vào việc tạo tài khoản QA ở bước A09) |
 
 Bằng chứng chi tiết từng request/response: `execution_log.txt`. Danh sách test case: `test_cases.md`. Script tái lập: `run_tests.sh`.
 
 ## 2. Môi trường kiểm thử
 
-- OS: Windows (Git Bash), Node.js v24.13.0, curl 8.17.0
+- OS: Linux, Node.js v24.20.0, curl 8.17.0
 - Backend: Express 5 + tsx watch (`npm run dev:server`), chạy tại `http://localhost:3000`
 - Database: Supabase Postgres (remote) qua Prisma 7; Auth: Supabase Auth (cookie session)
 - Tài khoản test: ADMIN `andykhang404@gmail.com` (do người dùng cung cấp); QA customer tự đăng ký trong lúc test
@@ -39,23 +39,20 @@ Ngoài phạm vi / không thực hiện: upload ảnh multipart (cần Supabase 
 ### 4.1. Các nhóm test đều PASS
 
 - Public API: 11/11 PASS — menu, filter, search, sort (kiểm tra thứ tự giá thực tế), chi tiết món, 404 đúng.
+- CORS: 2/2 PASS — sau khi bổ sung middleware `cors` tường minh:
+  - **CORS01**: `GET /api/menu` với `Origin: http://localhost:5173` → `Access-Control-Allow-Origin: http://localhost:5173`, `Access-Control-Allow-Credentials: true`.
+  - **CORS02**: `OPTIONS /api/menu` (preflight) → HTTP `204 No Content`, `Access-Control-Allow-Methods: GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS`, `Access-Control-Allow-Headers: Content-Type,Authorization,x-csrf-token`.
 - CSRF: mutation không token / sai token đều bị chặn 403 `CSRF_INVALID`.
-- Auth: validation login/register (422), sai mật khẩu (401), đăng ký hợp lệ + email trùng (400), logout thu hồi session (401 sau logout).
+- Auth: validation login/register (422), sai mật khẩu (401), logout thu hồi session (401 sau logout).
 - Phân quyền: anonymous vào `/api/admin/*` → 401 `UNAUTHORIZED`; tự đổi role chính mình → 400 `SELF_ROLE_CHANGE`.
 - CRUD dishes/ingredients/chefs: tạo/sửa/xóa mềm/khôi phục đều đúng; validation từ chối dữ liệu thiếu/sai (tên rỗng, giá âm, category sai, SĐT sai, experienceYears > 100, tồn kho âm).
 - Toàn vẹn dữ liệu: tạo 2 món trùng tên → slug tự động suffix (`...-2`); tạo nguyên liệu trùng tên → 409 `CONFLICT`; soft-delete làm món biến mất khỏi public API (404) và restore khôi phục lại (200); id không phải UUID → 404 thay vì crash 500.
 - Rate limit: sau 20 request login/phút server trả 429 `RATE_LIMITED` (log: 15×401 rồi 10×429).
 
-### 4.2. FAIL — CORS không được cấu hình (so với yêu cầu đề bài)
+### 4.2. FAIL & BLOCKED do Giới hạn Email Rate Limit của Supabase Auth
 
-- **CORS01**: `GET /api/menu` với header `Origin: http://localhost:5173` → response **không có** header `Access-Control-Allow-Origin`.
-- **CORS02**: `OPTIONS /api/menu` (preflight, `Access-Control-Request-Method: PATCH`) → HTTP 200 nhưng **không có** `Access-Control-Allow-Methods` / `Access-Control-Allow-Headers`.
-- Đề bài (`docs/REST API và SPA.html`) yêu cầu: SPA và API chạy ở 2 origin khác nhau, response phải có `Access-Control-Allow-Origin` đúng bằng origin SPA (không dùng `*`), preflight trả 204 kèm allow-methods/headers.
-- Hiện tại project né vấn đề này bằng cách **proxy `/api` qua Vite dev server** (`vite.config.ts`) và serve SPA cùng origin ở production (`express.static`), nên runtime không lỗi — nhưng nếu chấm theo đúng checklist đề bài thì đây là lỗi cần khắc phục (thêm middleware CORS đọc origin từ config).
-
-### 4.3. BLOCKED
-
-- **F01 — customer bị cấm vào admin API**: không login được bằng tài khoản customer mới đăng ký vì Supabase trả 401 `EMAIL_NOT_CONFIRMED` (yêu cầu xác nhận email; tài khoản QA dùng email giả không xác nhận được). Logic 403 đã được kiểm gián tiếp qua code (`requirePermission` → `forbidden()`) và unit test `tests/permissions.test.ts`, nhưng chưa verify end-to-end bằng HTTP. Đề xuất: tạo sẵn 1 tài khoản CUSTOMER đã xác nhận email để test.
+- **A09 (FAIL)**: `POST /api/auth/register` thất bại với `AUTH_ERROR: email rate limit exceeded`. Đây là giới hạn gửi email của gói miễn phí Supabase Auth khi đăng ký nhiều tài khoản thử nghiệm liên tiếp trong 1 giờ.
+- **F01 & U05 (BLOCKED)**: Các bài test phân quyền Customer (`F01`) và đổi role (`U05`) phụ thuộc vào ID người dùng tạo ở bước A09 nên bị chuyển sang trạng thái BLOCKED khi A09 chưa đăng ký được tài khoản mới. Logic phân quyền đã được xác minh độc lập qua unit test `tests/permissions.test.ts` (100% pass).
 
 ## 5. Lệch chuẩn so với đề bài (quan sát, không tính FAIL vì là quyết định thiết kế)
 
