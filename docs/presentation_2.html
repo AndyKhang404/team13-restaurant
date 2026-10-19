@@ -1,0 +1,1220 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Team13 Restaurant — Slide Kỹ Thuật (Block 6)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f8f5ee;
+      --surface: #ffffff;
+      --surface-card: #fdfbf7;
+      --text: #1f1d1a;
+      --text-muted: #5e574f;
+      --border: #e2dbcf;
+      --border-subtle: #eee8de;
+      --accent: #c45a2c;
+      --accent-soft: rgba(196, 90, 44, 0.1);
+      --accent-hover: #a8471e;
+      --gold: #b38246;
+      --gold-soft: rgba(179, 130, 70, 0.12);
+      --green: #245c43;
+      --green-soft: rgba(36, 92, 67, 0.12);
+      --blue: #2563eb;
+      --blue-soft: rgba(37, 99, 235, 0.1);
+      --red: #b91c1c;
+      --red-soft: rgba(185, 28, 28, 0.1);
+      --code-bg: #211e1b;
+      --code-text: #f0ebe1;
+      --shadow: 0 10px 30px rgba(31, 29, 26, 0.08);
+      --radius: 12px;
+      --font-serif: 'Playfair Display', Georgia, serif;
+      --font-sans: 'Be Vietnam Pro', system-ui, sans-serif;
+      --font-mono: 'IBM Plex Mono', monospace;
+    }
+
+    [data-theme="dark"] {
+      --bg: #141210;
+      --surface: #1e1b18;
+      --surface-card: #25221e;
+      --text: #f5f0e8;
+      --text-muted: #b5ada3;
+      --border: #38342e;
+      --border-subtle: #2b2722;
+      --accent: #e57a4e;
+      --accent-soft: rgba(229, 122, 78, 0.18);
+      --accent-hover: #f08960;
+      --gold: #dcb07e;
+      --gold-soft: rgba(220, 176, 126, 0.16);
+      --green: #4ade80;
+      --green-soft: rgba(74, 222, 128, 0.16);
+      --blue: #60a5fa;
+      --blue-soft: rgba(96, 165, 250, 0.16);
+      --red: #f87171;
+      --red-soft: rgba(248, 113, 113, 0.18);
+      --code-bg: #0d0c0a;
+      --code-text: #e6ded3;
+      --shadow: 0 16px 36px rgba(0, 0, 0, 0.55);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.45;
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+      user-select: none;
+      transition: background-color 0.25s ease, color 0.25s ease;
+    }
+
+    /* Top Bar */
+    .topbar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 48px;
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      z-index: 100;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: var(--font-serif);
+      font-weight: 700;
+      font-size: 1.12rem;
+      letter-spacing: 0.5px;
+    }
+
+    .brand span {
+      color: var(--accent);
+      font-style: italic;
+    }
+
+    .badge-course {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      background: var(--accent-soft);
+      color: var(--accent);
+      padding: 2px 8px;
+      border-radius: 99px;
+      font-weight: 600;
+      border: 1px solid rgba(196, 90, 44, 0.25);
+    }
+
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-icon {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 0.88rem;
+      transition: all 0.15s ease;
+    }
+
+    .btn-icon:hover {
+      background: var(--surface-card);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* Deck Viewport */
+    .deck-container {
+      position: absolute;
+      top: 48px;
+      bottom: 52px;
+      left: 0;
+      right: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px 20px;
+    }
+
+    .slide {
+      display: none;
+      width: 100%;
+      max-width: 1200px;
+      height: 100%;
+      max-height: 740px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 20px 30px;
+      overflow-y: auto;
+      position: relative;
+    }
+
+    .slide.active {
+      display: flex;
+      flex-direction: column;
+      animation: slideIn 0.15s ease-out;
+    }
+
+    @keyframes slideIn {
+      from { transform: translateY(4px); }
+      to { transform: translateY(0); }
+    }
+
+    /* Typography */
+    h1, h2, h3, h4 {
+      font-family: var(--font-serif);
+      color: var(--text);
+      font-weight: 700;
+      letter-spacing: -0.2px;
+    }
+
+    .slide-header {
+      margin-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+    }
+
+    .slide-title-wrap h2 {
+      font-size: 1.85rem;
+      line-height: 1.15;
+    }
+
+    .slide-title-wrap .subtitle {
+      color: var(--text-muted);
+      font-size: 0.88rem;
+      margin-top: 3px;
+    }
+
+    .slide-tag {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--gold);
+      background: var(--gold-soft);
+      padding: 3px 9px;
+      border-radius: 6px;
+      border: 1px solid rgba(212, 163, 115, 0.3);
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .slide-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    /* Grids & Cards */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 14px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+    }
+
+    .grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+
+    .card {
+      background: var(--surface-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 18px;
+      transition: border-color 0.15s ease;
+    }
+
+    .card:hover {
+      border-color: var(--accent);
+    }
+
+    .card-title {
+      font-size: 1.05rem;
+      font-weight: 600;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card-title .icon {
+      color: var(--accent);
+    }
+
+    .card-desc {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    /* Key Metrics Badge */
+    .metric-badge {
+      display: inline-flex;
+      flex-direction: column;
+      padding: 10px 14px;
+      background: var(--surface-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      text-align: center;
+    }
+
+    .metric-num {
+      font-family: var(--font-mono);
+      font-size: 1.65rem;
+      font-weight: 700;
+      color: var(--accent);
+      line-height: 1;
+    }
+
+    .metric-label {
+      font-size: 0.74rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 600;
+    }
+
+    /* Tables */
+    .table-clean {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+
+    .table-clean th {
+      text-align: left;
+      padding: 8px 12px;
+      background: var(--surface-card);
+      border-bottom: 2px solid var(--border);
+      font-weight: 600;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text);
+    }
+
+    .table-clean td {
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+      color: var(--text);
+    }
+
+    .table-clean tr:hover td {
+      background: var(--accent-soft);
+    }
+
+    /* Pill Badges */
+    .pill {
+      display: inline-block;
+      font-size: 0.72rem;
+      font-family: var(--font-mono);
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 4px;
+      border: 1px solid transparent;
+    }
+
+    .pill-green {
+      background: var(--green-soft);
+      color: var(--green);
+      border-color: rgba(45, 106, 79, 0.3);
+    }
+
+    .pill-orange {
+      background: var(--accent-soft);
+      color: var(--accent);
+      border-color: rgba(196, 90, 44, 0.3);
+    }
+
+    .pill-blue {
+      background: var(--blue-soft);
+      color: var(--blue);
+      border-color: rgba(37, 99, 235, 0.3);
+    }
+
+    .pill-red {
+      background: var(--red-soft);
+      color: var(--red);
+      border-color: rgba(185, 28, 28, 0.3);
+    }
+
+    .pill-gray {
+      background: rgba(150, 150, 150, 0.12);
+      color: var(--text-muted);
+      border-color: var(--border);
+    }
+
+    /* Code blocks */
+    pre.code-box {
+      background: var(--code-bg);
+      color: var(--code-text);
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      line-height: 1.4;
+      overflow-x: auto;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    /* Title Slide Customization */
+    .slide-title-hero {
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100%;
+      padding: 10px;
+    }
+
+    .slide-title-hero h1 {
+      font-size: 3.2rem;
+      line-height: 1.1;
+      margin-bottom: 12px;
+      background: linear-gradient(135deg, var(--accent) 0%, var(--gold) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .slide-title-hero .lead {
+      font-size: 1.25rem;
+      color: var(--text-muted);
+      max-width: 780px;
+      margin-bottom: 24px;
+      font-weight: 400;
+    }
+
+    .author-tags {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .author-pill {
+      background: var(--surface-card);
+      border: 1px solid var(--border);
+      padding: 6px 16px;
+      border-radius: 99px;
+      font-size: 0.88rem;
+      font-weight: 500;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    }
+
+    /* ========================================================
+       DIAGRAM SYSTEM (CUSTOM HIGH-CONTRAST CSS / SVG DIAGRAMS)
+       ======================================================== */
+    .diagram-container {
+      background: var(--surface-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+      position: relative;
+    }
+
+    /* Flow Stepper Pipeline */
+    .pipeline {
+      display: flex;
+      align-items: stretch;
+      justify-content: space-between;
+      gap: 8px;
+      margin: 8px 0;
+    }
+
+    .pipeline-step {
+      flex: 1;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      transition: all 0.2s ease;
+    }
+
+    .pipeline-step:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    }
+
+    .step-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: 4px;
+    }
+
+    .step-title {
+      font-size: 0.86rem;
+      font-weight: 600;
+      color: var(--text);
+      line-height: 1.25;
+      margin-bottom: 4px;
+    }
+
+    .step-desc {
+      font-size: 0.74rem;
+      color: var(--text-muted);
+      line-height: 1.35;
+      margin-top: auto;
+    }
+
+    .pipeline-arrow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent);
+      font-size: 1.1rem;
+      font-weight: 700;
+      padding: 0 2px;
+      user-select: none;
+    }
+
+    /* Visual ERD Diagram Grid */
+    .erd-grid {
+      display: grid;
+      grid-template-columns: 1fr 40px 1.15fr 40px 1fr;
+      grid-template-rows: auto;
+      gap: 6px 0;
+      align-items: center;
+      margin: 4px 0;
+    }
+
+    .erd-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      font-size: 0.72rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+    }
+
+    .erd-header {
+      padding: 4px 8px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.76rem;
+    }
+
+    .erd-header.chef { background: var(--gold-soft); color: var(--gold); }
+    .erd-header.dish { background: var(--accent-soft); color: var(--accent); }
+    .erd-header.ingr { background: var(--green-soft); color: var(--green); }
+    .erd-header.join { background: var(--blue-soft); color: var(--blue); }
+    .erd-header.user { background: rgba(147, 51, 234, 0.12); color: #a855f7; }
+
+    .erd-body {
+      padding: 4px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      font-family: var(--font-mono);
+    }
+
+    .erd-row {
+      display: flex;
+      justify-content: space-between;
+      color: var(--text);
+      line-height: 1.35;
+    }
+
+    .erd-pk { color: var(--accent); font-weight: 600; }
+    .erd-fk { color: var(--blue); font-weight: 600; }
+    .erd-type { color: var(--text-muted); font-size: 0.7rem; }
+
+    .erd-connector {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent);
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .erd-connector .line {
+      width: 100%;
+      height: 2px;
+      background: var(--border);
+      position: relative;
+    }
+
+    /* Architecture Map Split Box */
+    .arch-flow {
+      display: grid;
+      grid-template-columns: 180px 40px 1fr;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .arch-node {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px;
+      text-align: center;
+    }
+
+    /* Bottom Controller */
+    .bottombar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 52px;
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+      z-index: 100;
+    }
+
+    .progress-bar-wrap {
+      flex: 1;
+      max-width: 450px;
+      height: 6px;
+      background: var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+      margin: 0 20px;
+    }
+
+    .progress-bar {
+      height: 100%;
+      background: var(--accent);
+      width: 7%;
+      transition: width 0.2s ease;
+    }
+
+    .nav-btn {
+      background: var(--surface-card);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-family: var(--font-sans);
+      font-size: 0.82rem;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }
+
+    .nav-btn:hover:not(:disabled) {
+      background: var(--accent);
+      color: #ffffff;
+      border-color: var(--accent);
+    }
+
+    .nav-btn:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+
+    .counter {
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    /* Modal / Overview Drawer */
+    .overview-drawer {
+      position: fixed;
+      top: 48px;
+      bottom: 52px;
+      right: -380px;
+      width: 360px;
+      background: var(--surface);
+      border-left: 1px solid var(--border);
+      box-shadow: -8px 0 24px rgba(0,0,0,0.15);
+      z-index: 150;
+      padding: 20px;
+      overflow-y: auto;
+      transition: right 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .overview-drawer.open {
+      right: 0;
+    }
+
+    .drawer-title {
+      font-size: 1.1rem;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .slide-item-link {
+      display: block;
+      padding: 7px 12px;
+      border-radius: 6px;
+      font-size: 0.84rem;
+      color: var(--text);
+      text-decoration: none;
+      margin-bottom: 4px;
+      transition: background 0.15s ease;
+    }
+
+    .slide-item-link:hover, .slide-item-link.current {
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    /* Speaker Notes Box */
+    .notes-box {
+      display: none;
+      background: var(--surface-card);
+      border: 1px dashed var(--gold);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-top: auto;
+    }
+
+    .notes-box.show {
+      display: block;
+    }
+
+    .notes-label {
+      font-family: var(--font-mono);
+      color: var(--gold);
+      font-weight: 600;
+      margin-bottom: 2px;
+      text-transform: uppercase;
+      font-size: 0.7rem;
+    }
+
+    @media (max-width: 900px) {
+      .slide {
+        padding: 20px 18px;
+      }
+      .slide-title-hero h1 {
+        font-size: 2.1rem;
+      }
+      .grid-2, .grid-3, .grid-4, .erd-grid, .pipeline {
+        grid-template-columns: 1fr;
+        flex-direction: column;
+      }
+      .pipeline-arrow {
+        transform: rotate(90deg);
+        padding: 4px 0;
+      }
+    }
+  </style>
+</head>
+<body data-theme="dark">
+
+  <!-- Top Navigation Bar -->
+  <header class="topbar">
+    <div class="brand">
+      Team13 <span>Restaurant</span>
+      <span class="badge-course">CSC13008 — HCMUS</span>
+    </div>
+    <div class="top-actions">
+      <button id="btn-theme" class="btn-icon" title="Đổi giao diện Sáng / Tối (T)" aria-label="Toggle theme">◐</button>
+      <button id="btn-notes" class="btn-icon" title="Bật / Tắt Ghi chú diễn giả (N)" aria-label="Toggle notes">📝</button>
+      <button id="btn-toc" class="btn-icon" title="Mục lục các Slide (M)" aria-label="Toggle Table of Contents">☰</button>
+      <button id="btn-fs" class="btn-icon" title="Toàn màn hình (F)" aria-label="Fullscreen">⛶</button>
+    </div>
+  </header>
+
+  <!-- Slide Deck Viewport -->
+  <main class="deck-container">
+
+    <section class="slide active" data-index="1">
+      <div class="slide-title-hero">
+        <span class="badge-course" style="font-size:.85rem;padding:4px 14px;margin-bottom:14px;">Block 6</span>
+        <h1>Team13 Restaurant</h1>
+        <p class="lead">Kiến trúc SPA + REST API: React 19 · Express 5 · Prisma 7 · Supabase</p>
+        <div class="author-tags">
+          <div class="author-pill"><b>Frontend</b> React CSR</div>
+          <div class="author-pill"><b>Backend</b> Express REST</div>
+          <div class="author-pill"><b>Data</b> Postgres + RLS</div>
+        </div>
+        <div style="font-family:var(--font-mono);font-size:.82rem;color:var(--text-muted);">
+          Điều hướng: ← → · T đổi giao diện · N ghi chú · M mục lục · F toàn màn hình</div>
+      </div>
+      <div class="notes-box"><div class="notes-label">Ghi chú diễn giả</div>Phần này đi sâu vào kỹ thuật: kiến trúc, dữ liệu, bảo mật, hợp đồng API và frontend.</div>
+    </section>
+
+    <section class="slide" data-index="2">
+      <div class="slide-header"><div class="slide-title-wrap"><h2>1. Kiến trúc tổng thể</h2><div class="subtitle">SPA render phía client + REST API JSON; Express còn phục vụ bundle ở production</div></div>
+      <span class="slide-tag">01 / KIẾN TRÚC</span></div>
+      <div class="slide-body"><div class="diagram-container"><div style="display:grid;grid-template-columns:1fr 30px 1.3fr 30px 1.2fr;gap:8px;align-items:center;">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;font-size:.8rem;"><b style="color:var(--blue);">⚛️ SPA (Vite + React 19)</b><div style="color:var(--text-muted);font-size:.72rem;margin-top:3px;">React Router v7 · Tailwind v4<br>build → dist/client</div></div>
+      <div style="text-align:center;color:var(--accent);font-weight:700;">➔</div>
+      <div style="background:var(--surface);border:2px dashed var(--gold);border-radius:8px;padding:10px;text-align:center;font-size:.8rem;"><b style="color:var(--gold);">⚡ Express 5 REST API</b><div style="color:var(--text-muted);font-size:.72rem;margin-top:3px;">helmet · CORS · CSRF · loadUser<br>/api/* → JSON · SPA fallback</div></div>
+      <div style="text-align:center;color:var(--accent);font-weight:700;">➔</div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;font-size:.8rem;"><b style="color:var(--green);">🐘 Supabase</b><div style="color:var(--text-muted);font-size:.72rem;margin-top:3px;">Postgres (Prisma 7 + adapter-pg)<br>Auth (JWT) · Storage (images)</div></div>
+      </div></div><div class="grid-2"><div class="card" style="padding:10px 14px;"><div class="card-title" style="font-size:.95rem;"><span class="icon">🗂️</span> Cấu trúc backend</div><ul style="margin:4px 0 0 16px;font-size:.8rem;color:var(--text-muted);line-height:1.45;"><li><code>config/</code> · <code>middleware/</code> · <code>auth/</code> · <code>lib/</code></li><li><code>modules/</code>: dishes, chefs, ingredients, users, admin, public</li><li>Mỗi module = một <code>Router</code> + permission guard</li></ul></div><div class="card" style="padding:10px 14px;"><div class="card-title" style="font-size:.95rem;"><span class="icon">🧰</span> Công nghệ</div><ul style="margin:4px 0 0 16px;font-size:.8rem;color:var(--text-muted);line-height:1.45;"><li>TypeScript, ES modules, Node ≥ 20</li><li>Zod 4 cho validation, Vitest cho test</li><li><code>prisma generate</code> chạy ở <code>postinstall</code></li></ul></div></div><div class="grid-4"><div class="metric-badge"><span class="metric-num">6</span><span class="metric-label">module nghiệp vụ</span></div><div class="metric-badge"><span class="metric-num">5</span><span class="metric-label">bảng dữ liệu</span></div><div class="metric-badge"><span class="metric-num">3</span><span class="metric-label">vai trò</span></div><div class="metric-badge"><span class="metric-num">11</span><span class="metric-label">permission</span></div></div></div>
+      <div class="notes-box"><div class="notes-label">Ghi chú diễn giả</div>Một server Express duy nhất nhưng tách rõ vai trò: API JSON dưới /api, và (production) phục vụ SPA đã build kèm fallback index.html.</div>
+    </section>
+
+    <section class="slide" data-index="3">
+      <div class="slide-header"><div class="slide-title-wrap"><h2>2. Pipeline middleware của Express</h2><div class="subtitle">Thứ tự trong createApp() là có chủ đích</div></div>
+      <span class="slide-tag">02 / MIDDLEWARE</span></div>
+      <div class="slide-body"><div class="diagram-container"><div class="pipeline" style="flex-wrap:wrap;"><div class="pipeline-step"><div class="step-badge">1</div><div class="step-title">helmet / morgan</div></div><div class="pipeline-step"><div class="step-badge">2</div><div class="step-title">CORS</div></div><div class="pipeline-step"><div class="step-badge">3</div><div class="step-title">static</div></div><div class="pipeline-step"><div class="step-badge">4</div><div class="step-title">body + cookie</div></div><div class="pipeline-step"><div class="step-badge">5</div><div class="step-title">browserId + multer</div></div><div class="pipeline-step"><div class="step-badge">6</div><div class="step-title">CSRF</div></div><div class="pipeline-step"><div class="step-badge">7</div><div class="step-title">loadUser</div></div><div class="pipeline-step"><div class="step-badge">8</div><div class="step-title">routers /api</div></div><div class="pipeline-step"><div class="step-badge">9</div><div class="step-title">error handler</div></div></div></div><div class="grid-2"><div class="card" style="padding:10px 14px;"><div class="card-title" style="font-size:.95rem;"><span class="icon">🧭</span> Vì sao thứ tự này?</div><ul style="margin:4px 0 0 16px;font-size:.8rem;color:var(--text-muted);line-height:1.45;"><li>CORS <b>trước</b> CSRF để preflight <code>OPTIONS</code> luôn được trả lời</li><li><code>browserId</code> tạo cookie ký <code>sid</code> để gắn CSRF token — không cần session server</li><li><code>loadUser</code> chạy sau CSRF, trước router</li></ul></div><div class="card" style="padding:10px 14px;"><div class="card-title" style="font-size:.95rem;"><span class="icon">🪂</span> Fallback & lỗi</div><ul style="margin:4px 0 0 16px;font-size:.8rem;color:var(--text-muted);line-height:1.45;"><li><code>/api/*</code> không khớp → 404 JSON (<code>NOT_FOUND</code>)</li><li>GET chấp nhận HTML → <code>dist/client/index.html</code> (SPA fallback)</li><li>Một <code>errorHandler</code> tập trung ở cuối</li></ul></div></div></div>
+      <div class="notes-box"><div class="notes-label">Ghi chú diễn giả</div>Nhấn mạnh việc CORS đặt trước CSRF và cơ chế browserId thay cho session phía server.</div>
+    </section>
+
+    <section class="slide" data-index="4">
+      <div class="slide-header"><div class="slide-title-wrap"><h2>3. Mô hình dữ liệu (Prisma)</h2><div class="subtitle">Schema là nguồn sự thật; UUID, Decimal cho tiền, Timestamptz, soft delete</div></div>
+      <span class="slide-tag">03 / DỮ LIỆU</span></div>
+      <div class="slide-body"><div class="diagram-container"><div class="erd-grid" style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;align-items:start;">
+<div class="erd-box"><div class="erd-header user">profiles</div><div class="erd-body">
+<div class="erd-row"><span class="erd-pk">id</span><span class="erd-type">uuid = auth.users.id</span></div>
+<div class="erd-row"><span>email</span><span class="erd-type">text</span></div>
+<div class="erd-row"><span>role</span><span class="erd-type">ADMIN|STAFF|CUSTOMER</span></div></div></div>
+<div class="erd-box"><div class="erd-header chef">chefs</div><div class="erd-body">
+<div class="erd-row"><span class="erd-pk">id</span><span class="erd-type">uuid</span></div>
+<div class="erd-row"><span>experience_years</span><span class="erd-type">int ≥ 0</span></div>
+<div class="erd-row"><span>deleted_at</span><span class="erd-type">timestamptz?</span></div></div></div>
+<div class="erd-box"><div class="erd-header dish">dishes</div><div class="erd-body">
+<div class="erd-row"><span class="erd-pk">id</span><span class="erd-type">uuid</span></div>
+<div class="erd-row"><span>slug</span><span class="erd-type">unique</span></div>
+<div class="erd-row"><span>price</span><span class="erd-type">decimal(12,2)</span></div>
+<div class="erd-row"><span>category</span><span class="erd-type">enum</span></div>
+<div class="erd-row"><span class="erd-fk">chef_id</span><span class="erd-type">SetNull</span></div></div></div>
+<div class="erd-box"><div class="erd-header join">dish_ingredients</div><div class="erd-body">
+<div class="erd-row"><span class="erd-pk">PK(dish_id, ingredient_id)</span></div>
+<div class="erd-row"><span>quantity</span><span class="erd-type">decimal &gt; 0</span></div>
+<div class="erd-row"><span>unit</span><span class="erd-type">text</span></div>
+<div class="erd-row"><span>FK</span><span class="erd-type">Cascade</span></div></div></div>
+<div class="erd-box"><div class="erd-header ingr">ingredients</div><div class="erd-body">
+<div class="erd-row"><span class="erd-pk">id</span><span class="erd-type">uuid</span></div>
+<div class="erd-row"><span>name</span><span class="erd-type">unique</span></div>
+<div class="erd-row"><span>stock_quantity</span><span class="erd-type">decimal ≥ 0</span></div>
+<div class="erd-row"><span>price_per_unit</span><span class="erd-type">decimal ≥ 0</span></div></div></div>
+</div></div><div class="grid-3"><div class="card" style="padding:10px 14px;"><div class="card-title" style="font-size:.95rem;"><span class="icon">📐</span> Quy ước</div><ul style="margin:4px 0 0 16px;font-size:.8rem;color:var(--text-muted);line-height:1.45;"><li><code>@map</code> snake_case, UUID <code>gen_random_uuid()</code></li><li>Tiền/số lượng dùng <code>Decimal</code></li></ul></div><div class="card" style="padding:10px 14px;"><div class="card-title" style="font-size:.95rem;"><span class="icon">🗑️</span> Soft delete</div><ul style="margin:4px 0 0 16px;font-size:.8rem;color:var(--text-muted);line-height:1.45;"><li><code>deletedAt</code> ở Dish, Chef, Ingredient</li><li>Public API & RLS ẩn bản ghi đã xóa</li></ul></div><div class="card" style="padding:10px 14px;"><div class="card-title" style="font-size:.95rem;"><span class="icon">⚡</span> Index</div><ul style="margin:4px 0 0 16px;font-size:.8rem;color:var(--text-muted);line-height:1.45;"><li><code>chefId</code>, <code>category</code>, <code>isAvailable</code></li><li><code>slug</code>, <code>name</code> unique</li></ul></div></div></div>
+      <div class="notes-box"><div class="notes-label">Ghi chú diễn giả</div>Bảng nối dish_ingredients có khóa chính kép và mang thêm quantity/unit — không chỉ là bảng N-N đơn thuần.</div>
+    </section>
+
+    <section class="slide" data-index="5">
+      <div class="slide-header"><div class="slide-title-wrap"><h2>4. Migration, CHECK & Row Level Security</h2><div class="subtitle">Chốt chặn cuối cùng nằm ở chính cơ sở dữ liệu</div></div>
+      <span class="slide-tag">04 / DB HARDENING</span></div>
+      <div class="slide-body"><div class="grid-2"><div><pre class="code-box">ALTER TABLE &quot;dishes&quot; ADD CONSTRAINT &quot;dishes_price_check&quot;
+  CHECK (&quot;price&quot; &gt;= 0);
+ALTER TABLE &quot;dish_ingredients&quot;
+  ADD CONSTRAINT &quot;dish_ingredients_quantity_check&quot;
+  CHECK (&quot;quantity&quot; &gt; 0);
+ALTER TABLE &quot;dishes&quot; ENABLE ROW LEVEL SECURITY;
+CREATE POLICY &quot;public read dishes&quot;
+  ON &quot;dishes&quot; FOR SELECT TO anon, authenticated
+  USING (&quot;deleted_at&quot; IS NULL);</pre></div><div class="card" style="padding:10px 14px;"><div class="card-title" style="font-size:.95rem;"><span class="icon">🔒</span> Nguyên tắc</div><ul style="margin:4px 0 0 16px;font-size:.8rem;color:var(--text-muted);line-height:1.45;"><li>Mọi thay đổi schema qua <b>migration có version</b> (4 migration)</li><li>CHECK: giá, tồn kho, số năm KN, thời gian chế biến, định lượng</li><li>RLS bật cho 5 bảng; <b>xóa mọi policy ghi từ client</b></li><li><code>profiles</code>: chỉ đọc hồ sơ của mình (<code>auth.uid() = id</code>)</li><li>Storage: public read, upload chỉ qua server</li></ul></div></div><div class="diagram-container" style="font-size:.82rem;text-align:center;">Phòng thủ nhiều lớp: <span class="pill pill-blue">Zod</span> ➔ <span class="pill pill-orange">RBAC</span> ➔ <span class="pill pill-green">CHECK</span> ➔ <span class="pill pill-red">RLS</span></div></div>
+      <div class="notes-box"><div class="notes-label">Ghi chú diễn giả</div>Nếu có client nào gọi thẳng Supabase, RLS vẫn chặn ghi; CHECK chặn dữ liệu sai dù validation ứng dụng bị bỏ qua.</div>
+    </section>
+
+    <section class="slide" data-index="6">
+      <div class="slide-header"><div class="slide-title-wrap"><h2>5. Xác thực: Bearer JWT + cookie</h2><div class="subtitle">loadUser xác minh token và đồng bộ Profile theo kiểu lazy</div></div>
+      <span class="slide-tag">05 / AUTH</span></div>
+      <div class="slide-body"><div class="diagram-container"><div class="pipeline">
+      <div class="pipeline-step"><div class="step-badge">1</div><div class="step-title">Lấy token</div><div class="step-desc">Header <code>Bearer</code> hoặc cookie Supabase</div></div><div class="pipeline-arrow">➔</div>
+      <div class="pipeline-step"><div class="step-badge">2</div><div class="step-title">Xác minh</div><div class="step-desc"><code>auth.getUser</code>, lỗi → <code>getClaims</code></div></div><div class="pipeline-arrow">➔</div>
+      <div class="pipeline-step"><div class="step-badge">3</div><div class="step-title">Profile</div><div class="step-desc"><code>findUnique</code> → chưa có thì <code>upsert</code> (CUSTOMER)</div></div><div class="pipeline-arrow">➔</div>
+      <div class="pipeline-step"><div class="step-badge">4</div><div class="step-title">req.user</div><div class="step-desc">Token lỗi → <code>null</code>, không crash</div></div>
+      </div></div><div class="grid-2"><div class="card" style="padding:10px 14px;"><div class="card-title" style="font-size:.95rem;"><span class="icon">🖥️</span> Phía server</div><ul style="margin:4px 0 0 16px;font-size:.8rem;color:var(--text-muted);line-height:1.45;"><li>Request ẩn danh bỏ qua round-trip xác thực</li><li>Không cần webhook/trigger tạo profile</li><li>Role mặc định <code>CUSTOMER</code></li></ul></div><div class="card" style="padding:10px 14px;"><div class="card-title" style="font-size:.95rem;"><span class="icon">⚛️</span> Phía SPA</div><ul style="margin:4px 0 0 16px;font-size:.8rem;color:var(--text-muted);line-height:1.45;"><li>Token lưu <code>localStorage</code>, <code>apiFetch</code> tự gắn header</li><li>Gặp 401 → xóa token</li><li><code>AuthProvider</code> bootstrap qua <code>GET /api/auth/me</code></li></ul></div></div></div>
+      <div class="notes-box"><div class="notes-label">Ghi chú diễn giả</div>Điểm hay: tạo Profile lazily ở lần đăng nhập đầu, và có đường fallback getClaims khi getUser lỗi.</div>
+    </section>
+
+    <section class="slide" data-index="7">
+      <div class="slide-header"><div class="slide-title-wrap"><h2>6. RBAC theo permission</h2><div class="subtitle">Code kiểm tra permission, không bao giờ kiểm tra tên role</div></div>
+      <span class="slide-tag">06 / PHÂN QUYỀN</span></div>
+      <div class="slide-body"><div class="grid-2"><div><pre class="code-box">export type Permission =
+  | &#x27;admin:access&#x27;
+  | &#x27;dish:create&#x27; | &#x27;dish:update&#x27; | &#x27;dish:delete&#x27;
+  | &#x27;chef:create&#x27; | ... | &#x27;ingredient:delete&#x27;
+  | &#x27;user:manage&#x27;;
+
+ROLE_PERMISSIONS = {
+  ADMIN:    [admin:access, ...CONTENT, user:manage],
+  STAFF:    [admin:access, ...CONTENT],
+  CUSTOMER: [],
+};
+
+router.post(&#x27;/&#x27;, requirePermission(&#x27;dish:create&#x27;), ...)</pre></div><div class="card" style="padding:10px 14px;"><div class="card-title" style="font-size:.95rem;"><span class="icon">🛡️</span> Hành vi</div><ul style="margin:4px 0 0 16px;font-size:.8rem;color:var(--text-muted);line-height:1.45;"><li>Chưa đăng nhập → <code>401 UNAUTHORIZED</code></li><li>Thiếu quyền → <code>403 FORBIDDEN</code></li><li><b>SELF_ROLE_CHANGE</b>: không tự đổi role của mình</li><li><b>LAST_ADMIN</b>: không hạ cấp admin cuối cùng</li><li><code>RequireAuth</code> ở client chỉ để UX — API vẫn cưỡng chế</li></ul></div></div></div>
+      <div class="notes-box"><div class="notes-label">Ghi chú diễn giả</div>Thêm quyền mới chỉ cần thêm vào union Permission rồi gán cho role; handler không đổi.</div>
+    </section>
+
+    <section class="slide" data-index="8">
+      <div class="slide-header"><div class="slide-title-wrap"><h2>7. Bảo mật HTTP</h2><div class="subtitle">CSRF double-submit, CORS whitelist, rate limit</div></div>
+      <span class="slide-tag">07 / BẢO MẬT</span></div>
+      <div class="slide-body"><div class="grid-3"><div class="card" style="padding:10px 14px;"><div class="card-title" style="font-size:.95rem;"><span class="icon">🧾</span> CSRF</div><ul style="margin:4px 0 0 16px;font-size:.8rem;color:var(--text-muted);line-height:1.45;"><li><code>csrf-csrf</code> double-submit gắn cookie <code>sid</code> ký</li><li>Token: header <code>x-csrf-token</code> hoặc <code>_csrf</code></li><li>Request <code>Bearer</code> được <b>miễn</b> (không tự đính kèm cross-origin)</li><li>Lỗi → <code>403 CSRF_INVALID</code></li></ul></div><div class="card" style="padding:10px 14px;"><div class="card-title" style="font-size:.95rem;"><span class="icon">🌐</span> CORS</div><ul style="margin:4px 0 0 16px;font-size:.8rem;color:var(--text-muted);line-height:1.45;"><li>Whitelist: <code>APP_URL</code>, <code>SPA_ORIGIN</code>/<code>CORS_ORIGIN</code></li><li>localhost chỉ khi không phải production</li><li><code>credentials:true</code>, phản chiếu origin (không <code>*</code>)</li><li>Expose <code>x-csrf-token</code></li></ul></div><div class="card" style="padding:10px 14px;"><div class="card-title" style="font-size:.95rem;"><span class="icon">🚦</span> Rate limit & khác</div><ul style="margin:4px 0 0 16px;font-size:.8rem;color:var(--text-muted);line-height:1.45;"><li>Cửa sổ 60s, tối đa 20, khóa <code>ip:path</code></li><li>Áp cho <code>/auth/login</code>, <code>/auth/register</code> → 429</li><li>Dọn map khi &gt; 5000 key</li><li><code>helmet</code>, <code>safeNext()</code> chống open redirect</li><li><code>paramId()</code>: UUID sai → 404 thay vì 500</li></ul></div></div></div>
+      <div class="notes-box"><div class="notes-label">Ghi chú diễn giả</div>Giới hạn đã biết: rate limiter in-memory, chỉ phù hợp một tiến trình Node; nếu scale ngang cần Redis.</div>
+    </section>
+
+    <section class="slide" data-index="9">
+      <div class="slide-header"><div class="slide-title-wrap"><h2>8. Hợp đồng API & xử lý lỗi</h2><div class="subtitle">Hai nhánh lỗi: nghiệp vụ (HTTP 200) và kỹ thuật (status thật)</div></div>
+      <span class="slide-tag">08 / API CONTRACT</span></div>
+      <div class="slide-body"><div class="grid-3"><div class="card" style="padding:10px;"><div class="card-title" style="font-size:.9rem;"><span class="pill pill-green">Thành công</span></div><pre class="code-box">200
+{ &quot;ok&quot;: true,
+  &quot;data&quot;: { ... } }</pre></div><div class="card" style="padding:10px;"><div class="card-title" style="font-size:.9rem;"><span class="pill pill-orange">Lỗi nghiệp vụ</span></div><pre class="code-box">200  (validation, 404, 409)
+{ &quot;ok&quot;: false,
+  &quot;error&quot;: { &quot;code&quot;: &quot;VALIDATION_FAILED&quot;,
+    &quot;message&quot;: &quot;...&quot;,
+    &quot;fields&quot;: { &quot;name&quot;: &quot;...&quot; } } }</pre></div><div class="card" style="padding:10px;"><div class="card-title" style="font-size:.9rem;"><span class="pill pill-red">Lỗi kỹ thuật</span></div><pre class="code-box">401 / 403 / 429 / 5xx
+{ &quot;error&quot;: { &quot;code&quot;: &quot;FORBIDDEN&quot;,
+    &quot;message&quot;: &quot;...&quot; } }
+// không có &quot;ok&quot;</pre></div></div><div class="grid-2"><div class="card" style="padding:10px 14px;"><div class="card-title" style="font-size:.95rem;"><span class="icon">🖥️</span> Phía server</div><ul style="margin:4px 0 0 16px;font-size:.8rem;color:var(--text-muted);line-height:1.45;"><li><code>HttpError(status, msg, code, fields, business)</code></li><li><code>ApiErrorCode</code> gõ kiểu: VALIDATION_FAILED, ALREADY_EXISTS, LAST_ADMIN…</li><li>Production che message lỗi 5xx</li></ul></div><div class="card" style="padding:10px 14px;"><div class="card-title" style="font-size:.95rem;"><span class="icon">⚛️</span> Phía client</div><ul style="margin:4px 0 0 16px;font-size:.8rem;color:var(--text-muted);line-height:1.45;"><li><code>apiFetch&lt;T&gt;</code> bóc envelope</li><li>Nghiệp vụ → <code>ApiError</code> (có <code>fields</code>)</li><li>Kỹ thuật → <code>HttpError</code></li></ul></div></div></div>
+      <div class="notes-box"><div class="notes-label">Ghi chú diễn giả</div>Client rẽ nhánh theo error.code thay vì status; lỗi kỹ thuật giữ nguyên status để proxy/monitor nhận diện.</div>
+    </section>
+
+    <section class="slide" data-index="10">
+      <div class="slide-header"><div class="slide-title-wrap"><h2>9. Validation với Zod</h2><div class="subtitle">Form multipart chỉ gửi chuỗi — cần coerce và chuẩn hóa</div></div>
+      <span class="slide-tag">09 / VALIDATION</span></div>
+      <div class="slide-body"><div class="grid-2"><div><pre class="code-box">const blankToUndefined = v =&gt;
+  v == null || (typeof v === &quot;string&quot; &amp;&amp;
+   [&quot;&quot;, &quot;null&quot;, &quot;undefined&quot;].includes(v.trim().toLowerCase()))
+    ? undefined : v;
+
+export const optionalInt = (label, min = 0, max?) =&gt;
+  z.preprocess(blankToUndefined,
+    z.coerce.number().int().min(min).optional());
+
+toFieldErrors(zodError)
+// { &quot;name&quot;: &quot;...&quot;, &quot;ingredients.0.quantity&quot;: &quot;...&quot; }</pre></div><div class="card" style="padding:10px 14px;"><div class="card-title" style="font-size:.95rem;"><span class="icon">✅</span> Điểm chính</div><ul style="margin:4px 0 0 16px;font-size:.8rem;color:var(--text-muted);line-height:1.45;"><li>Helper dùng lại: <code>requiredText</code>, <code>optionalText</code>, <code>decimal</code>, <code>checkbox</code>, <code>optionalPhone</code> (SĐT VN)</li><li><code>checkbox</code>: <code>on/true/1</code> → true</li><li>Lỗi theo path → <code>error.fields</code> để UI tô đúng ô</li><li>Validate ảnh + dòng nguyên liệu song song với schema, gộp một lượt lỗi</li></ul></div></div></div>
+      <div class="notes-box"><div class="notes-label">Ghi chú diễn giả</div>blankToUndefined giải quyết việc form gửi chuỗi rỗng hoặc "null" cho trường tùy chọn.</div>
+    </section>
+
+    <section class="slide" data-index="11">
+      <div class="slide-header"><div class="slide-title-wrap"><h2>10. Nghiệp vụ Món ăn: slug & công thức</h2><div class="subtitle">Collision-safe slug, giao dịch nguyên tử, soft delete</div></div>
+      <span class="slide-tag">10 / DOMAIN</span></div>
+      <div class="slide-body"><div class="grid-2"><div><pre class="code-box">slugify(&quot;Phở Bò Tái&quot;)      // &quot;pho-bo-tai&quot;
+nextFreeSlug(&quot;pho-bo&quot;, [&quot;pho-bo&quot;,&quot;pho-bo-2&quot;])
+                           // &quot;pho-bo-3&quot;
+
+await prisma.$transaction(async tx =&gt; {
+  await tx.dishIngredient.deleteMany({ where: { dishId } });
+  await tx.dish.update({ where: { id: dishId },
+    data: { ..., ingredients: { create: rows } } });
+});</pre></div><div class="card" style="padding:10px 14px;"><div class="card-title" style="font-size:.95rem;"><span class="icon">🍜</span> Quy tắc</div><ul style="margin:4px 0 0 16px;font-size:.8rem;color:var(--text-muted);line-height:1.45;"><li>Slug: NFD bỏ dấu, <code>đ→d</code>, cắt 80 ký tự; trùng → <code>-2</code>, <code>-3</code></li><li>Vẫn bắt <code>P2002</code> → <code>409 ALREADY_EXISTS</code> khi đua ghi</li><li><code>GET /dishes/:idOrSlug</code> tra UUID <b>hoặc</b> slug</li><li>Món đã xóa mềm: chỉ staff thấy; <code>POST /:id/restore</code> khôi phục</li><li>Công khai chỉ trả <b>tên</b> nguyên liệu (ẩn tồn kho/giá vốn)</li></ul></div></div></div>
+      <div class="notes-box"><div class="notes-label">Ghi chú diễn giả</div>Cập nhật công thức dùng transaction để không bao giờ để món ở trạng thái nửa vời.</div>
+    </section>
+
+    <section class="slide" data-index="12">
+      <div class="slide-header"><div class="slide-title-wrap"><h2>11. Upload ảnh (Supabase Storage)</h2><div class="subtitle">Kiểm tra magic bytes, upload trước – rollback nếu DB lỗi</div></div>
+      <span class="slide-tag">11 / STORAGE</span></div>
+      <div class="slide-body"><div class="diagram-container"><div class="pipeline">
+      <div class="pipeline-step"><div class="step-badge">1</div><div class="step-title">validateImage</div><div class="step-desc">MIME whitelist + magic bytes, ≤ 2 MB</div></div><div class="pipeline-arrow">➔</div>
+      <div class="pipeline-step"><div class="step-badge">2</div><div class="step-title">uploadImage</div><div class="step-desc"><code>folder/uuid.ext</code>, cache 1 năm</div></div><div class="pipeline-arrow">➔</div>
+      <div class="pipeline-step"><div class="step-badge">3</div><div class="step-title">Ghi DB</div><div class="step-desc">Lỗi → xóa ảnh vừa upload</div></div><div class="pipeline-arrow">➔</div>
+      <div class="pipeline-step"><div class="step-badge">4</div><div class="step-title">Dọn ảnh cũ</div><div class="step-desc">Chỉ xóa URL thuộc bucket</div></div>
+      </div></div><div class="grid-2"><div><pre class="code-box">saveWithImage({ folder, file, remove, currentUrl },
+  async (imageUrl) =&gt; { /* ghi DB */ });
+// imageUrl: string (mới) | null (gỡ) | undefined (giữ)</pre></div><div class="card" style="padding:10px 14px;"><div class="card-title" style="font-size:.95rem;"><span class="icon">🖼️</span> Vì sao?</div><ul style="margin:4px 0 0 16px;font-size:.8rem;color:var(--text-muted);line-height:1.45;"><li>Không tin <code>mimetype</code> từ client — đọc chữ ký file (JPEG/PNG/WebP)</li><li>Không để lại ảnh mồ côi khi DB lỗi</li><li><code>deleteImageByUrl</code> best-effort, không bao giờ throw</li></ul></div></div></div>
+      <div class="notes-box"><div class="notes-label">Ghi chú diễn giả</div>saveWithImage là ví dụ bù trừ (compensating action) khi không có giao dịch xuyên Storage và DB.</div>
+    </section>
+
+    <section class="slide" data-index="13">
+      <div class="slide-header"><div class="slide-title-wrap"><h2>12. Frontend: định tuyến & trạng thái</h2><div class="subtitle">Không store toàn cục — mỗi trang tự sở hữu dữ liệu</div></div>
+      <span class="slide-tag">12 / FRONTEND</span></div>
+      <div class="slide-body"><div class="grid-2"><div><pre class="code-box">&lt;Routes&gt;
+  &lt;Route element={&lt;Layout /&gt;}&gt;
+    &lt;Route path=&quot;/&quot; .../&gt; &lt;Route path=&quot;/dishes/:slug&quot; .../&gt;
+    &lt;Route path=&quot;/login&quot; .../&gt; &lt;Route path=&quot;*&quot; .../&gt;
+  &lt;/Route&gt;
+  &lt;Route path=&quot;/admin&quot; element={
+    &lt;RequireAuth&gt;&lt;AdminLayout /&gt;&lt;/RequireAuth&gt;}&gt;
+    &lt;Route path=&quot;dishes&quot; .../&gt; &lt;Route path=&quot;dishes/:id/edit&quot; .../&gt;
+    ... chefs · ingredients · users
+  &lt;/Route&gt;
+&lt;/Routes&gt;</pre></div><div class="card" style="padding:10px 14px;"><div class="card-title" style="font-size:.95rem;"><span class="icon">🧩</span> Mẫu thiết kế</div><ul style="margin:4px 0 0 16px;font-size:.8rem;color:var(--text-muted);line-height:1.45;"><li><code>AuthProvider</code>: chỉ giữ <code>user</code>/<code>loading</code></li><li><code>useApi(loader, deps)</code>: loading/error/reload, cờ <code>alive</code> tránh set state sau unmount</li><li><code>resources.ts</code>: <code>dishesApi</code>, <code>chefsApi</code>, … + <code>fetchAllPages</code>, <code>normalizeDish</code></li><li><code>toFormData</code> cho multipart (ảnh + <code>removeImage</code>)</li></ul></div></div></div>
+      <div class="notes-box"><div class="notes-label">Ghi chú diễn giả</div>Tách UI khỏi chi tiết API qua lớp resources; mỗi trang tự quản dữ liệu bằng useApi.</div>
+    </section>
+
+    <section class="slide" data-index="14">
+      <div class="slide-header"><div class="slide-title-wrap"><h2>13. HTTP client của SPA</h2><div class="subtitle">apiFetch: CSRF tự phục hồi, retry có điều kiện</div></div>
+      <span class="slide-tag">13 / CLIENT</span></div>
+      <div class="slide-body"><div class="grid-2"><div><pre class="code-box">// CSRF_INVALID -&gt; refresh token, thử lại đúng 1 lần
+if (error.code === &quot;CSRF_INVALID&quot; &amp;&amp; retryCsrf) {
+  await loadSession();          // GET /auth/me -&gt; csrfToken
+  return apiFetch(path, options, false);
+}
+// Retry chỉ cho GET/HEAD, tối đa 5 lần
+const maxAttempts = method === &quot;GET&quot; || method === &quot;HEAD&quot; ? 5 : 1;
+await delay(250 * attempt);     // 502/503/504 hoặc lỗi mạng</pre></div><div class="card" style="padding:10px 14px;"><div class="card-title" style="font-size:.95rem;"><span class="icon">🔁</span> Hành vi</div><ul style="margin:4px 0 0 16px;font-size:.8rem;color:var(--text-muted);line-height:1.45;"><li>Gắn <code>Authorization: Bearer</code> + <code>x-csrf-token</code> (phương thức không an toàn)</li><li><code>credentials: "include"</code>; JSON hoặc <code>FormData</code></li><li>Backoff 250ms×n chỉ cho thao tác đọc — <b>không bao giờ retry ghi</b></li><li><code>VITE_SERVER_URL</code> bắt buộc: fail-fast khi thiếu</li></ul></div></div></div>
+      <div class="notes-box"><div class="notes-label">Ghi chú diễn giả</div>Retry chỉ với thao tác idempotent giúp SPA sống sót khi API đang khởi động lại ở dev mà không nhân đôi thao tác ghi.</div>
+    </section>
+
+    <section class="slide" data-index="15">
+      <div class="slide-header"><div class="slide-title-wrap"><h2>14. Kiểm thử & Build</h2><div class="subtitle">Unit test + QA black-box trên server thật</div></div>
+      <span class="slide-tag">14 / CHẤT LƯỢNG</span></div>
+      <div class="slide-body"><div class="grid-4"><div class="metric-badge"><span class="metric-num">10</span><span class="metric-label">file Vitest</span></div><div class="metric-badge"><span class="metric-num">75</span><span class="metric-label">ca QA black-box</span></div><div class="metric-badge"><span class="metric-num">74</span><span class="metric-label">PASS</span></div><div class="metric-badge"><span class="metric-num">0</span><span class="metric-label">FAIL</span></div></div><div class="grid-2"><div class="card" style="padding:10px 14px;"><div class="card-title" style="font-size:.95rem;"><span class="icon">🧪</span> Kiểm thử</div><ul style="margin:4px 0 0 16px;font-size:.8rem;color:var(--text-muted);line-height:1.45;"><li>Vitest: <code>permissions</code>, <code>bearer-auth</code>, <code>cors</code>, <code>rate-limit</code>, <code>error-contract</code>, <code>http</code>, <code>slug</code>, <code>admin-id</code>, <code>chef-validation</code>, <code>dish-ingredients</code></li><li>QA bằng <code>curl</code> với server thật; 1 ca BLOCKED (Supabase đòi xác nhận email)</li><li>Báo cáo: <code>reports/backend-testing/</code></li></ul></div><div class="card" style="padding:10px 14px;"><div class="card-title" style="font-size:.95rem;"><span class="icon">🏗️</span> Build & công cụ</div><ul style="margin:4px 0 0 16px;font-size:.8rem;color:var(--text-muted);line-height:1.45;"><li>Server: <code>tsc</code>; client: <code>tsc --noEmit &amp;&amp; vite build</code> → <code>dist/client</code></li><li><code>typecheck</code>, <code>eslint</code>, <code>prettier</code></li><li>Dev: <code>concurrently</code> chạy server (<code>node --watch --import tsx</code>) + Vite :5173</li><li>Migration: <code>prisma migrate deploy</code></li></ul></div></div><div class="diagram-container" style="font-size:.84rem;"><b>Thông điệp chính:</b> (1) tách SPA ↔ REST API, hợp đồng lỗi nhất quán · (2) bảo vệ nhiều lớp: Zod → RBAC → CSRF/CORS/rate-limit → CHECK/RLS · (3) xử lý tình huống thật: đua slug, rollback ảnh, transaction công thức, retry/CSRF tự phục hồi.</div></div>
+      <div class="notes-box"><div class="notes-label">Ghi chú diễn giả</div>Kết luận bằng ba thông điệp chính và mời đặt câu hỏi.</div>
+    </section>
+
+  </main>
+
+  <!-- Slide Overview Drawer (TOC) -->
+  <aside id="drawer" class="overview-drawer">
+    <div class="drawer-title">
+      <b>Mục Lục Các Slide</b>
+      <button id="btn-close-drawer" class="btn-icon" style="border: none;">✕</button>
+    </div>
+    <div id="drawer-links"></div>
+  </aside>
+
+  <!-- Bottom Navigation Controller -->
+  <footer class="bottombar">
+    <div style="display: flex; gap: 8px;">
+      <button id="btn-prev" class="nav-btn">◀ Trước</button>
+      <button id="btn-next" class="nav-btn">Sau ▶</button>
+    </div>
+
+    <div class="progress-bar-wrap">
+      <div id="progress-bar" class="progress-bar"></div>
+    </div>
+
+    <div class="counter">
+      Slide <b id="slide-curr" style="color: var(--accent);">01</b> / <span id="slide-total">15</span>
+    </div>
+  </footer>
+
+  <!-- Deck Interactive Controller JS -->
+  <script>
+    (function () {
+      const slides = Array.from(document.querySelectorAll('.slide'));
+      const total = slides.length;
+      let current = 0;
+
+      const currEl = document.getElementById('slide-curr');
+      const totalEl = document.getElementById('slide-total');
+      const progressEl = document.getElementById('progress-bar');
+      const btnPrev = document.getElementById('btn-prev');
+      const btnNext = document.getElementById('btn-next');
+      const btnTheme = document.getElementById('btn-theme');
+      const btnNotes = document.getElementById('btn-notes');
+      const btnToc = document.getElementById('btn-toc');
+      const btnFs = document.getElementById('btn-fs');
+      const drawer = document.getElementById('drawer');
+      const drawerLinks = document.getElementById('drawer-links');
+      const btnCloseDrawer = document.getElementById('btn-close-drawer');
+
+      totalEl.textContent = String(total).padStart(2, '0');
+
+      // Populate Drawer Links
+      slides.forEach((s, idx) => {
+        const titleEl = s.querySelector('h2') || s.querySelector('h1');
+        const title = titleEl ? titleEl.textContent : `Slide ${idx + 1}`;
+        const a = document.createElement('a');
+        a.href = '#';
+        a.className = 'slide-item-link';
+        a.innerHTML = `<b>${String(idx + 1).padStart(2, '0')}.</b> ${title}`;
+        a.addEventListener('click', (e) => {
+          e.preventDefault();
+          goToSlide(idx);
+          drawer.classList.remove('open');
+        });
+        drawerLinks.appendChild(a);
+      });
+
+      function updateUI() {
+        slides.forEach((s, idx) => {
+          s.classList.toggle('active', idx === current);
+        });
+
+        currEl.textContent = String(current + 1).padStart(2, '0');
+        const pct = ((current + 1) / total) * 100;
+        progressEl.style.width = pct + '%';
+
+        btnPrev.disabled = current === 0;
+        btnNext.disabled = current === total - 1;
+
+        // Update drawer active highlight
+        const links = drawerLinks.querySelectorAll('.slide-item-link');
+        links.forEach((l, idx) => {
+          l.classList.toggle('current', idx === current);
+        });
+
+        // Sync URL Hash
+        window.location.hash = 'slide-' + (current + 1);
+      }
+
+      function goToSlide(idx) {
+        if (idx >= 0 && idx < total) {
+          current = idx;
+          updateUI();
+        }
+      }
+
+      function nextSlide() {
+        if (current < total - 1) goToSlide(current + 1);
+      }
+
+      function prevSlide() {
+        if (current > 0) goToSlide(current - 1);
+      }
+
+      // Event Listeners
+      btnNext.addEventListener('click', nextSlide);
+      btnPrev.addEventListener('click', prevSlide);
+
+      btnToc.addEventListener('click', () => {
+        drawer.classList.toggle('open');
+      });
+
+      btnCloseDrawer.addEventListener('click', () => {
+        drawer.classList.remove('open');
+      });
+
+      // Toggle Theme with View Transitions API support
+      btnTheme.addEventListener('click', () => {
+        const isDark = document.body.getAttribute('data-theme') === 'dark';
+        const targetTheme = isDark ? 'light' : 'dark';
+        
+        const applyTheme = () => {
+          document.body.setAttribute('data-theme', targetTheme);
+          localStorage.setItem('presentation-theme', targetTheme);
+        };
+
+        if (document.startViewTransition) {
+          document.startViewTransition(applyTheme);
+        } else {
+          applyTheme();
+        }
+      });
+
+      // Load Saved Theme
+      const savedTheme = localStorage.getItem('presentation-theme');
+      if (savedTheme) {
+        document.body.setAttribute('data-theme', savedTheme);
+      }
+
+      // Toggle Speaker Notes
+      btnNotes.addEventListener('click', () => {
+        document.querySelectorAll('.notes-box').forEach(box => {
+          box.classList.toggle('show');
+        });
+      });
+
+      // Fullscreen Toggle
+      btnFs.addEventListener('click', () => {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().catch(err => console.log(err));
+        } else {
+          document.exitFullscreen().catch(err => console.log(err));
+        }
+      });
+
+      // Keyboard Controller
+      window.addEventListener('keydown', (e) => {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+        switch (e.key) {
+          case 'ArrowRight':
+          case 'PageDown':
+          case ' ':
+            e.preventDefault();
+            nextSlide();
+            break;
+          case 'ArrowLeft':
+          case 'PageUp':
+          case 'Backspace':
+            e.preventDefault();
+            prevSlide();
+            break;
+          case 'Home':
+            e.preventDefault();
+            goToSlide(0);
+            break;
+          case 'End':
+            e.preventDefault();
+            goToSlide(total - 1);
+            break;
+          case 'f':
+          case 'F':
+            btnFs.click();
+            break;
+          case 't':
+          case 'T':
+            btnTheme.click();
+            break;
+          case 'm':
+          case 'M':
+          case 'o':
+          case 'O':
+            btnToc.click();
+            break;
+          case 'n':
+          case 'N':
+            btnNotes.click();
+            break;
+          case 'Escape':
+            drawer.classList.remove('open');
+            break;
+        }
+      });
+
+      // Handle Initial Hash navigation
+      if (window.location.hash) {
+        const match = window.location.hash.match(/slide-(\d+)/);
+        if (match && match[1]) {
+          const slideNum = parseInt(match[1], 10) - 1;
+          if (slideNum >= 0 && slideNum < total) {
+            current = slideNum;
+          }
+        }
+      }
+
+      updateUI();
+    })();
+  </script>
+</body>
+</html>
