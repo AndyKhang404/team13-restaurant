@@ -1,5 +1,5 @@
+import { useState, type ReactNode } from 'react';
 import { HttpError } from '../lib/api';
-import type { ReactNode } from 'react';
 
 export function Loading({ label = 'Đang tải…' }: { label?: string }) {
   return (
@@ -11,6 +11,7 @@ export function Loading({ label = 'Đang tải…' }: { label?: string }) {
 }
 
 export function ErrorState({ error, onRetry }: { error: Error; onRetry?: () => void }) {
+  const [retrying, setRetrying] = useState(false);
   const detail =
     error instanceof HttpError && error.status === 0
       ? 'Không kết nối được API. Kiểm tra server đang chạy và VITE_SERVER_URL đúng chưa.'
@@ -20,8 +21,18 @@ export function ErrorState({ error, onRetry }: { error: Error; onRetry?: () => v
       <b>Lỗi</b>
       <span>{detail}</span>
       {onRetry && (
-        <button type="button" className="btn btn-quiet btn-sm" onClick={onRetry}>
-          Thử lại
+        <button
+          type="button"
+          className="btn btn-quiet btn-sm"
+          onClick={() => {
+            if (retrying) return;
+            setRetrying(true);
+            onRetry();
+          }}
+          disabled={retrying}
+          aria-busy={retrying}
+        >
+          {retrying ? 'Đang thử…' : 'Thử lại'}
         </button>
       )}
     </div>

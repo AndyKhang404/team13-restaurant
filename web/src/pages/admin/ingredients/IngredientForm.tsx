@@ -51,6 +51,7 @@ export default function IngredientForm({ mode }: { mode: 'new' | 'edit' }) {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    if (saving) return;
     setSaving(true);
     setErrors({});
     setFormError(null);

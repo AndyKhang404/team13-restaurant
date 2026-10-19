@@ -20,6 +20,8 @@ export function AdminLayout() {
   const location = useLocation();
   const { dark, toggle } = useTheme();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const loggingOutRef = useRef(false);
   const sidebarRef = useRef<HTMLElement>(null);
 
   const title = titleFor(location.pathname);
@@ -47,8 +49,16 @@ export function AdminLayout() {
   }, [menuOpen]);
 
   async function onLogout() {
-    await signOut();
-    navigate('/');
+    if (loggingOutRef.current) return;
+    loggingOutRef.current = true;
+    setLoggingOut(true);
+    try {
+      await signOut();
+      navigate('/');
+    } finally {
+      loggingOutRef.current = false;
+      setLoggingOut(false);
+    }
   }
 
   return (
@@ -119,11 +129,13 @@ export function AdminLayout() {
                   background: 'none',
                   font: 'inherit',
                   textAlign: 'left',
-                  cursor: 'pointer',
+                  cursor: loggingOut ? 'not-allowed' : 'pointer',
                 }}
                 onClick={() => void onLogout()}
+                disabled={loggingOut}
+                aria-busy={loggingOut}
               >
-                <span className="n">06</span> Đăng xuất
+                <span className="n">06</span> {loggingOut ? 'Đang xuất…' : 'Đăng xuất'}
               </button>
             </div>
           </div>

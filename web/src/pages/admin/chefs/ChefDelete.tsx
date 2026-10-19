@@ -26,6 +26,7 @@ export default function ChefDelete() {
   const targetId = chef.id;
 
   async function onDelete() {
+    if (busy) return;
     setBusy(true);
     setDelError(null);
     try {

@@ -54,6 +54,7 @@ export default function ChefForm({ mode }: { mode: 'new' | 'edit' }) {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    if (saving) return;
     setSaving(true);
     setErrors({});
     setFormError(null);

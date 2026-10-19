@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { authApi } from '../lib/resources';
 import { useAuth } from '../auth/AuthProvider';
+import { canAccessAdmin } from '../auth/roles';
 import { FormError } from '../components/FieldError';
 import { Loading } from '../components/StateViews';
 
@@ -23,7 +24,8 @@ export default function AuthCallback() {
       .then(async (result) => {
         if (!alive) return;
         await refresh();
-        navigate(result.redirectTo ?? '/', { replace: true });
+        const target = canAccessAdmin(result.user) ? (result.redirectTo ?? '/admin') : '/';
+        navigate(target, { replace: true });
       })
       .catch((err: unknown) => {
         if (alive) setError(err instanceof Error ? err.message : 'Liên kết không hợp lệ.');

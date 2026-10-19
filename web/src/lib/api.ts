@@ -156,7 +156,7 @@ export async function apiFetch<T>(
 
   const res = await fetchWithRetry(
     url,
-    { ...options, headers, body, credentials: 'include' },
+    { ...options, headers, body, credentials: 'include', cache: 'no-store' },
     method,
   );
 

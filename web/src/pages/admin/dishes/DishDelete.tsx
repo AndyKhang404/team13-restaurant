@@ -26,6 +26,7 @@ export default function DishDelete() {
   const targetId = dish.id;
 
   async function onDelete() {
+    if (busy) return;
     setBusy(true);
     setDelError(null);
     try {

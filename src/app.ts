@@ -24,6 +24,11 @@ const clientDistDir = path.join(process.cwd(), 'dist/client');
 export function createApp() {
   const app = express();
 
+  // API payloads are dynamic and business errors are HTTP 200 with `ok:false`.
+  // ETag revalidation would let Express answer a repeat GET with 304 (no body),
+  // hiding the error envelope, so never generate ETags for dynamic responses.
+  app.set('etag', false);
+
   // Basic security headers & logging
   app.use(
     helmet({
@@ -59,6 +64,12 @@ export function createApp() {
 
   // Load user from Supabase auth cookie and link to Prisma Profile
   app.use(loadUser);
+
+  // Never let the browser cache API JSON (including `ok:false` business errors).
+  app.use('/api', (_req, res, next) => {
+    res.setHeader('Cache-Control', 'no-store');
+    next();
+  });
 
   // REST API routes
   app.use('/api/auth', authRouter);

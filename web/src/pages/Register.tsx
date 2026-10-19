@@ -3,6 +3,7 @@ import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { authApi } from '../lib/resources';
 import { ApiError, HttpError, type ApiFieldErrors } from '../lib/api';
 import { useAuth } from '../auth/AuthProvider';
+import { canAccessAdmin } from '../auth/roles';
 import { FormError } from '../components/FieldError';
 
 export default function Register() {
@@ -17,10 +18,13 @@ export default function Register() {
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  if (user) return <Navigate to="/admin/dishes" replace />;
+  if (user) {
+    return <Navigate to={canAccessAdmin(user) ? '/admin/dishes' : '/'} replace />;
+  }
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    if (busy) return;
     setError(null);
     if (password !== confirm) {
       setError('Mật khẩu nhập lại không khớp.');
@@ -39,7 +43,10 @@ export default function Register() {
         return;
       }
       await refresh();
-      navigate(result.redirectTo ?? '/admin/dishes', { replace: true });
+      const target = canAccessAdmin(result.user)
+        ? (result.redirectTo ?? '/admin/dishes')
+        : '/';
+      navigate(target, { replace: true });
     } catch (err) {
       if (err instanceof ApiError) {
         const fields = err.fields as ApiFieldErrors | undefined;

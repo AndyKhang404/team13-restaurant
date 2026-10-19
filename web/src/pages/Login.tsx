@@ -3,6 +3,7 @@ import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { authApi } from '../lib/resources';
 import { ApiError, HttpError } from '../lib/api';
 import { useAuth } from '../auth/AuthProvider';
+import { canAccessAdmin } from '../auth/roles';
 import { FormError } from '../components/FieldError';
 
 interface LocationState {
@@ -20,16 +21,22 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  if (user) return <Navigate to="/admin/dishes" replace />;
+  if (user) {
+    return <Navigate to={canAccessAdmin(user) ? '/admin/dishes' : '/'} replace />;
+  }
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    if (busy) return;
     setBusy(true);
     setError(null);
     try {
       const result = await authApi.login(email, password);
       await refresh();
-      navigate(state.from ?? result.redirectTo ?? '/admin/dishes', { replace: true });
+      const target = canAccessAdmin(result.user)
+        ? (state.from ?? result.redirectTo ?? '/admin/dishes')
+        : '/';
+      navigate(target, { replace: true });
     } catch (err) {
       if (err instanceof ApiError) {
         setError(
