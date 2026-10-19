@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { dishesApi } from '../lib/resources';
 import { useApi } from '../lib/useApi';
 import { useAuth } from '../auth/AuthProvider';
+import { canAccessAdmin } from '../auth/roles';
 import { EmptyState, ErrorState, SkeletonFeat } from '../components/StateViews';
 import { formatVnd } from '../lib/format';
 import { categoryLabel, type Dish } from '../lib/types';
@@ -195,11 +196,11 @@ export default function Home() {
             <a className="btn btn-lg" href="tel:19006868">
               Đặt bàn: 1900 6868
             </a>
-            {user ? (
+            {canAccessAdmin(user) ? (
               <Link className="btn btn-lg" to="/admin">
                 Quản trị
               </Link>
-            ) : (
+            ) : user ? null : (
               <Link className="btn btn-lg" to="/login">
                 Đăng nhập
               </Link>

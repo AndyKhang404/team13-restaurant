@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthProvider';
+import { canAccessAdmin } from '../auth/roles';
 import { ThemeSwitch, ThemeToggle, useTheme } from './ThemeSwitch';
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
@@ -12,14 +13,24 @@ export function Layout() {
   const location = useLocation();
   const { dark, toggle } = useTheme();
   const [navOpen, setNavOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const loggingOutRef = useRef(false);
 
   useEffect(() => {
     setNavOpen(false);
   }, [location.pathname]);
 
   async function onLogout() {
-    await signOut();
-    navigate('/');
+    if (loggingOutRef.current) return;
+    loggingOutRef.current = true;
+    setLoggingOut(true);
+    try {
+      await signOut();
+      navigate('/');
+    } finally {
+      loggingOutRef.current = false;
+      setLoggingOut(false);
+    }
   }
 
   return (
@@ -46,7 +57,7 @@ export function Layout() {
               <NavLink to="/dishes" className={navLinkClass}>
                 Thực đơn
               </NavLink>
-              {user ? (
+              {canAccessAdmin(user) ? (
                 <Link to="/admin" className="nav-mobile-admin">
                   Quản trị
                 </Link>
@@ -54,15 +65,21 @@ export function Layout() {
             </nav>
             <div className="nav-cta">
               <ThemeSwitch />
+              {canAccessAdmin(user) ? (
+                <Link className="btn btn-quiet nav-admin-btn" to="/admin">
+                  Quản trị
+                </Link>
+              ) : null}
               {user ? (
-                <>
-                  <Link className="btn btn-quiet nav-admin-btn" to="/admin">
-                    Quản trị
-                  </Link>
-                  <button type="button" className="btn btn-solid" onClick={() => void onLogout()}>
-                    Đăng xuất
-                  </button>
-                </>
+                <button
+                  type="button"
+                  className="btn btn-solid"
+                  onClick={() => void onLogout()}
+                  disabled={loggingOut}
+                  aria-busy={loggingOut}
+                >
+                  {loggingOut ? 'Đang xuất…' : 'Đăng xuất'}
+                </button>
               ) : (
                 <>
                   <Link className="btn btn-quiet" to="/login">

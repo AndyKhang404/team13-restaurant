@@ -30,6 +30,7 @@ export default function IngredientDelete() {
   const targetId = ing.id;
 
   async function onDelete() {
+    if (busy) return;
     setBusy(true);
     setDelError(null);
     try {

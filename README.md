@@ -43,11 +43,11 @@ A modern client-side rendered (CSR) web application for restaurant meal manageme
 
 - **Framework**: [React 19](https://react.dev/) + [Vite](https://vitejs.dev/)
 - **Routing**: [React Router DOM v7](https://reactrouter.com/) (declarative client-side routing with layout wrappers)
-- **Styling**: Tailwind CSS v4 (`public/css/app.css` and `public/css/style.css` with dynamic layout stylesheet isolation)
+- **Styling**: Tailwind CSS v4 via `@tailwindcss/vite`, combined with hand-written CSS in `web/src/styles/public.css` and `web/src/styles/admin.css` (entry: `web/src/index.css`).
 - **State & Context**:
-  - `AuthContext`: Session bootstrap via `GET /api/auth/me`, login, and logout.
-  - `FlashContext`: Non-intrusive floating toast notifications for user actions.
-  - `ThemeContext`: Persistent light/dark mode switcher.
+  - `AuthProvider`: Session bootstrap via `GET /api/auth/me`, login, logout, and role-aware redirects.
+  - `useTheme` (`ThemeSwitch.tsx`): Persistent light/dark mode switcher.
+  - Page-level `useApi`: Local loading/error/data state; no global list/record store.
 - **HTTP Client**: Typed wrapper `apiFetch<T>` with automatic CSRF token header (`x-csrf-token`) injection and standardized error unboxing.
 
 ### Backend (Decoupled REST API)
@@ -60,13 +60,14 @@ A modern client-side rendered (CSR) web application for restaurant meal manageme
   - `Authorization: Bearer <token>` support for REST API endpoints and CSRF-exempt header authentication.
   - Double-submit CSRF protection (`csrf-csrf`) for browser cookie sessions.
   - HTTP security headers (`helmet`).
+  - CORS with an explicit `SPA_ORIGIN` allowlist and credentials; localhost/127.0.0.1 origins are allowed in development.
   - Rate limiting with standardized `RATE_LIMITED` JSON error responses.
   - Request validation using [Zod](https://zod.dev/).
 - **SPA Fallback**: Express serves `dist/client/index.html` for non-API client routes in production.
 
 ### Standardized JSON Response Shape
 
-All REST API endpoints conform to a unified JSON contract:
+The API distinguishes business errors from technical/security errors:
 
 - **Success (`2xx`)**:
   ```json
@@ -75,7 +76,7 @@ All REST API endpoints conform to a unified JSON contract:
     "data": { ... }
   }
   ```
-- **Failure (`4xx` / `5xx`)**:
+- **Business errors (`HTTP 200`)**:
   ```json
   {
     "ok": false,
@@ -86,8 +87,19 @@ All REST API endpoints conform to a unified JSON contract:
     }
   }
   ```
+  Handled business errors such as `VALIDATION_FAILED`, `NOT_FOUND`, and `ALREADY_EXISTS` intentionally use HTTP 200 so the SPA can branch on `error.code` and show the real message instead of a generic HTTP failure.
+- **Technical/security errors (`4xx` / `5xx` or auth/rate-limit flows)**:
+  ```json
+  {
+    "error": {
+      "code": "UNAUTHORIZED",
+      "message": "Human readable message"
+    }
+  }
+  ```
+  These use the real HTTP status. Most omit `ok`; auth and rate-limit responses may still include `ok:false` as an out-of-contract exception.
 
-Common error codes include: `VALIDATION_ERROR`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, `RATE_LIMITED`, `FILE_TOO_LARGE`, `INTERNAL_ERROR`.
+Common error codes include: `VALIDATION_FAILED`, `VALIDATION_ERROR`, `INVALID_CREDENTIALS`, `EMAIL_NOT_CONFIRMED`, `AUTH_ERROR`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `ALREADY_EXISTS`, `CONFLICT`, `SELF_ROLE_CHANGE`, `LAST_ADMIN`, `RATE_LIMITED`, `CSRF_INVALID`, `UPLOAD_LIMIT_EXCEEDED`, `INTERNAL_ERROR`.
 
 ---
 
@@ -97,29 +109,29 @@ All protected endpoints accept authentication via `Authorization: Bearer <access
 Mutating endpoints using `Authorization: Bearer <token>` bypass double-submit CSRF enforcement (since cross-origin requests cannot attach custom headers without CORS preflight).
 Legacy `/api/admin/*` routes remain fully supported as backward-compatibility aliases to `/api/*`.
 
-| Route                                |      Method      |    Access     | Description                                                          |
-| ------------------------------------ | :--------------: | :-----------: | -------------------------------------------------------------------- |
-| `/api/auth/me`                       |       GET        |    Public     | Current profile and CSRF token                                       |
-| `/api/auth/login`                    |       POST       |    Public     | Sign in with email and password (returns session token)              |
-| `/api/auth/register`                 |       POST       |    Public     | Register new account (returns session token)                         |
-| `/api/auth/logout`                   |       POST       | Authenticated | Clear session cookies / invalidate session                           |
-| `/api/auth/callback`                 |     GET/POST     |    Public     | Supabase OAuth / email verification callback                         |
-| `/api/home`                          |       GET        |    Public     | Featured dishes, stats, and promotional data                         |
-| `/api/menu`                          |       GET        |    Public     | Paginated dish catalog with category & sort filters                  |
-| `/api/dishes`                        |    GET, POST     | Public / Staff| List catalog (public) or admin filter; create dish (`dish:create`)   |
-| `/api/dishes/:idOrSlug`              | GET, PUT, DELETE | Public / Staff| View dish (public); update / soft-delete (`dish:update`/`delete`)     |
-| `/api/dishes/:id/restore`            |       POST       | Staff / Admin | Restore soft-deleted dish                                            |
-| `/api/dishes/form-deps`              |       GET        | Staff / Admin | Active chefs and ingredients options for dish editor                 |
-| `/api/chefs`                         |    GET, POST     | Staff / Admin | List chefs; create new chef profile                                  |
-| `/api/chefs/:id`                     | GET, PUT, DELETE | Staff / Admin | View, update, or soft-delete chef                                    |
-| `/api/chefs/:id/restore`             |       POST       | Staff / Admin | Restore soft-deleted chef                                            |
-| `/api/ingredients`                   |    GET, POST     | Staff / Admin | List ingredients inventory; create new ingredient                    |
-| `/api/ingredients/:id`               | GET, PUT, DELETE | Staff / Admin | View, update, or soft-delete ingredient                              |
-| `/api/ingredients/:id/restore`       |       POST       | Staff / Admin | Restore soft-deleted ingredient                                      |
-| `/api/stats`                         |       GET        | Staff / Admin | Dashboard summary counts (dishes, chefs, ingredients, users)         |
-| `/api/users`                         |       GET        |  Admin only   | List registered users with pagination & search                       |
-| `/api/users/:id/role`                |   PATCH, POST    |  Admin only   | Change user role (`CUSTOMER`, `STAFF`, `ADMIN`)                      |
-| `/api/admin/*`                       |       ANY        | Staff / Admin | Backward-compatibility aliases for `/api/*` management endpoints     |
+| Route                          |         Method          |     Access     | Description                                                                 |
+| ------------------------------ | :---------------------: | :------------: | --------------------------------------------------------------------------- |
+| `/api/auth/me`                 |           GET           |     Public     | Current profile and CSRF token                                              |
+| `/api/auth/login`              |          POST           |     Public     | Sign in with email and password (returns session token)                     |
+| `/api/auth/register`           |          POST           |     Public     | Register new account (returns session token)                                |
+| `/api/auth/logout`             |          POST           | Authenticated  | Clear session cookies / invalidate session                                  |
+| `/api/auth/callback`           |        GET/POST         |     Public     | Supabase OAuth / email verification callback                                |
+| `/api/home`                    |           GET           |     Public     | Featured dishes for the home page                                           |
+| `/api/menu`                    |           GET           |     Public     | Full visible dish catalog; optional `q`, `category`, `sort` (no pagination) |
+| `/api/dishes`                  |        GET, POST        | Public / Staff | List catalog (public) or admin filter; create dish (`dish:create`)          |
+| `/api/dishes/:idOrSlug`        | GET, PATCH, PUT, DELETE | Public / Staff | View dish (public); update / soft-delete (`dish:update`/`delete`)           |
+| `/api/dishes/:id/restore`      |          POST           | Staff / Admin  | Restore soft-deleted dish                                                   |
+| `/api/dishes/form-deps`        |           GET           | Staff / Admin  | Active chefs and ingredients options for dish editor                        |
+| `/api/chefs`                   |        GET, POST        | Staff / Admin  | List chefs; create new chef profile                                         |
+| `/api/chefs/:id`               | GET, PATCH, PUT, DELETE | Staff / Admin  | View, update, or soft-delete chef                                           |
+| `/api/chefs/:id/restore`       |          POST           | Staff / Admin  | Restore soft-deleted chef                                                   |
+| `/api/ingredients`             |        GET, POST        | Staff / Admin  | List ingredients inventory; create new ingredient                           |
+| `/api/ingredients/:id`         | GET, PATCH, PUT, DELETE | Staff / Admin  | View, update, or soft-delete ingredient                                     |
+| `/api/ingredients/:id/restore` |          POST           | Staff / Admin  | Restore soft-deleted ingredient                                             |
+| `/api/stats`                   |           GET           | Staff / Admin  | Dashboard summary counts (dishes, chefs, ingredients, users)                |
+| `/api/users`                   |           GET           |   Admin only   | List registered users with pagination & search                              |
+| `/api/users/:id/role`          |       PATCH, POST       |   Admin only   | Change user role (`CUSTOMER`, `STAFF`, `ADMIN`)                             |
+| `/api/admin/*`                 |           ANY           | Staff / Admin  | Backward-compatibility aliases for `/api/*` management endpoints            |
 
 ---
 
@@ -142,6 +154,9 @@ cp web/.env.example web/.env
 
 Fill in the values in `.env`:
 
+- `NODE_ENV`: `development`, `production`, or `test`
+- `PORT`: API server port (default `3000`)
+- `APP_URL`: public server URL used by Supabase auth redirects
 - `DATABASE_URL`: Supabase Transaction Pooler URL (port `6543`)
 - `DIRECT_URL`: Supabase Session / Direct connection URL (port `5432`)
 - `SUPABASE_URL`: Your Supabase project URL (`https://<project-ref>.supabase.co`)
@@ -149,6 +164,7 @@ Fill in the values in `.env`:
 - `SUPABASE_SECRET_KEY`: Supabase secret key (`service_role` for admin & storage bypass)
 - `STORAGE_BUCKET`: `images` (auto-created by seed script if missing)
 - `CSRF_SECRET`: 32+ character random string (e.g. `openssl rand -hex 32`)
+- `SPA_ORIGIN`: Allowed browser origin(s) for CORS, comma-separated (e.g. `http://localhost:5173`); dev localhost/127.0.0.1 origins are allowed automatically
 - `SEED_ADMIN_EMAIL`: Initial admin email
 - `SEED_ADMIN_PASSWORD`: Initial admin password
 
@@ -177,7 +193,7 @@ npm run db:seed
 
 ### 5. Start Development
 
-Run all services concurrently (Express API + Vite Dev Server + Tailwind CSS watcher):
+Run the Express API and Vite dev server concurrently:
 
 ```bash
 npm run dev
@@ -191,7 +207,6 @@ Alternatively, run services individually:
 ```bash
 npm run dev:client  # Vite dev server on port 5173
 npm run dev:server  # Express API server on port 3000 (tsx watch)
-npm run dev:css     # Tailwind CSS compiler in watch mode
 ```
 
 ---
@@ -216,7 +231,7 @@ Run ESLint check:
 npm run lint
 ```
 
-Build production bundle (Tailwind CSS + Vite SPA client + TypeScript server):
+Build production bundle (Vite SPA client + TypeScript server):
 
 ```bash
 npm run build

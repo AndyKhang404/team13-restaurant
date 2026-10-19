@@ -580,7 +580,7 @@ a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid var(-
 .chef-open:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 .chef-open .chef-name{text-decoration:underline transparent 2px;text-underline-offset:4px;transition:text-decoration-color .3s var(--ease)}
 .chef-open:hover .chef-name{text-decoration-color:var(--accent)}
-.chef-dialog{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:16px;padding:0;max-width:min(440px,calc(100vw - 40px))}
+.chef-dialog{position:fixed;inset:0;margin:auto;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:16px;padding:0;max-width:min(440px,calc(100vw - 40px));max-height:calc(100dvh - 40px);overflow:auto}
 .chef-dialog::backdrop{background:rgba(20,16,12,.55)}
 .chef-dialog-card{position:relative;display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px;padding:36px 30px 30px}
 .chef-dialog-card .role{display:block;font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.16em;color:var(--accent);margin-top:10px}
