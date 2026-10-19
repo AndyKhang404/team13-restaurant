@@ -2,7 +2,7 @@
   "name": "team13-restaurant",
   "version": "0.1.0",
   "private": true,
-  "description": "Team13 restaurant SSR site (Express + Handlebars + Prisma + Supabase)",
+  "description": "Team13 restaurant site (Express REST API + Vite React CSR + Prisma + Supabase)",
   "type": "module",
   "engines": {
     "node": ">=20"
