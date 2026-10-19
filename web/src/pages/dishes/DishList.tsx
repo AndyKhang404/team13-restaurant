@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { dishesApi } from '../../lib/resources';
 import { useApi } from '../../lib/useApi';
 import { DishCard } from '../../components/DishCard';
 import { ErrorState, SkeletonGrid } from '../../components/StateViews';
-import { CATEGORIES, categoryLabel, type Dish } from '../../lib/types';
+import { CATEGORIES, categoryLabel } from '../../lib/types';
 
 const SORTS = [
   { value: '', label: 'Tên A → Z' },
@@ -13,22 +13,6 @@ const SORTS = [
   { value: 'price-desc', label: 'Giá cao → thấp' },
   { value: 'newest', label: 'Mới cập nhật' },
 ];
-
-function sortDishes(list: Dish[], sort: string): Dish[] {
-  const out = [...list];
-  switch (sort) {
-    case 'name-desc':
-      return out.sort((a, b) => b.name.localeCompare(a.name, 'vi'));
-    case 'price-asc':
-      return out.sort((a, b) => a.price - b.price);
-    case 'price-desc':
-      return out.sort((a, b) => b.price - a.price);
-    case 'newest':
-      return out.sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
-    default:
-      return out.sort((a, b) => a.name.localeCompare(b.name, 'vi'));
-  }
-}
 
 export default function DishList() {
   const [params, setParams] = useSearchParams();
@@ -41,7 +25,10 @@ export default function DishList() {
     setInput(q);
   }, [q]);
 
-  const { data, loading, error, reload } = useApi(() => dishesApi.listPublic(), []);
+  const { data, loading, error, reload } = useApi(
+    () => dishesApi.listPublic(q, category, sort),
+    [q, category, sort],
+  );
 
   function setParam(key: string, value: string) {
     const next = new URLSearchParams(params);
@@ -63,15 +50,7 @@ export default function DishList() {
     return qs ? `/dishes?${qs}` : '/dishes';
   }
 
-  const results = useMemo(() => {
-    const term = q.trim().toLowerCase();
-    const filtered = (data ?? []).filter((d) => {
-      if (category && d.category !== category) return false;
-      if (term && !d.name.toLowerCase().includes(term)) return false;
-      return true;
-    });
-    return sortDishes(filtered, sort);
-  }, [data, q, category, sort]);
+  const results = data ?? [];
 
   return (
     <div>

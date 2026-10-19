@@ -16,6 +16,16 @@ function qs(q?: string): string {
   return term ? `?q=${encodeURIComponent(term)}` : '';
 }
 
+function buildQuery(params: Record<string, string | undefined>): string {
+  const sp = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    const term = value?.trim();
+    if (term) sp.set(key, term);
+  }
+  const s = sp.toString();
+  return s ? `?${s}` : '';
+}
+
 /** Follows `pagination` and collects every page (admin lists render 10/page server-side). */
 async function fetchAllPages<T>(
   path: string,
@@ -91,22 +101,27 @@ function toFormData(
 }
 
 export const dishesApi = {
-  /** Public menu (visible dishes only). */
-  listPublic: async (q?: string) => {
-    const data = await apiFetch<{ dishes: RawDish[] }>(`/menu${qs(q)}`);
-    return data.dishes.map(normalizeDish);
+  /** Public menu / dishes (visible dishes only). */
+  listPublic: async (q?: string, category?: string, sort?: string) => {
+    const query = buildQuery({ q, category, sort });
+    const data = await apiFetch<RawDish[] | { dishes: RawDish[] }>(`/dishes${query}`);
+    const list = Array.isArray(data) ? data : data.dishes;
+    return list.map(normalizeDish);
   },
   /** Featured dishes for the home page. */
   featured: async () => {
     const data = await apiFetch<{ featured: RawDish[] }>('/');
     return data.featured.map(normalizeDish);
   },
-  /** Public detail by slug. */
-  getPublic: async (slug: string) => {
-    const data = await apiFetch<{ dish: RawDish; chef: DishChef | null }>(
-      `/dishes/${encodeURIComponent(slug)}`,
+  /** Public detail by id or slug. */
+  getPublic: async (idOrSlug: string) => {
+    const data = await apiFetch<{ dish: RawDish; chef: DishChef | null } | RawDish>(
+      `/dishes/${encodeURIComponent(idOrSlug)}`,
     );
-    return normalizeDish({ ...data.dish, chef: data.chef });
+    if ('dish' in data) {
+      return normalizeDish({ ...data.dish, chef: data.chef });
+    }
+    return normalizeDish(data);
   },
 
   /** Admin list (paginated, 10/page server-side). */

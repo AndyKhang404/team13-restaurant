@@ -78,9 +78,33 @@ router.get('/menu', async (req, res) => {
   });
 });
 
+router.get('/dishes', async (req, res) => {
+  const raw = typeof req.query.category === 'string' ? req.query.category : '';
+  const category = CATEGORIES.includes(raw as DishCategory) ? (raw as DishCategory) : undefined;
+  const q = typeof req.query.q === 'string' ? req.query.q.trim().slice(0, 80) : '';
+  const sortRaw = typeof req.query.sort === 'string' ? req.query.sort : '';
+  const sort = sortRaw in SORTS ? sortRaw : '';
+
+  const dishes = await prisma.dish.findMany({
+    where: {
+      ...visibleDish,
+      ...(category ? { category } : {}),
+      ...(q ? { name: { contains: q, mode: 'insensitive' } } : {}),
+    },
+    orderBy: SORTS[sort],
+  });
+
+  return sendOk(res, dishes);
+});
+
 router.get('/dishes/:slug', async (req, res) => {
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(req.params.slug);
+  const where: Prisma.DishWhereInput = isUuid
+    ? { ...visibleDish, OR: [{ slug: req.params.slug }, { id: req.params.slug }] }
+    : { ...visibleDish, slug: req.params.slug };
+
   const dish = await prisma.dish.findFirst({
-    where: { ...visibleDish, slug: req.params.slug },
+    where,
     include: {
       chef: true,
       ingredients: {
