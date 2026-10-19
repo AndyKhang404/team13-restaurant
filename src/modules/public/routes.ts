@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { DishCategory } from '../../generated/prisma/enums.js';
 import type { Prisma } from '../../generated/prisma/client.js';
 import { prisma } from '../../lib/prisma.js';
-import { notFound } from '../../lib/http.js';
+import { notFound, sendOk } from '../../lib/http.js';
 import { CATEGORY_LABELS } from '../../lib/format.js';
 
 const router = Router();
@@ -12,13 +12,22 @@ const visibleDish: Prisma.DishWhereInput = { deletedAt: null };
 
 const CATEGORIES = Object.values(DishCategory);
 
-router.get('/', async (_req, res) => {
-  const featured = await prisma.dish.findMany({
+const getHomeFeatured = async () => {
+  return prisma.dish.findMany({
     where: { ...visibleDish, isFeatured: true },
     orderBy: [{ isAvailable: 'desc' }, { updatedAt: 'desc' }],
     take: 8,
   });
-  res.render('pages/public/home', { title: 'Home', featured });
+};
+
+router.get('/', async (_req, res) => {
+  const featured = await getHomeFeatured();
+  return sendOk(res, { featured });
+});
+
+router.get('/home', async (_req, res) => {
+  const featured = await getHomeFeatured();
+  return sendOk(res, { featured });
 });
 
 const SORTS: Record<string, Prisma.DishOrderByWithRelationInput[]> = {
@@ -57,8 +66,7 @@ router.get('/menu', async (req, res) => {
         }))
         .filter((g) => g.dishes.length > 0);
 
-  res.render('pages/public/menu', {
-    title: 'Menu',
+  return sendOk(res, {
     groups,
     flat,
     dishes,
@@ -82,13 +90,12 @@ router.get('/dishes/:slug', async (req, res) => {
       },
     },
   });
-  if (!dish) throw notFound('Dish');
+  if (!dish) throw notFound('Món ăn');
 
   // Hide deleted or inactive chefs on the public page.
   const chef = dish.chef && dish.chef.deletedAt === null && dish.chef.isActive ? dish.chef : null;
 
-  res.render('pages/public/dish', {
-    title: dish.name,
+  return sendOk(res, {
     dish,
     chef,
     ingredients: dish.ingredients.map((di) => di.ingredient.name),

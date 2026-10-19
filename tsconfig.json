@@ -1,9 +1,10 @@
 {
   "compilerOptions": {
     "target": "ES2023",
-    "lib": ["ES2023"],
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
+    "jsx": "react-jsx",
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "esModuleInterop": true,
@@ -14,5 +15,5 @@
     "verbatimModuleSyntax": true,
     "noEmit": true
   },
-  "include": ["src", "prisma", "tests", "prisma.config.ts", "vitest.config.ts"]
+  "include": ["src", "prisma", "tests", "prisma.config.ts", "vitest.config.ts", "vite.config.ts"]
 }

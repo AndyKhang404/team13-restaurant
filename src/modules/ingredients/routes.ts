@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import type { Prisma } from '../../generated/prisma/client.js';
 import { prisma } from '../../lib/prisma.js';
-import { notFound } from '../../lib/http.js';
+import { notFound, sendOk, sendError } from '../../lib/http.js';
 import { buildPagination, skipFor } from '../../lib/pagination.js';
 import { listParams, isNotFound, isUniqueViolation, paramId } from '../../lib/admin.js';
 import { requiredText, decimal, checkbox, toFieldErrors } from '../../lib/validation.js';
@@ -22,9 +22,6 @@ export const IngredientSchema = z.object({
 
 const DUPLICATE_NAME_ERROR = 'Nguyên liệu này đã tồn tại';
 
-/** Case-insensitive name clash (the DB unique index is case-sensitive,
- * so "Thịt bò" vs "THỊT BÒ" would otherwise slip through as duplicates).
- */
 async function findNameClash(name: string, excludeId?: string) {
   return prisma.ingredient.findFirst({
     where: {
@@ -52,9 +49,7 @@ router.get('/', requirePermission('ingredient:create'), async (req, res) => {
     }),
   ]);
 
-  res.render('pages/admin/ingredients/index', {
-    layout: 'admin',
-    title: 'Kho nguyên liệu',
+  return sendOk(res, {
     ingredients,
     pagination: buildPagination(page, total, filters),
     q,
@@ -62,14 +57,11 @@ router.get('/', requirePermission('ingredient:create'), async (req, res) => {
   });
 });
 
-router.get('/new', requirePermission('ingredient:create'), (_req, res) => {
-  res.render('pages/admin/ingredients/form', {
-    layout: 'admin',
-    title: 'Nguyên liệu mới',
-    isNew: true,
-    values: { unit: 'g', stockQuantity: 0, pricePerUnit: 0, isAvailable: true },
-    errors: {},
-  });
+router.get('/:id', requirePermission('ingredient:update'), async (req, res) => {
+  const id = paramId(req.params.id);
+  const ingredient = await prisma.ingredient.findUnique({ where: { id } });
+  if (!ingredient) throw notFound('Nguyên liệu');
+  return sendOk(res, { ingredient });
 });
 
 router.post('/', requirePermission('ingredient:create'), async (req, res) => {
@@ -80,29 +72,18 @@ router.post('/', requirePermission('ingredient:create'), async (req, res) => {
   if (!parsed.success || imageErr) {
     const errors = parsed.success ? {} : toFieldErrors(parsed.error);
     if (imageErr) errors['image'] = imageErr;
-    return res.status(400).render('pages/admin/ingredients/form', {
-      layout: 'admin',
-      title: 'Nguyên liệu mới',
-      isNew: true,
-      values: req.body,
-      errors,
-    });
+    return sendError(res, 400, 'VALIDATION_ERROR', 'Thông tin nguyên liệu không hợp lệ', errors);
   }
 
   if (await findNameClash(parsed.data.name)) {
-    return res.status(400).render('pages/admin/ingredients/form', {
-      layout: 'admin',
-      title: 'Nguyên liệu mới',
-      isNew: true,
-      values: req.body,
-      errors: { name: DUPLICATE_NAME_ERROR },
-    });
+    return sendError(res, 409, 'CONFLICT', DUPLICATE_NAME_ERROR, { name: DUPLICATE_NAME_ERROR });
   }
 
   const data = parsed.data;
   try {
+    let createdIngredient: Awaited<ReturnType<typeof prisma.ingredient.create>> | null = null;
     await saveWithImage({ folder: 'ingredients', file }, async (imageUrl) => {
-      await prisma.ingredient.create({
+      createdIngredient = await prisma.ingredient.create({
         data: {
           name: data.name,
           unit: data.unit,
@@ -113,42 +94,20 @@ router.post('/', requirePermission('ingredient:create'), async (req, res) => {
         },
       });
     });
+
+    return sendOk(res, { ingredient: createdIngredient, message: `Đã tạo nguyên liệu "${data.name}".` }, 201);
   } catch (e) {
     if (isUniqueViolation(e, 'name')) {
-      return res.status(400).render('pages/admin/ingredients/form', {
-        layout: 'admin',
-        title: 'Nguyên liệu mới',
-        isNew: true,
-        values: req.body,
-        errors: { name: DUPLICATE_NAME_ERROR },
-      });
+      return sendError(res, 409, 'CONFLICT', DUPLICATE_NAME_ERROR, { name: DUPLICATE_NAME_ERROR });
     }
     throw e;
   }
-
-  req.flash('success', `Đã tạo nguyên liệu "${data.name}".`);
-  res.redirect(303, '/admin/ingredients');
-});
-
-router.get('/:id/edit', requirePermission('ingredient:update'), async (req, res) => {
-  const id = paramId(req.params.id);
-  const ingredient = await prisma.ingredient.findUnique({ where: { id } });
-  if (!ingredient) throw notFound('Ingredient');
-
-  res.render('pages/admin/ingredients/form', {
-    layout: 'admin',
-    title: `Sửa nguyên liệu: ${ingredient.name}`,
-    isNew: false,
-    ingredient,
-    values: ingredient,
-    errors: {},
-  });
 });
 
 router.patch('/:id', requirePermission('ingredient:update'), async (req, res) => {
   const id = paramId(req.params.id);
   const ingredient = await prisma.ingredient.findUnique({ where: { id } });
-  if (!ingredient) throw notFound('Ingredient');
+  if (!ingredient) throw notFound('Nguyên liệu');
 
   const file = fileFor(req.files, 'image') as UploadedFile | undefined;
   const imageErr = file ? validateImage(file) : null;
@@ -157,29 +116,16 @@ router.patch('/:id', requirePermission('ingredient:update'), async (req, res) =>
   if (!parsed.success || imageErr) {
     const errors = parsed.success ? {} : toFieldErrors(parsed.error);
     if (imageErr) errors['image'] = imageErr;
-    return res.status(400).render('pages/admin/ingredients/form', {
-      layout: 'admin',
-      title: `Sửa nguyên liệu: ${ingredient.name}`,
-      isNew: false,
-      ingredient,
-      values: req.body,
-      errors,
-    });
+    return sendError(res, 400, 'VALIDATION_ERROR', 'Thông tin nguyên liệu không hợp lệ', errors);
   }
 
   if (await findNameClash(parsed.data.name, id)) {
-    return res.status(400).render('pages/admin/ingredients/form', {
-      layout: 'admin',
-      title: `Sửa nguyên liệu: ${ingredient.name}`,
-      isNew: false,
-      ingredient,
-      values: req.body,
-      errors: { name: DUPLICATE_NAME_ERROR },
-    });
+    return sendError(res, 409, 'CONFLICT', DUPLICATE_NAME_ERROR, { name: DUPLICATE_NAME_ERROR });
   }
 
   const data = parsed.data;
   try {
+    let updatedIngredient: Awaited<ReturnType<typeof prisma.ingredient.update>> | null = null;
     await saveWithImage(
       {
         folder: 'ingredients',
@@ -188,7 +134,7 @@ router.patch('/:id', requirePermission('ingredient:update'), async (req, res) =>
         currentUrl: ingredient.imageUrl,
       },
       async (imageUrl) => {
-        await prisma.ingredient.update({
+        updatedIngredient = await prisma.ingredient.update({
           where: { id: ingredient.id },
           data: {
             name: data.name,
@@ -201,34 +147,14 @@ router.patch('/:id', requirePermission('ingredient:update'), async (req, res) =>
         });
       },
     );
+
+    return sendOk(res, { ingredient: updatedIngredient, message: `Đã cập nhật nguyên liệu "${data.name}".` });
   } catch (e) {
     if (isUniqueViolation(e, 'name')) {
-      return res.status(400).render('pages/admin/ingredients/form', {
-        layout: 'admin',
-        title: `Sửa nguyên liệu: ${ingredient.name}`,
-        isNew: false,
-        ingredient,
-        values: req.body,
-        errors: { name: DUPLICATE_NAME_ERROR },
-      });
+      return sendError(res, 409, 'CONFLICT', DUPLICATE_NAME_ERROR, { name: DUPLICATE_NAME_ERROR });
     }
     throw e;
   }
-
-  req.flash('success', `Đã cập nhật nguyên liệu "${data.name}".`);
-  res.redirect(303, '/admin/ingredients');
-});
-
-router.get('/:id/delete', requirePermission('ingredient:delete'), async (req, res) => {
-  const id = paramId(req.params.id);
-  const ingredient = await prisma.ingredient.findUnique({ where: { id } });
-  if (!ingredient) throw notFound('Ingredient');
-
-  res.render('pages/admin/ingredients/delete', {
-    layout: 'admin',
-    title: `Xác nhận xóa: ${ingredient.name}`,
-    ingredient,
-  });
 });
 
 router.delete('/:id', requirePermission('ingredient:delete'), async (req, res) => {
@@ -238,12 +164,11 @@ router.delete('/:id', requirePermission('ingredient:delete'), async (req, res) =
       where: { id },
       data: { deletedAt: new Date() },
     });
-    req.flash('success', 'Đã chuyển nguyên liệu vào danh sách đã xóa.');
+    return sendOk(res, { id, message: 'Đã chuyển nguyên liệu vào danh sách đã xóa.' });
   } catch (e) {
-    if (isNotFound(e)) throw notFound('Ingredient');
+    if (isNotFound(e)) throw notFound('Nguyên liệu');
     throw e;
   }
-  res.redirect(303, '/admin/ingredients');
 });
 
 router.post('/:id/restore', requirePermission('ingredient:restore'), async (req, res) => {
@@ -253,12 +178,11 @@ router.post('/:id/restore', requirePermission('ingredient:restore'), async (req,
       where: { id },
       data: { deletedAt: null },
     });
-    req.flash('success', 'Đã khôi phục nguyên liệu.');
+    return sendOk(res, { id, message: 'Đã khôi phục nguyên liệu.' });
   } catch (e) {
-    if (isNotFound(e)) throw notFound('Ingredient');
+    if (isNotFound(e)) throw notFound('Nguyên liệu');
     throw e;
   }
-  res.redirect(303, '/admin/ingredients?deleted=1');
 });
 
 export default router;

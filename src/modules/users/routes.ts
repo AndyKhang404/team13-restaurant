@@ -1,9 +1,9 @@
-import { Router } from 'express';
+import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 import { Role } from '../../generated/prisma/enums.js';
 import type { Prisma } from '../../generated/prisma/client.js';
 import { prisma } from '../../lib/prisma.js';
-import { notFound } from '../../lib/http.js';
+import { notFound, sendOk, sendError } from '../../lib/http.js';
 import { buildPagination, skipFor } from '../../lib/pagination.js';
 import { listParams, paramId } from '../../lib/admin.js';
 import { requirePermission } from '../../auth/middleware.js';
@@ -11,7 +11,7 @@ import { requirePermission } from '../../auth/middleware.js';
 const router = Router();
 
 const UpdateRoleSchema = z.object({
-  role: z.nativeEnum(Role),
+  role: z.nativeEnum(Role, { error: 'Vai trò được chọn không hợp lệ.' }),
 });
 
 const ROLES = Object.values(Role);
@@ -37,9 +37,7 @@ router.get('/', requirePermission('user:manage'), async (req, res) => {
     }),
   ]);
 
-  res.render('pages/admin/users/index', {
-    layout: 'admin',
-    title: 'Quản lý người dùng',
+  return sendOk(res, {
     users,
     roles: ROLES,
     pagination: buildPagination(page, total, filters),
@@ -47,42 +45,44 @@ router.get('/', requirePermission('user:manage'), async (req, res) => {
   });
 });
 
-router.post('/:id/role', requirePermission('user:manage'), async (req, res) => {
+async function handleUpdateRole(req: Request, res: Response) {
   const targetId = paramId(req.params.id);
   const currentUserId = req.user?.id;
 
   // Safeguard 1: Cannot change own role
   if (targetId === currentUserId) {
-    req.flash('error', 'Bạn không thể đổi vai trò của chính mình.');
-    return res.redirect('/admin/users');
+    return sendError(res, 400, 'SELF_ROLE_CHANGE', 'Bạn không thể đổi vai trò của chính mình.');
   }
 
   const parsed = UpdateRoleSchema.safeParse(req.body);
   if (!parsed.success) {
-    req.flash('error', 'Vai trò được chọn không hợp lệ.');
-    return res.redirect('/admin/users');
+    return sendError(res, 400, 'VALIDATION_ERROR', 'Vai trò được chọn không hợp lệ.');
   }
 
   const newRole = parsed.data.role;
   const targetUser = await prisma.profile.findUnique({ where: { id: targetId } });
-  if (!targetUser) throw notFound('User');
+  if (!targetUser) throw notFound('Người dùng');
 
   // Safeguard 2: Cannot demote the last ADMIN
   if (targetUser.role === Role.ADMIN && newRole !== Role.ADMIN) {
     const adminCount = await prisma.profile.count({ where: { role: Role.ADMIN } });
     if (adminCount <= 1) {
-      req.flash('error', 'Không thể hạ quyền ADMIN cuối cùng còn lại.');
-      return res.redirect('/admin/users');
+      return sendError(res, 400, 'LAST_ADMIN', 'Không thể hạ quyền ADMIN cuối cùng còn lại.');
     }
   }
 
-  await prisma.profile.update({
+  const updatedUser = await prisma.profile.update({
     where: { id: targetId },
     data: { role: newRole },
   });
 
-  req.flash('success', `Đã đổi vai trò của ${targetUser.email} thành ${newRole}.`);
-  res.redirect('/admin/users');
-});
+  return sendOk(res, {
+    user: updatedUser,
+    message: `Đã đổi vai trò của ${targetUser.email} thành ${newRole}.`,
+  });
+}
+
+router.patch('/:id/role', requirePermission('user:manage'), handleUpdateRole);
+router.post('/:id/role', requirePermission('user:manage'), handleUpdateRole);
 
 export default router;

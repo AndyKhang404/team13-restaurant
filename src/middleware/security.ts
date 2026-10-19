@@ -3,6 +3,7 @@ import type { Request, RequestHandler } from 'express';
 import multer from 'multer';
 import { doubleCsrf } from 'csrf-csrf';
 import { env, isProd } from '../config/env.js';
+import { sendError } from '../lib/http.js';
 import type { FlashMessage } from '../types/express.js';
 
 const SID_COOKIE = 'sid';
@@ -68,17 +69,12 @@ export const multipart: RequestHandler = (req, res, next) => {
   if (!req.is('multipart/form-data')) return next();
   multipartParser(req, res, (err: unknown) => {
     if (!err) return next();
-    // Files above the multer ceiling never reach validateImage (which gives
-    // the friendly 2 MB form error), so turn them into a flash + back
-    // instead of a bare 500 page. Requires `flash` before `multipart`.
     const code = (err as { code?: string } | null)?.code;
     if (code === 'LIMIT_FILE_SIZE') {
-      req.flash('error', 'Ảnh quá lớn. Mỗi ảnh tối đa 5MB (khuyên dùng dưới 2MB).');
-      return res.redirect('back');
+      return sendError(res, 413, 'UPLOAD_LIMIT_EXCEEDED', 'Ảnh quá lớn. Mỗi ảnh tối đa 5MB (khuyên dùng dưới 2MB).');
     }
     if (code === 'LIMIT_FILE_COUNT' || code === 'LIMIT_FIELD_COUNT' || code === 'LIMIT_UNEXPECTED_FILE') {
-      req.flash('error', 'Gửi quá nhiều file hoặc trường dữ liệu. Vui lòng thử lại.');
-      return res.redirect('back');
+      return sendError(res, 400, 'UPLOAD_LIMIT_EXCEEDED', 'Gửi quá nhiều file hoặc trường dữ liệu. Vui lòng thử lại.');
     }
     return next(err);
   });
@@ -95,9 +91,11 @@ const { doubleCsrfProtection, generateCsrfToken } = doubleCsrf({
 });
 
 export const csrfProtection = doubleCsrfProtection;
+export { generateCsrfToken };
 
-/** Exposes a CSRF token to every view as `{{csrfToken}}`. */
+/** Exposes a CSRF token to res.locals.csrfToken. */
 export const csrfToken: RequestHandler = (req, res, next) => {
   res.locals.csrfToken = generateCsrfToken(req, res);
   next();
 };
+

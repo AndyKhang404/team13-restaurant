@@ -1,0 +1,59 @@
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { formatVnd, CATEGORY_LABELS } from '../../lib/format.js';
+
+export interface DishItem {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  price: number | string;
+  category: string;
+  imageUrl: string | null;
+  isAvailable: boolean;
+  isFeatured: boolean;
+  prepTimeMinutes: number | null;
+}
+
+interface DishCardProps {
+  dish: DishItem;
+}
+
+export const DishCard: React.FC<DishCardProps> = ({ dish }) => {
+  const categoryLabel = CATEGORY_LABELS[dish.category] ?? dish.category;
+
+  return (
+    <article className="dish-card">
+      <Link className="dish-media fade-late" to={`/dishes/${dish.slug}`}>
+        {dish.imageUrl ? (
+          <img src={dish.imageUrl} alt={dish.name} loading="lazy" />
+        ) : (
+          <span className="media-ph">{dish.name}</span>
+        )}
+      </Link>
+      <div className="dish-body fade-late">
+        <div className="dish-meta">
+          <span>{categoryLabel}</span>
+          {dish.prepTimeMinutes ? <span>{dish.prepTimeMinutes} phút</span> : null}
+        </div>
+        <h3 className="dish-name">
+          <Link to={`/dishes/${dish.slug}`}>{dish.name}</Link>
+        </h3>
+        {dish.description ? (
+          <p style={{ margin: '12px 0 0', fontSize: '14.5px', color: 'var(--ink-2)' }}>
+            {dish.description}
+          </p>
+        ) : null}
+        <div className="dish-foot">
+          <span className="price">{formatVnd(dish.price)}</span>
+          <span style={{ display: 'flex', gap: '14px', alignItems: 'baseline' }}>
+            {!dish.isAvailable ? <span className="status off">Ngừng bán</span> : null}
+            <Link className="link-more" to={`/dishes/${dish.slug}`}>
+              Chi tiết
+            </Link>
+          </span>
+        </div>
+      </div>
+    </article>
+  );
+};

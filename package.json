@@ -8,10 +8,12 @@
     "node": ">=20"
   },
   "scripts": {
-    "dev": "concurrently -k -n server,css -c blue,magenta \"npm:dev:server\" \"npm:dev:css\"",
+    "dev": "concurrently -k -n server,client,css -c blue,green,magenta \"npm:dev:server\" \"npm:dev:client\" \"npm:dev:css\"",
     "dev:server": "tsx watch --clear-screen=false src/server.ts",
+    "dev:client": "vite",
     "dev:css": "tailwindcss -i src/styles/input.css -o public/css/app.css --watch",
-    "build": "npm run build:css && npm run build:server",
+    "build": "npm run build:css && npm run build:client && npm run build:server",
+    "build:client": "vite build",
     "build:css": "tailwindcss -i src/styles/input.css -o public/css/app.css --minify",
     "build:server": "tsc -p tsconfig.build.json",
     "start": "node dist/server.js",
@@ -37,10 +39,12 @@
     "csrf-csrf": "^4.0.3",
     "dotenv": "^18.0.7",
     "express": "^5.3.0",
-    "express-handlebars": "^9.0.2",
     "helmet": "^8.3.0",
     "morgan": "^1.12.1",
     "multer": "^2.4.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "react-router-dom": "^7.18.4",
     "zod": "^4.6.6"
   },
   "devDependencies": {
@@ -51,7 +55,10 @@
     "@types/morgan": "^1.9.10",
     "@types/multer": "^2.3.0",
     "@types/node": "^26.6.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
     "@types/supertest": "^7.2.1",
+    "@vitejs/plugin-react": "^6.1.2",
     "concurrently": "^10.0.6",
     "eslint": "^10.12.0",
     "eslint-config-prettier": "^10.1.8",
@@ -63,6 +70,7 @@
     "tsx": "^4.23.15",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.71.1",
+    "vite": "^8.3.4",
     "vitest": "^5.0.3"
   }
 }

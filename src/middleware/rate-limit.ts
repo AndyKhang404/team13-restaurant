@@ -1,4 +1,5 @@
 import type { RequestHandler } from 'express';
+import { sendError } from '../lib/http.js';
 
 /**
  * Tiny in-memory rate limiter for abuse-prone POST forms (login/register).
@@ -24,22 +25,7 @@ export function authRateLimit({ windowMs = 60_000, max = 20 }: { windowMs?: numb
     }
 
     if (recent.length > max) {
-      const email = typeof req.body?.email === 'string' ? req.body.email : '';
-      if (req.path === '/register') {
-        const displayName = typeof req.body?.displayName === 'string' ? req.body.displayName : '';
-        return res.status(429).render('pages/auth/register', {
-          title: 'Create account',
-          values: { displayName, email },
-          formError: MESSAGE,
-        });
-      }
-      const next = typeof req.body?.next === 'string' ? req.body.next : '';
-      return res.status(429).render('pages/auth/login', {
-        title: 'Sign in',
-        next,
-        values: { email },
-        formError: MESSAGE,
-      });
+      return sendError(res, 429, 'RATE_LIMITED', MESSAGE);
     }
     next();
   };

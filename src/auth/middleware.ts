@@ -1,7 +1,7 @@
 import type { RequestHandler } from 'express';
 import { prisma } from '../lib/prisma.js';
 import { createSupabaseForRequest, hasAuthCookie } from '../lib/supabase.js';
-import { forbidden } from '../lib/http.js';
+import { forbidden, unauthorized } from '../lib/http.js';
 import { can, type Permission } from './permissions.js';
 
 /**
@@ -34,17 +34,18 @@ export const loadUser: RequestHandler = async (req, res, next) => {
   next();
 };
 
-/** Redirects anonymous users to /login, preserving where they were going. */
-export const requireAuth: RequestHandler = (req, res, next) => {
+/** Rejects anonymous users with 401 UNAUTHORIZED HttpError. */
+export const requireAuth: RequestHandler = (req, _res, next) => {
   if (req.user) return next();
-  res.redirect(`/login?next=${encodeURIComponent(req.originalUrl)}`);
+  next(unauthorized());
 };
 
-/** Requires a signed-in user holding `permission`; otherwise login redirect or 403. */
+/** Requires a signed-in user holding `permission`; otherwise 401 or 403. */
 export function requirePermission(permission: Permission): RequestHandler {
-  return (req, res, next) => {
-    if (!req.user) return res.redirect(`/login?next=${encodeURIComponent(req.originalUrl)}`);
+  return (req, _res, next) => {
+    if (!req.user) return next(unauthorized());
     if (!can(req.user, permission)) return next(forbidden());
     next();
   };
 }
+
