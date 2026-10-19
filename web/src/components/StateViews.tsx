@@ -13,7 +13,7 @@ export function Loading({ label = 'Đang tải…' }: { label?: string }) {
 export function ErrorState({ error, onRetry }: { error: Error; onRetry?: () => void }) {
   const detail =
     error instanceof HttpError && error.status === 0
-      ? 'Không kết nối được API. Kiểm tra server đang chạy và VITE_API_URL đúng chưa.'
+      ? 'Không kết nối được API. Kiểm tra server đang chạy và VITE_SERVER_URL đúng chưa.'
       : error.message;
   return (
     <div className="alert error">
