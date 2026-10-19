@@ -46,4 +46,5 @@
   .shell .delx-body{padding:18px}
   .shell .delx-target{flex-direction:column;align-items:stretch}
   .shell .delx-media{width:100%;aspect-ratio:16/9}
+  .shell .delx-media.is-round{width:132px;aspect-ratio:1/1;margin:0 auto}
 }

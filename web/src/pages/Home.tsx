@@ -63,6 +63,7 @@ function FeaturedCarousel({ items }: { items: Dish[] }) {
             <button
               type="button"
               className="btn btn-quiet feat-btn"
+              data-dir="-1"
               onClick={() => goTo(index - 1)}
               aria-label="Món trước"
             >
@@ -130,6 +131,7 @@ function FeaturedCarousel({ items }: { items: Dish[] }) {
             <button
               type="button"
               className="btn btn-quiet feat-btn"
+              data-dir="1"
               onClick={() => goTo(index + 1)}
               aria-label="Món sau"
             >

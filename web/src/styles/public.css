@@ -419,10 +419,15 @@ a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid var(-
 @media (max-width:640px){
   .feat-stage{gap:0}
   .feat-peek{display:none}
-  .feat-btn{position:absolute;top:31%;z-index:4;height:42px;width:42px;font-size:16px}
+  .feat-center{max-width:none}
+  .feat-media{width:100%;outline:0}
+  .feat-btn{position:absolute;top:calc(14px + (100vw - 28px)/2);transform:translateY(-50%);z-index:4;height:44px;width:44px;font-size:16px;border-color:var(--ink);background:var(--paper);box-shadow:0 6px 18px rgba(25,21,18,.22)}
   .feat-btn[data-dir="-1"]{left:8px}
   .feat-btn[data-dir="1"]{right:8px}
-  .feat-media{outline:0}
+  .feat-btn:hover,
+  .feat-btn[data-dir="-1"]:hover,
+  .feat-btn[data-dir="1"]:hover{transform:translateY(-50%)}
+  .feat-btn:active{transform:translateY(-50%) scale(.94)}
   .feat-info{width:100%}
   .feat-desc{-webkit-line-clamp:3}
 }
@@ -528,6 +533,7 @@ a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid var(-
   .brand{font-size:16.5px}
   .nav-cta{gap:6px}
   .nav-cta .btn{height:36px;padding:0 9px;font-size:10px;letter-spacing:.08em}
+  .feat-btn{height:40px;width:40px;top:calc(14px + (100vw - 20px)/2)}
 }
 
 /* ---------- dish card: bold hover fx ---------- */
