@@ -12,8 +12,14 @@ export function toFieldErrors(error: z.ZodError): FieldErrors {
   return out;
 }
 
-/** Empty string / whitespace -> undefined, so optional fields stay optional. */
-const blankToUndefined = (v: unknown) => (typeof v === 'string' && v.trim() === '' ? undefined : v);
+/** Empty string, whitespace, null, or literal 'null'/'undefined' -> undefined, so optional fields stay optional. */
+const blankToUndefined = (v: unknown) =>
+  v === null ||
+  v === undefined ||
+  (typeof v === 'string' &&
+    (v.trim() === '' || v.trim().toLowerCase() === 'null' || v.trim().toLowerCase() === 'undefined'))
+    ? undefined
+    : v;
 
 export const optionalText = (max = 2000) =>
   z.preprocess(blankToUndefined, z.string().trim().max(max).optional());
@@ -52,4 +58,14 @@ export const optionalPhone = (label = 'Số điện thoại') =>
       error: `${label} không hợp lệ (vd. 0901234567)`,
     });
 
-export const optionalUuid = z.preprocess(blankToUndefined, z.uuid().optional());
+/** PostgreSQL UUID regex: standard 8-4-4-4-12 hex string, case-insensitive.
+ * Accepts standard v4, v1-v8, and custom/deterministic seeded UUIDs. */
+export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export const uuid = (label = 'ID') =>
+  z.string({ error: `${label} không hợp lệ` }).trim().regex(UUID_RE, `${label} không hợp lệ`);
+
+export const optionalUuid = z.preprocess(
+  blankToUndefined,
+  z.string().trim().regex(UUID_RE, 'Đầu bếp phụ trách không hợp lệ').optional(),
+);

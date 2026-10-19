@@ -54,4 +54,14 @@ describe('validateIngredientRows', () => {
     expect(errors['ingredients']).toBeDefined();
     expect(rows).toHaveLength(0);
   });
+
+  it('accepts deterministic seeded UUIDs', () => {
+    const seededId = '00000000-0000-0000-0000-000000000001';
+    const { rows, errors } = validateIngredientRows([
+      { ingredientId: seededId, quantity: 100, unit: 'g' },
+    ]);
+    expect(errors).toEqual({});
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.ingredientId).toBe(seededId);
+  });
 });

@@ -12,6 +12,7 @@ import {
   optionalText,
   decimal,
   optionalInt,
+  uuid,
   optionalUuid,
   checkbox,
   toFieldErrors,
@@ -26,7 +27,7 @@ const router = Router();
 const CATEGORIES = Object.values(DishCategory);
 
 const DishIngredientItemSchema = z.object({
-  ingredientId: z.uuid({ error: 'Nguyên liệu không hợp lệ' }),
+  ingredientId: uuid('Nguyên liệu'),
   quantity: decimal('Số lượng', 0.01),
   unit: optionalText(30).default('g'),
 });

@@ -170,7 +170,7 @@ export const DishFormPage: React.FC = () => {
     formData.append('price', String(price));
     formData.append('category', category);
     if (prepTimeMinutes) formData.append('prepTimeMinutes', String(prepTimeMinutes));
-    if (chefId) formData.append('chefId', chefId);
+    formData.append('chefId', chefId);
     if (isAvailable) formData.append('isAvailable', 'on');
     if (isFeatured) formData.append('isFeatured', 'on');
     if (removeImage) formData.append('removeImage', 'on');
