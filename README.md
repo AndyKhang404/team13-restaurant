@@ -118,9 +118,10 @@ Common error codes include: `VALIDATION_ERROR`, `UNAUTHORIZED`, `FORBIDDEN`, `NO
 - A **Supabase** project (free tier)
 
 ### 2. Configure Environment Variables
-Copy `.env.example` to `.env`:
+Copy `.env.example` to `.env` for the server, and `web/.env.example` to `web/.env` for the frontend client:
 ```bash
 cp .env.example .env
+cp web/.env.example web/.env
 ```
 Fill in the values in `.env`:
 - `DATABASE_URL`: Supabase Transaction Pooler URL (port `6543`)
@@ -132,6 +133,9 @@ Fill in the values in `.env`:
 - `CSRF_SECRET`: 32+ character random string (e.g. `openssl rand -hex 32`)
 - `SEED_ADMIN_EMAIL`: Initial admin email
 - `SEED_ADMIN_PASSWORD`: Initial admin password
+
+Fill in the values in `web/.env`:
+- `VITE_SERVER_URL`: Base URL of the Express backend server (default: `http://localhost:3000`). API requests are sent directly via CORS.
 
 > **💡 Dev Tip (Supabase Email Confirmation)**:
 > In the Supabase dashboard (`Authentication > Providers > Email`), disable **"Confirm email"** during development so new user registrations log in immediately.
@@ -153,7 +157,7 @@ Run all services concurrently (Express API + Vite Dev Server + Tailwind CSS watc
 ```bash
 npm run dev
 ```
-- **Vite React Frontend**: [http://localhost:5173](http://localhost:5173) (with fast Hot Module Replacement; proxies `/api` calls to `:3000`)
+- **Vite React Frontend**: [http://localhost:5173](http://localhost:5173) (with fast Hot Module Replacement; connects directly to Express API via CORS with `VITE_SERVER_URL`)
 - **Express API Server**: [http://localhost:3000](http://localhost:3000)
 
 Alternatively, run services individually:

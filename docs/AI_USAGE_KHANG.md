@@ -1,6 +1,6 @@
 # Báo cáo Sử dụng AI — Dự án Nhà hàng Nhóm 13 (Team 13 Restaurant Project)
 
-- **Tác giả**: Phan Bình Khang (Andy Khang)
+- **Tác giả**: Phùng Bảo Khang (Andy Khang)
 - **Môn học**: Kiến trúc Ứng dụng Web (Web Application Architecture) — HCMUS (Năm 3 / HK1)
 - **Dự án**: Ứng dụng Web Nhà hàng SSR Nhóm 13 (Team 13 Restaurant SSR Web Application)
 - **Công cụ AI**: Antigravity (Google DeepMind Agentic AI Coding Assistant)
@@ -10,7 +10,7 @@
 
 ## 1. Tóm tắt Tổng quan & Mục tiêu (Executive Summary & Objective)
 
-Tài liệu này ghi lại quá trình lập trình cặp (pair-programming) và cộng tác thiết kế kiến trúc giữa **Phan Bình Khang** cùng **Trợ lý AI Antigravity** nhằm xây dựng một ứng dụng web nhà hàng Server-Side Rendered (SSR) hiện đại, đạt tiêu chuẩn môi trường thực tế (production-grade). 
+Tài liệu này ghi lại quá trình lập trình cặp (pair-programming) và cộng tác thiết kế kiến trúc giữa **Phùng Bảo Khang** cùng **Trợ lý AI Antigravity** nhằm xây dựng một ứng dụng web nhà hàng Server-Side Rendered (SSR) hiện đại, đạt tiêu chuẩn môi trường thực tế (production-grade). 
 
 Ứng dụng kết nối với **Supabase** (PostgreSQL, Auth, Storage) thông qua **Prisma ORM 7** và cung cấp hai giao diện riêng biệt:
 1. **Cổng ẩm thực công khai (`/`)**: Khám phá các món ăn nổi bật, duyệt thực đơn được nhóm theo danh mục với huy hiệu trạng thái tình trạng món (còn hàng/hết hàng) theo thời gian thực, xem chi tiết công thức món ăn và thông tin giới thiệu đầu bếp.

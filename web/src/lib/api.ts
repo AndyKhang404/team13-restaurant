@@ -1,7 +1,17 @@
 import type { AuthUser } from './types';
 
-/** Same-origin API; Vite proxies `/api` to the Express server in development. */
-export const API_BASE: string = import.meta.env.VITE_API_URL ?? '/api';
+const rawServerUrl = import.meta.env.VITE_SERVER_URL?.trim();
+if (!rawServerUrl) {
+  throw new Error(
+    'VITE_SERVER_URL is not defined. Please set VITE_SERVER_URL in your environment (e.g. VITE_SERVER_URL=http://localhost:3000 in web/.env).',
+  );
+}
+
+/** Base URL of the backend server without trailing slashes. */
+export const SERVER_URL: string = rawServerUrl.replace(/\/+$/, '');
+
+/** Absolute base URL for REST API endpoints (`${SERVER_URL}/api`). */
+export const API_BASE: string = `${SERVER_URL}/api`;
 
 export type ApiFieldErrors = Record<string, string>;
 

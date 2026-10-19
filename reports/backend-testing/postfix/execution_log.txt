@@ -1,0 +1,589 @@
+﻿===============================================================
+QA EXECUTION RUN â€” 2026-10-19 20:17:43 +0700
+Base URL: http://localhost:3000
+===============================================================
+### SECTION: PUBLIC API
+
+--- [P01] GET /api/ â€” featured
+Request : GET http://localhost:3000/api/
+Status  : 200
+Response: {"ok":true,"data":{"featured":[{"id":"ae477edc-f644-4fdc-8281-61126845190c","name":"Phá»Ÿ bÃ² Ä‘áº·c biá»‡t","slug":"pho-bo-dac-biet","description":"Phá»Ÿ bÃ² tÃ¡i náº¡m gáº§u, nÆ°á»›c dÃ¹ng ninh 12h tá»« xÆ°Æ¡ng bÃ².","imageUrl":"https://upload.wikimedia.org/wikipedia/commons/9/96/Pho-Beef-Noodle-Soup-2008.jpg","price":"55000","category":"main","isAvailable":true,"isFeatured":true,"prepTimeMinutes":20,"chefId":"8c29e82b-c46f-4ceb-a74e-90a584df3cf8","createdAt":"2026-10-12T03:22:40.008Z","updatedAt":"2026-10-12T08:51:30.395Z","deletedAt":null},{"id":"b4bfe402-c2eb-4cd4-8c75-ceb4fc3478f3","name":"CÆ¡m táº¥m sÆ°á»n bÃ¬ cháº£","slug":"com-tam-suon-bi-cha","description":"CÆ¡m táº¥m dáº»o, sÆ°á»n nÆ°á»›ng máº­t ong, bÃ¬, cháº£ trá»©ng, má»¡ hÃ nh.","imageUrl":"https://live.staticflickr.com/65535/49353944896_b2813fc86e_b.jpg","price":"65000","category":"main","isAvailable":true,"isFeatured":true,"prepTimeMinutes":25,"chefId":"8c29e82b-c46f-4ceb-a74e-90a584df3cf8","createdAt":"2026-10-12T03:22:40.008Z","updatedAt":"2026-10-12T08:51:30.395Z","deletedAt":null},{"id":"bef2bc00-4bef-4aec-9019-a31361560fae","name":"BÃ² bÃ­t táº¿t sá»‘t tiÃªu Ä‘en","slug":"bo-bit-tet-sot-tieu-den","descriptio
+Verdict : PASS
+
+--- [P02] GET /api/home
+Request : GET http://localhost:3000/api/home
+Status  : 200
+Response: {"ok":true,"data":{"featured":[{"id":"ae477edc-f644-4fdc-8281-61126845190c","name":"Phá»Ÿ bÃ² Ä‘áº·c biá»‡t","slug":"pho-bo-dac-biet","description":"Phá»Ÿ bÃ² tÃ¡i náº¡m gáº§u, nÆ°á»›c dÃ¹ng ninh 12h tá»« xÆ°Æ¡ng bÃ².","imageUrl":"https://upload.wikimedia.org/wikipedia/commons/9/96/Pho-Beef-Noodle-Soup-2008.jpg","price":"55000","category":"main","isAvailable":true,"isFeatured":true,"prepTimeMinutes":20,"chefId":"8c29e82b-c46f-4ceb-a74e-90a584df3cf8","createdAt":"2026-10-12T03:22:40.008Z","updatedAt":"2026-10-12T08:51:30.395Z","deletedAt":null},{"id":"b4bfe402-c2eb-4cd4-8c75-ceb4fc3478f3","name":"CÆ¡m táº¥m sÆ°á»n bÃ¬ cháº£","slug":"com-tam-suon-bi-cha","description":"CÆ¡m táº¥m dáº»o, sÆ°á»n nÆ°á»›ng máº­t ong, bÃ¬, cháº£ trá»©ng, má»¡ hÃ nh.","imageUrl":"https://live.staticflickr.com/65535/49353944896_b2813fc86e_b.jpg","price":"65000","category":"main","isAvailable":true,"isFeatured":true,"prepTimeMinutes":25,"chefId":"8c29e82b-c46f-4ceb-a74e-90a584df3cf8","createdAt":"2026-10-12T03:22:40.008Z","updatedAt":"2026-10-12T08:51:30.395Z","deletedAt":null},{"id":"bef2bc00-4bef-4aec-9019-a31361560fae","name":"BÃ² bÃ­t táº¿t sá»‘t tiÃªu Ä‘en","slug":"bo-bit-tet-sot-tieu-den","descriptio
+Verdict : PASS
+
+--- [P03] GET /api/menu
+Request : GET http://localhost:3000/api/menu
+Status  : 200
+Response: {"ok":true,"data":{"groups":[{"key":"appetizer","label":"Appetizers","dishes":[{"id":"d8320ddf-09a6-456f-b36c-3bc87412592a","name":"Gá»i cuá»‘n tÃ´m thá»‹t","slug":"goi-cuon-tom-thit","description":"Khai vá»‹ tÆ°Æ¡i mÃ¡t: tÃ´m, thá»‹t heo, rau sá»‘ng cuá»‘n bÃ¡nh trÃ¡ng, cháº¥m máº¯m nÃªm.","imageUrl":"https://live.staticflickr.com/7356/11468058513_ac3e9f7044_b.jpg","price":"45000","category":"appetizer","isAvailable":true,"isFeatured":false,"prepTimeMinutes":15,"chefId":"8c29e82b-c46f-4ceb-a74e-90a584df3cf8","createdAt":"2026-10-12T03:22:40.008Z","updatedAt":"2026-10-13T10:00:54.632Z","deletedAt":null},{"id":"3096c869-c119-42d9-92a4-981d41c4afa6","name":"SÃºp bÃ­ Ä‘á» kem tÆ°Æ¡i","slug":"sup-bi-do","description":"SÃºp bÃ­ Ä‘á» sÃ¡nh má»‹n náº¥u cÃ¹ng kem tÆ°Æ¡i, ngá»t tá»± nhiÃªn.","imageUrl":"https://live.staticflickr.com/106/313561882_5830e604fe_b.jpg","price":"59000","category":"appetizer","isAvailable":true,"isFeatured":false,"prepTimeMinutes":20,"chefId":"17b02c5d-4cf4-4952-82e8-f2d74f6ce2c5","createdAt":"2026-10-12T03:22:40.008Z","updatedAt":"2026-10-12T08:51:30.395Z","deletedAt":null}]},{"key":"main","label":"Main dishes","dishes":[{"id":"bef2bc00-4bef-4aec-9019-a313615
+Verdict : PASS
+Info    : categories=[{"key":"appetizer","label":"Appetizers"},{"key":"main","label":"Main dishes"},{"key":"dessert","label":"Desserts"},{"key":"drink","label":"Drinks"},{"key":"combo","label":"Combos"}]
+Info    : sample slug=banh-flan-caramel
+
+--- [P04] GET /api/menu?category=<valid>
+Request : GET http://localhost:3000/api/menu?category=appetizer
+Status  : 200
+Response: {"ok":true,"data":{"groups":[{"key":"appetizer","label":"Appetizers","dishes":[{"id":"d8320ddf-09a6-456f-b36c-3bc87412592a","name":"Gá»i cuá»‘n tÃ´m thá»‹t","slug":"goi-cuon-tom-thit","description":"Khai vá»‹ tÆ°Æ¡i mÃ¡t: tÃ´m, thá»‹t heo, rau sá»‘ng cuá»‘n bÃ¡nh trÃ¡ng, cháº¥m máº¯m nÃªm.","imageUrl":"https://live.staticflickr.com/7356/11468058513_ac3e9f7044_b.jpg","price":"45000","category":"appetizer","isAvailable":true,"isFeatured":false,"prepTimeMinutes":15,"chefId":"8c29e82b-c46f-4ceb-a74e-90a584df3cf8","createdAt":"2026-10-12T03:22:40.008Z","updatedAt":"2026-10-13T10:00:54.632Z","deletedAt":null},{"id":"3096c869-c119-42d9-92a4-981d41c4afa6","name":"SÃºp bÃ­ Ä‘á» kem tÆ°Æ¡i","slug":"sup-bi-do","description":"SÃºp bÃ­ Ä‘á» sÃ¡nh má»‹n náº¥u cÃ¹ng kem tÆ°Æ¡i, ngá»t tá»± nhiÃªn.","imageUrl":"https://live.staticflickr.com/106/313561882_5830e604fe_b.jpg","price":"59000","category":"appetizer","isAvailable":true,"isFeatured":false,"prepTimeMinutes":20,"chefId":"17b02c5d-4cf4-4952-82e8-f2d74f6ce2c5","createdAt":"2026-10-12T03:22:40.008Z","updatedAt":"2026-10-12T08:51:30.395Z","deletedAt":null}]}],"flat":false,"dishes":[{"id":"d8320ddf-09a6-456f-b36c-3bc87412592a","name":"Gá»i c
+Verdict : PASS
+
+--- [P05] GET /api/menu?category=invalid
+Request : GET http://localhost:3000/api/menu?category=HACKED_XYZ
+Status  : 200
+Response: {"ok":true,"data":{"groups":[{"key":"appetizer","label":"Appetizers","dishes":[{"id":"d8320ddf-09a6-456f-b36c-3bc87412592a","name":"Gá»i cuá»‘n tÃ´m thá»‹t","slug":"goi-cuon-tom-thit","description":"Khai vá»‹ tÆ°Æ¡i mÃ¡t: tÃ´m, thá»‹t heo, rau sá»‘ng cuá»‘n bÃ¡nh trÃ¡ng, cháº¥m máº¯m nÃªm.","imageUrl":"https://live.staticflickr.com/7356/11468058513_ac3e9f7044_b.jpg","price":"45000","category":"appetizer","isAvailable":true,"isFeatured":false,"prepTimeMinutes":15,"chefId":"8c29e82b-c46f-4ceb-a74e-90a584df3cf8","createdAt":"2026-10-12T03:22:40.008Z","updatedAt":"2026-10-13T10:00:54.632Z","deletedAt":null},{"id":"3096c869-c119-42d9-92a4-981d41c4afa6","name":"SÃºp bÃ­ Ä‘á» kem tÆ°Æ¡i","slug":"sup-bi-do","description":"SÃºp bÃ­ Ä‘á» sÃ¡nh má»‹n náº¥u cÃ¹ng kem tÆ°Æ¡i, ngá»t tá»± nhiÃªn.","imageUrl":"https://live.staticflickr.com/106/313561882_5830e604fe_b.jpg","price":"59000","category":"appetizer","isAvailable":true,"isFeatured":false,"prepTimeMinutes":20,"chefId":"17b02c5d-4cf4-4952-82e8-f2d74f6ce2c5","createdAt":"2026-10-12T03:22:40.008Z","updatedAt":"2026-10-12T08:51:30.395Z","deletedAt":null}]},{"key":"main","label":"Main dishes","dishes":[{"id":"bef2bc00-4bef-4aec-9019-a313615
+Verdict : PASS
+
+--- [P06] GET /api/menu?q=a
+Request : GET http://localhost:3000/api/menu?q=a
+Status  : 200
+Response: {"ok":true,"data":{"groups":[],"flat":true,"dishes":[{"id":"cfa135d8-22c1-455c-90fa-a774815ded23","name":"BÃ¡nh Flan caramel","slug":"banh-flan-caramel","description":"Flan trá»©ng sá»¯a má»m má»‹n, lá»›p caramel vÃ ng Ã³ng.","imageUrl":"https://live.staticflickr.com/4055/4247062952_aa90a0a9d3_b.jpg","price":"30000","category":"dessert","isAvailable":true,"isFeatured":false,"prepTimeMinutes":10,"chefId":"b8abda58-6fbc-41da-8d76-2f191e4e2d19","createdAt":"2026-10-12T03:22:40.008Z","updatedAt":"2026-10-12T08:51:30.395Z","deletedAt":null},{"id":"1b98d0e1-b279-4028-8977-1c4b8855d62f","name":"BÃ¡nh Tiramisu","slug":"banh-tiramisu","description":"BÃ¡nh Ã vá»›i mascarpone bÃ©o má»‹n, cÃ  phÃª vÃ  cacao Ä‘áº¯ng nháº¹.","imageUrl":"https://live.staticflickr.com/220/501306828_0c8717474c_b.jpg","price":"55000","category":"dessert","isAvailable":true,"isFeatured":false,"prepTimeMinutes":10,"chefId":"b8abda58-6fbc-41da-8d76-2f191e4e2d19","createdAt":"2026-10-12T03:22:40.008Z","updatedAt":"2026-10-12T08:51:30.395Z","deletedAt":null},{"id":"c0e7de9d-f1ac-41af-bb79-5e167a98824d","name":"CÃ¡ Há»“i Na Uy Ãp Cháº£o Sá»‘t BÆ¡ Tá»i","slug":"ca-hoi-na-uy-ap-chao","description":"Phi lÃª cÃ¡ há»“i tÆ°
+Verdict : PASS
+
+--- [P07] GET /api/menu?sort=price-asc
+Request : GET http://localhost:3000/api/menu?sort=price-asc
+Status  : 200
+Response: {"ok":true,"data":{"groups":[],"flat":true,"dishes":[{"id":"df6f978d-0a62-463d-b7f6-4a2a25b08fa8","name":"CÃ  phÃª sá»¯a Ä‘Ã¡","slug":"ca-phe-sua-da","description":"Robusta pha phin Ä‘áº­m Ä‘Ã  cÃ¹ng sá»¯a Ä‘áº·c, Ä‘Ã¡ viÃªn.","imageUrl":"https://live.staticflickr.com/74/204209415_2b899a8575_b.jpg","price":"29000","category":"drink","isAvailable":true,"isFeatured":false,"prepTimeMinutes":5,"chefId":"b8abda58-6fbc-41da-8d76-2f191e4e2d19","createdAt":"2026-10-12T03:22:40.008Z","updatedAt":"2026-10-12T08:51:30.395Z","deletedAt":null},{"id":"cfa135d8-22c1-455c-90fa-a774815ded23","name":"BÃ¡nh Flan caramel","slug":"banh-flan-caramel","description":"Flan trá»©ng sá»¯a má»m má»‹n, lá»›p caramel vÃ ng Ã³ng.","imageUrl":"https://live.staticflickr.com/4055/4247062952_aa90a0a9d3_b.jpg","price":"30000","category":"dessert","isAvailable":true,"isFeatured":false,"prepTimeMinutes":10,"chefId":"b8abda58-6fbc-41da-8d76-2f191e4e2d19","createdAt":"2026-10-12T03:22:40.008Z","updatedAt":"2026-10-12T08:51:30.395Z","deletedAt":null},{"id":"eca10208-bdac-4758-92f6-418365e14d4e","name":"TrÃ  Ä‘Ã o cam sáº£","slug":"tra-dao-cam-sa","description":"TrÃ  Ä‘Ã o mÃ¡t láº¡nh, Ä‘Ã o ngÃ¢m giÃ²n, cam vÃ  sáº£ thÆ¡
+Verdict : PASS
+
+--- [P08] GET /api/menu?sort=bogus
+Request : GET http://localhost:3000/api/menu?sort=bogus
+Status  : 200
+Response: {"ok":true,"data":{"groups":[{"key":"appetizer","label":"Appetizers","dishes":[{"id":"d8320ddf-09a6-456f-b36c-3bc87412592a","name":"Gá»i cuá»‘n tÃ´m thá»‹t","slug":"goi-cuon-tom-thit","description":"Khai vá»‹ tÆ°Æ¡i mÃ¡t: tÃ´m, thá»‹t heo, rau sá»‘ng cuá»‘n bÃ¡nh trÃ¡ng, cháº¥m máº¯m nÃªm.","imageUrl":"https://live.staticflickr.com/7356/11468058513_ac3e9f7044_b.jpg","price":"45000","category":"appetizer","isAvailable":true,"isFeatured":false,"prepTimeMinutes":15,"chefId":"8c29e82b-c46f-4ceb-a74e-90a584df3cf8","createdAt":"2026-10-12T03:22:40.008Z","updatedAt":"2026-10-13T10:00:54.632Z","deletedAt":null},{"id":"3096c869-c119-42d9-92a4-981d41c4afa6","name":"SÃºp bÃ­ Ä‘á» kem tÆ°Æ¡i","slug":"sup-bi-do","description":"SÃºp bÃ­ Ä‘á» sÃ¡nh má»‹n náº¥u cÃ¹ng kem tÆ°Æ¡i, ngá»t tá»± nhiÃªn.","imageUrl":"https://live.staticflickr.com/106/313561882_5830e604fe_b.jpg","price":"59000","category":"appetizer","isAvailable":true,"isFeatured":false,"prepTimeMinutes":20,"chefId":"17b02c5d-4cf4-4952-82e8-f2d74f6ce2c5","createdAt":"2026-10-12T03:22:40.008Z","updatedAt":"2026-10-12T08:51:30.395Z","deletedAt":null}]},{"key":"main","label":"Main dishes","dishes":[{"id":"bef2bc00-4bef-4aec-9019-a313615
+Verdict : PASS
+
+--- [P09] GET /api/dishes/<valid-slug>
+Request : GET http://localhost:3000/api/dishes/banh-flan-caramel
+Status  : 200
+Response: {"ok":true,"data":{"dish":{"id":"cfa135d8-22c1-455c-90fa-a774815ded23","name":"BÃ¡nh Flan caramel","slug":"banh-flan-caramel","description":"Flan trá»©ng sá»¯a má»m má»‹n, lá»›p caramel vÃ ng Ã³ng.","imageUrl":"https://live.staticflickr.com/4055/4247062952_aa90a0a9d3_b.jpg","price":"30000","category":"dessert","isAvailable":true,"isFeatured":false,"prepTimeMinutes":10,"chefId":"b8abda58-6fbc-41da-8d76-2f191e4e2d19","createdAt":"2026-10-12T03:22:40.008Z","updatedAt":"2026-10-12T08:51:30.395Z","deletedAt":null,"chef":{"id":"b8abda58-6fbc-41da-8d76-2f191e4e2d19","name":"Nguyá»…n HoÃ ng Nam","avatarUrl":null,"specialty":"TrÃ¡ng miá»‡ng & Äá»“ uá»‘ng","bio":"ChuyÃªn bÃ¡nh ngá»t vÃ  Ä‘á»“ uá»‘ng sÃ¡ng táº¡o.","experienceYears":6,"phone":"0905555555","isActive":true,"createdAt":"2026-10-12T03:22:40.008Z","updatedAt":"2026-10-12T03:22:40.008Z","deletedAt":null},"ingredients":[{"dishId":"cfa135d8-22c1-455c-90fa-a774815ded23","ingredientId":"bd3a65e7-d922-449b-851f-a4b11e0a3222","quantity":"100","unit":"ml","ingredient":{"name":"Sá»¯a Ä‘áº·c"}},{"dishId":"cfa135d8-22c1-455c-90fa-a774815ded23","ingredientId":"81bf4dd9-a78a-4f3d-9f93-bd8e6cf49360","quantity":"3","unit":"cai","ingredient":{"
+Verdict : PASS
+
+--- [P10] GET /api/dishes/<slug-khong-ton-tai>
+Request : GET http://localhost:3000/api/dishes/slug-khong-ton-tai-qa-1792415863
+Status  : 404
+Response: {"ok":false,"error":{"code":"NOT_FOUND","message":"MÃ³n Äƒn khÃ´ng tá»“n táº¡i"}}
+Verdict : PASS
+
+--- [P11] GET /api/<unknown>
+Request : GET http://localhost:3000/api/khong-co-endpoint-nay
+Status  : 404
+Response: {"ok":false,"error":{"code":"NOT_FOUND","message":"Endpoint GET /api/khong-co-endpoint-nay not found"}}
+Verdict : PASS
+### SECTION: CORS
+
+--- [CORS01] GET /api/menu vá»›i Origin: http://localhost:5173
+Response headers:
+HTTP/1.1 200 OK
+Access-Control-Allow-Origin: http://localhost:5173
+Vary: Origin
+Access-Control-Allow-Credentials: true
+Access-Control-Expose-Headers: x-csrf-token
+Cross-Origin-Opener-Policy: same-origin
+Cross-Origin-Resource-Policy: cross-origin
+Origin-Agent-Cluster: ?1
+Referrer-Policy: no-referrer
+Strict-Transport-Security: max-age=31536000; includeSubDomains
+X-Content-Type-Options: nosniff
+X-DNS-Prefetch-Control: off
+X-Download-Options: noopen
+X-Frame-Options: SAMEORIGIN
+X-Permitted-Cross-Domain-Policies: none
+X-XSS-Protection: 0
+Set-Cookie: sid=s%3A19b3a6f0-f5ee-4b6e-8b65-73b1197e1df0.NjWtv%2FpaqB%2B8y%2BJ9WOzbuF3joXsvaUFaj%2FyyZaa6oeY; Max-Age=31536000; Path=/; Expires=Tue, 19 Oct 2027 13:17:50 GMT; HttpOnly; SameSite=Lax
+Set-Cookie: x-csrf-token=2c323e135ca57918d4d27378533a06d791faa6d16c6365a3505368c60f745439.7849331bc654a1dd7a314096bce11a1e164d3e416b73064fc2db78995d9ce0a1; Path=/; HttpOnly; SameSite=Lax
+Content-Type: application/json; charset=utf-8
+Content-Length: 19851
+ETag: W/"4d8b-saLGMZSovWRoBDUacQH3L5TSedw"
+Date: Mon, 19 Oct 2026 13:17:50 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Verdict : PASS
+
+--- [CORS02] OPTIONS /api/menu (preflight, Request-Method: PATCH)
+Response headers:
+HTTP/1.1 204 No Content
+X-Powered-By: Express
+Access-Control-Allow-Origin: http://localhost:5173
+Vary: Origin
+Access-Control-Allow-Credentials: true
+Access-Control-Allow-Methods: GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS
+Access-Control-Allow-Headers: Content-Type,Authorization,x-csrf-token
+Access-Control-Expose-Headers: x-csrf-token
+Content-Length: 0
+Date: Mon, 19 Oct 2026 13:17:50 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Verdict : PASS
+### SECTION: CSRF & AUTH
+
+--- [X01] POST login KHÃ”NG cÃ³ CSRF token
+Request : POST http://localhost:3000/api/auth/login
+Payload : {"email":"a@b.com","password":"x12345"}
+Status  : 403
+Response: {"ok":false,"error":{"code":"CSRF_INVALID","message":"CSRF token khÃ´ng há»£p lá»‡ hoáº·c Ä‘Ã£ háº¿t háº¡n."}}
+Verdict : PASS
+
+--- [X02] POST login vá»›i CSRF token SAI
+Request : POST http://localhost:3000/api/auth/login
+Payload : {"email":"a@b.com","password":"x12345"}
+Status  : 403
+Response: {"ok":false,"error":{"code":"CSRF_INVALID","message":"CSRF token khÃ´ng há»£p lá»‡ hoáº·c Ä‘Ã£ háº¿t háº¡n."}}
+Verdict : PASS
+Info    : anon csrf token acquired (129 chars)
+
+--- [A01] POST login email sai Ä‘á»‹nh dáº¡ng
+Request : POST http://localhost:3000/api/auth/login
+Payload : {"email":"khong-phai-email",...}
+Status  : 422
+Response: {"ok":false,"error":{"code":"VALIDATION_ERROR","message":"Dá»¯ liá»‡u Ä‘Äƒng nháº­p khÃ´ng há»£p lá»‡","fields":{"email":"Email khÃ´ng há»£p lá»‡"}}}
+Verdict : PASS
+
+--- [A02] POST login thiáº¿u password
+Request : POST http://localhost:3000/api/auth/login
+Payload : {"email":"a@b.com"}
+Status  : 422
+Response: {"ok":false,"error":{"code":"VALIDATION_ERROR","message":"Dá»¯ liá»‡u Ä‘Äƒng nháº­p khÃ´ng há»£p lá»‡","fields":{"password":"Invalid input: expected string, received undefined"}}}
+Verdict : PASS
+
+--- [A03] POST login sai máº­t kháº©u
+Request : POST http://localhost:3000/api/auth/login
+Payload : {"email":"andykhang404@gmail.com","password":"***sai***"}
+Status  : 401
+Response: {"ok":false,"error":{"code":"INVALID_CREDENTIALS","message":"Email hoáº·c máº­t kháº©u khÃ´ng Ä‘Ãºng."}}
+Verdict : PASS
+
+--- [A04] GET /api/auth/me (anonymous)
+Request : GET http://localhost:3000/api/auth/me
+Status  : 200
+Response: {"ok":true,"data":{"user":null,"csrfToken":"8cb431a9966afc1cdb2e4ed592bfad5514265167ba35fcfe15916c069c702940.4c9c9290401049aa988a93c18351a8ad2ca0226396dd0b33d489b64a5d50b248"}}
+Verdict : PASS
+
+--- [A05] POST login ADMIN há»£p lá»‡
+Request : POST http://localhost:3000/api/auth/login
+Payload : {"email":"andykhang404@gmail.com","password":"***"}
+Status  : 200
+Response: {"ok":true,"data":{"user":{"id":"7304f4a9-9b45-483f-8cef-49cbf5d16749","email":"andykhang404@gmail.com","displayName":"Master Admin","role":"ADMIN","createdAt":"2026-10-12T04:19:59.700Z","updatedAt":"2026-10-12T04:32:01.625Z"},"redirectTo":"/admin","message":"ÄÄƒng nháº­p thÃ nh cÃ´ng."}}
+Verdict : PASS
+Info    : admin id=7304f4a9-9b45-483f-8cef-49cbf5d16749
+
+--- [A06] GET /api/auth/me (admin)
+Request : GET http://localhost:3000/api/auth/me
+Status  : 200
+Response: {"ok":true,"data":{"user":{"id":"7304f4a9-9b45-483f-8cef-49cbf5d16749","email":"andykhang404@gmail.com","displayName":"Master Admin","role":"ADMIN","createdAt":"2026-10-12T04:19:59.700Z","updatedAt":"2026-10-12T04:32:01.625Z"},"csrfToken":"e61156ac1aa113e0d5de920fed9d29bea17b7c717efcae0a77b793fb66ee7617.c1079a9c93f069c4e3ab5edcdd2c3c93f12fbcdafe4f50b6e3967cb6b1534dc6"}}
+Verdict : PASS
+
+--- [A07] POST register confirmPassword khÃ´ng khá»›p
+Request : POST http://localhost:3000/api/auth/register
+Payload : {...confirmPassword:"khac123"}
+Status  : 422
+Response: {"ok":false,"error":{"code":"VALIDATION_ERROR","message":"Dá»¯ liá»‡u Ä‘Äƒng kÃ½ khÃ´ng há»£p lá»‡","fields":{"confirmPassword":"Máº­t kháº©u nháº­p láº¡i khÃ´ng khá»›p"}}}
+Verdict : PASS
+
+--- [A08] POST register password < 6 kÃ½ tá»±
+Request : POST http://localhost:3000/api/auth/register
+Payload : {...password:"123"}
+Status  : 422
+Response: {"ok":false,"error":{"code":"VALIDATION_ERROR","message":"Dá»¯ liá»‡u Ä‘Äƒng kÃ½ khÃ´ng há»£p lá»‡","fields":{"password":"Máº­t kháº©u pháº£i Ã­t nháº¥t 6 kÃ½ tá»±"}}}
+Verdict : PASS
+
+--- [A09] POST register há»£p lá»‡ (QA user)
+Request : POST http://localhost:3000/api/auth/register
+Payload : {"email":"qa.test.1792415863@gmail.com",...}
+Status  : 200
+Response: {"ok":true,"data":{"requiresEmailConfirmation":true,"email":"qa.test.1792415863@gmail.com","message":"Vui lÃ²ng kiá»ƒm tra email Ä‘á»ƒ xÃ¡c nháº­n tÃ i khoáº£n."}}
+Verdict : PASS
+Info    : QA user id= email=qa.test.1792415863@gmail.com
+
+--- [A10] POST register email trÃ¹ng
+Request : POST http://localhost:3000/api/auth/register
+Payload : {"email":"qa.test.1792415863@gmail.com(trÃ¹ng)}
+Status  : 400
+Response: {"ok":false,"error":{"code":"AUTH_ERROR","message":"For security purposes, you can only request this after 57 seconds."}}
+Verdict : PASS
+### SECTION: ADMIN (authenticated)
+
+--- [M01] GET /api/admin/stats (anonymous)
+Request : GET http://localhost:3000/api/admin/stats
+Status  : 401
+Response: {"ok":false,"error":{"code":"UNAUTHORIZED","message":"Vui lÃ²ng Ä‘Äƒng nháº­p Ä‘á»ƒ tiáº¿p tá»¥c"}}
+Verdict : PASS
+
+--- [M02] GET /api/admin/stats (admin)
+Request : GET http://localhost:3000/api/admin/stats
+Status  : 200
+Response: {"ok":true,"data":{"stats":{"dishCount":18,"chefCount":7,"ingredientCount":32,"userCount":6},"recentDishes":[{"id":"e7dfbd87-d916-4547-9ac5-cf4df7e15862","name":"BÃºn bÃ² Huáº¿","slug":"bun-bo-hue","description":null,"imageUrl":"https://mjsgkloycpzyhcjdyxwv.supabase.co/storage/v1/object/public/images/dishes/4f5c79b6-0531-45eb-9ad8-d7b72e910e8c.jpg","price":"40000","category":"main","isAvailable":true,"isFeatured":false,"prepTimeMinutes":15,"chefId":"8c29e82b-c46f-4ceb-a74e-90a584df3cf8","createdAt":"2026-10-19T04:13:09.413Z","updatedAt":"2026-10-19T04:13:09.413Z","deletedAt":null,"chef":{"id":"8c29e82b-c46f-4ceb-a74e-90a584df3cf8","name":"Tráº§n Minh QuÃ¢n","avatarUrl":null,"specialty":"MÃ³n Viá»‡t","bio":"Báº¿p trÆ°á»Ÿng 15 nÄƒm kinh nghiá»‡m, chuyÃªn phá»Ÿ vÃ  cÆ¡m táº¥m.","experienceYears":15,"phone":"0901111111","isActive":true,"createdAt":"2026-10-12T03:22:40.008Z","updatedAt":"2026-10-12T03:22:40.008Z","deletedAt":null}},{"id":"22de9aab-f04f-440a-a926-31a84433ca2c","name":"Matcha latte","slug":"matcha-latte","description":"Matcha latte ngÃ y cÃ ng trá»Ÿ nÃªn phá»• biáº¿n nhá» hÆ°Æ¡ng vá»‹ Ä‘á»™c Ä‘Ã¡o, sáº¯c xanh tÆ°Æ¡i táº¯n cÃ¹ng vÃ´ vÃ n lá»£i Ã­ch cho sá»©c khá»e.","ima
+Verdict : PASS
+
+--- [M03] GET /api/admin/
+Request : GET http://localhost:3000/api/admin/
+Status  : 200
+Response: {"ok":true,"data":{"stats":{"dishCount":18,"chefCount":7,"ingredientCount":32,"userCount":6},"recentDishes":[{"id":"e7dfbd87-d916-4547-9ac5-cf4df7e15862","name":"BÃºn bÃ² Huáº¿","slug":"bun-bo-hue","description":null,"imageUrl":"https://mjsgkloycpzyhcjdyxwv.supabase.co/storage/v1/object/public/images/dishes/4f5c79b6-0531-45eb-9ad8-d7b72e910e8c.jpg","price":"40000","category":"main","isAvailable":true,"isFeatured":false,"prepTimeMinutes":15,"chefId":"8c29e82b-c46f-4ceb-a74e-90a584df3cf8","createdAt":"2026-10-19T04:13:09.413Z","updatedAt":"2026-10-19T04:13:09.413Z","deletedAt":null,"chef":{"id":"8c29e82b-c46f-4ceb-a74e-90a584df3cf8","name":"Tráº§n Minh QuÃ¢n","avatarUrl":null,"specialty":"MÃ³n Viá»‡t","bio":"Báº¿p trÆ°á»Ÿng 15 nÄƒm kinh nghiá»‡m, chuyÃªn phá»Ÿ vÃ  cÆ¡m táº¥m.","experienceYears":15,"phone":"0901111111","isActive":true,"createdAt":"2026-10-12T03:22:40.008Z","updatedAt":"2026-10-12T03:22:40.008Z","deletedAt":null}},{"id":"22de9aab-f04f-440a-a926-31a84433ca2c","name":"Matcha latte","slug":"matcha-latte","description":"Matcha latte ngÃ y cÃ ng trá»Ÿ nÃªn phá»• biáº¿n nhá» hÆ°Æ¡ng vá»‹ Ä‘á»™c Ä‘Ã¡o, sáº¯c xanh tÆ°Æ¡i táº¯n cÃ¹ng vÃ´ vÃ n lá»£i Ã­ch cho sá»©c khá»e.","ima
+Verdict : PASS
+
+--- [F01] customer forbidden from admin
+BLOCKED : Register QA user tháº¥t báº¡i á»Ÿ A09
+### SECTION: ADMIN DISHES CRUD
+
+--- [D01] GET /api/admin/dishes (anonymous)
+Request : GET http://localhost:3000/api/admin/dishes
+Status  : 401
+Response: {"ok":false,"error":{"code":"UNAUTHORIZED","message":"Vui lÃ²ng Ä‘Äƒng nháº­p Ä‘á»ƒ tiáº¿p tá»¥c"}}
+Verdict : PASS
+
+--- [D02] GET /api/admin/dishes
+Request : GET http://localhost:3000/api/admin/dishes
+Status  : 200
+Response: {"ok":true,"data":{"dishes":[{"id":"e7dfbd87-d916-4547-9ac5-cf4df7e15862","name":"BÃºn bÃ² Huáº¿","slug":"bun-bo-hue","description":null,"imageUrl":"https://mjsgkloycpzyhcjdyxwv.supabase.co/storage/v1/object/public/images/dishes/4f5c79b6-0531-45eb-9ad8-d7b72e910e8c.jpg","price":"40000","category":"main","isAvailable":true,"isFeatured":false,"prepTimeMinutes":15,"chefId":"8c29e82b-c46f-4ceb-a74e-90a584df3cf8","createdAt":"2026-10-19T04:13:09.413Z","updatedAt":"2026-10-19T04:13:09.413Z","deletedAt":null,"chef":{"id":"8c29e82b-c46f-4ceb-a74e-90a584df3cf8","name":"Tráº§n Minh QuÃ¢n","avatarUrl":null,"specialty":"MÃ³n Viá»‡t","bio":"Báº¿p trÆ°á»Ÿng 15 nÄƒm kinh nghiá»‡m, chuyÃªn phá»Ÿ vÃ  cÆ¡m táº¥m.","experienceYears":15,"phone":"0901111111","isActive":true,"createdAt":"2026-10-12T03:22:40.008Z","updatedAt":"2026-10-12T03:22:40.008Z","deletedAt":null}},{"id":"22de9aab-f04f-440a-a926-31a84433ca2c","name":"Matcha latte","slug":"matcha-latte","description":"Matcha latte ngÃ y cÃ ng trá»Ÿ nÃªn phá»• biáº¿n nhá» hÆ°Æ¡ng vá»‹ Ä‘á»™c Ä‘Ã¡o, sáº¯c xanh tÆ°Æ¡i táº¯n cÃ¹ng vÃ´ vÃ n lá»£i Ã­ch cho sá»©c khá»e.","imageUrl":"https://mjsgkloycpzyhcjdyxwv.supabase.co/storage/v1/object/public/images
+Verdict : PASS
+
+--- [D03] GET /api/admin/dishes?q=QA
+Request : GET http://localhost:3000/api/admin/dishes?q=QA
+Status  : 200
+Response: {"ok":true,"data":{"dishes":[],"pagination":{"page":1,"pageSize":10,"total":0,"totalPages":1,"hasPrev":false,"hasNext":false,"prevPage":0,"nextPage":2,"baseQuery":"q=QA"},"q":"QA","categories":[{"key":"appetizer","label":"Appetizers"},{"key":"main","label":"Main dishes"},{"key":"dessert","label":"Desserts"},{"key":"drink","label":"Drinks"},{"key":"combo","label":"Combos"}],"showDeleted":false}}
+Verdict : PASS
+
+--- [D04] GET /api/admin/dishes?deleted=1
+Request : GET http://localhost:3000/api/admin/dishes?deleted=1
+Status  : 200
+Response: {"ok":true,"data":{"dishes":[{"id":"5e31881b-416b-4c2d-bbfe-2a4af2e538db","name":"QA Test Dish 1792411640","slug":"qa-test-dish-1792411640-2","description":null,"imageUrl":null,"price":"88000","category":"appetizer","isAvailable":false,"isFeatured":false,"prepTimeMinutes":null,"chefId":null,"createdAt":"2026-10-19T12:07:32.392Z","updatedAt":"2026-10-19T12:07:44.077Z","deletedAt":"2026-10-19T12:07:44.015Z","chef":null},{"id":"bca65eae-9c80-41d8-9dda-e0be10080e3b","name":"QA Test Dish 1792411640 Updated","slug":"qa-test-dish-1792411640","description":null,"imageUrl":null,"price":"123000","category":"appetizer","isAvailable":true,"isFeatured":true,"prepTimeMinutes":null,"chefId":null,"createdAt":"2026-10-19T12:07:30.998Z","updatedAt":"2026-10-19T12:07:43.860Z","deletedAt":"2026-10-19T12:07:43.796Z","chef":null},{"id":"a3daf216-9480-44b4-a2af-ed9d9dc139cf","name":"QA Test Dish 1792409075","slug":"qa-test-dish-1792409075-2","description":null,"imageUrl":null,"price":"88000","category":"appetizer","isAvailable":false,"isFeatured":false,"prepTimeMinutes":null,"chefId":null,"createdAt":"2026-10-19T11:25:01.263Z","updatedAt":"2026-10-19T11:25:25.155Z","deletedAt":"2026-10-19T11:25:25.810Z",
+Verdict : PASS
+Info    : form-deps ingredient=fcc1df94-d891-4129-bfb5-0c15a7c57e16 chef=b9597ec5-a2da-4b1f-a402-365e8ef927f2
+
+--- [D05] POST táº¡o mÃ³n há»£p lá»‡ (kÃ¨m nguyÃªn liá»‡u)
+Request : POST http://localhost:3000/api/admin/dishes
+Payload : {"name":"QA Test Dish 1792415863","price":99000,...}
+Status  : 201
+Response: {"ok":true,"data":{"dish":{"id":"98849da0-9c58-40d4-99c8-3f31d3f7fe8d","name":"QA Test Dish 1792415863","slug":"qa-test-dish-1792415863","description":null,"imageUrl":null,"price":"99000","category":"appetizer","isAvailable":true,"isFeatured":false,"prepTimeMinutes":null,"chefId":null,"createdAt":"2026-10-19T13:18:09.428Z","updatedAt":"2026-10-19T13:18:09.428Z","deletedAt":null},"message":"ÄÃ£ táº¡o mÃ³n \"QA Test Dish 1792415863\"."}}
+Verdict : PASS
+
+--- [D06] POST táº¡o mÃ³n thiáº¿u name
+Request : POST http://localhost:3000/api/admin/dishes
+Payload : {"price":99000,...}
+Status  : 400
+Response: {"ok":false,"error":{"code":"VALIDATION_ERROR","message":"ThÃ´ng tin mÃ³n Äƒn khÃ´ng há»£p lá»‡","fields":{"name":"TÃªn mÃ³n lÃ  báº¯t buá»™c"}}}
+Verdict : PASS
+
+--- [D07] POST táº¡o mÃ³n category khÃ´ng há»£p lá»‡
+Request : POST http://localhost:3000/api/admin/dishes
+Payload : {...category:"KHONG_TON_TAI"}
+Status  : 400
+Response: {"ok":false,"error":{"code":"VALIDATION_ERROR","message":"ThÃ´ng tin mÃ³n Äƒn khÃ´ng há»£p lá»‡","fields":{"category":"Danh má»¥c khÃ´ng há»£p lá»‡"}}}
+Verdict : PASS
+
+--- [D08] POST táº¡o mÃ³n giÃ¡ Ã¢m
+Request : POST http://localhost:3000/api/admin/dishes
+Payload : {...price:-500}
+Status  : 400
+Response: {"ok":false,"error":{"code":"VALIDATION_ERROR","message":"ThÃ´ng tin mÃ³n Äƒn khÃ´ng há»£p lá»‡","fields":{"price":"GiÃ¡ bÃ¡n (VND) pháº£i Ã­t nháº¥t 0"}}}
+Verdict : PASS
+
+--- [D09] POST táº¡o mÃ³n TRÃ™NG tÃªn (slug tá»± Ä‘á»™ng)
+Request : POST http://localhost:3000/api/admin/dishes
+Payload : {"name":"QA Test Dish 1792415863(trÃ¹ng)}
+Status  : 201
+Response: {"ok":true,"data":{"dish":{"id":"2a35165d-5afd-42ea-9e26-211c2818b475","name":"QA Test Dish 1792415863","slug":"qa-test-dish-1792415863-2","description":null,"imageUrl":null,"price":"88000","category":"appetizer","isAvailable":false,"isFeatured":false,"prepTimeMinutes":null,"chefId":null,"createdAt":"2026-10-19T13:18:12.648Z","updatedAt":"2026-10-19T13:18:12.648Z","deletedAt":null},"message":"ÄÃ£ táº¡o mÃ³n \"QA Test Dish 1792415863\"."}}
+Verdict : PASS
+
+--- [D10] GET /api/admin/dishes/<id>
+Request : GET http://localhost:3000/api/admin/dishes/98849da0-9c58-40d4-99c8-3f31d3f7fe8d
+Status  : 200
+Response: {"ok":true,"data":{"dish":{"id":"98849da0-9c58-40d4-99c8-3f31d3f7fe8d","name":"QA Test Dish 1792415863","slug":"qa-test-dish-1792415863","description":null,"imageUrl":null,"price":"99000","category":"appetizer","isAvailable":true,"isFeatured":false,"prepTimeMinutes":null,"chefId":null,"createdAt":"2026-10-19T13:18:09.428Z","updatedAt":"2026-10-19T13:18:09.428Z","deletedAt":null,"ingredients":[{"dishId":"98849da0-9c58-40d4-99c8-3f31d3f7fe8d","ingredientId":"fcc1df94-d891-4129-bfb5-0c15a7c57e16","quantity":"100","unit":"g","ingredient":{"id":"fcc1df94-d891-4129-bfb5-0c15a7c57e16","name":"BÃ¡nh phá»Ÿ","unit":"g","stockQuantity":"30000","pricePerUnit":"40","imageUrl":null,"isAvailable":true,"createdAt":"2026-10-12T03:22:40.008Z","updatedAt":"2026-10-12T03:22:40.008Z","deletedAt":null}}]},"dishIngredients":[{"ingredientId":"fcc1df94-d891-4129-bfb5-0c15a7c57e16","quantity":100,"unit":"g"}],"chefs":[{"id":"b9597ec5-a2da-4b1f-a402-365e8ef927f2","name":"Christine HÃ ","avatarUrl":null,"specialty":"MÃ³n Ã fusion","bio":"ChuyÃªn mÃ³n ThÃ¡i vÃ  fusion, quÃ¡n quÃ¢n MasterChef US.","experienceYears":12,"phone":"0904444444","isActive":true,"createdAt":"2026-10-12T03:22:40.008Z","updatedAt":"2026
+Verdict : PASS
+
+--- [D11] GET /api/admin/dishes/<id-khÃ´ng-pháº£i-uuid>
+Request : GET http://localhost:3000/api/admin/dishes/khong-phai-uuid
+Status  : 404
+Response: {"ok":false,"error":{"code":"NOT_FOUND","message":"TÃ i nguyÃªn khÃ´ng tá»“n táº¡i"}}
+Verdict : PASS
+
+--- [D12] GET /api/admin/dishes/<uuid-khÃ´ng-tá»“n-táº¡i>
+Request : GET http://localhost:3000/api/admin/dishes/00000000-0000-4000-8000-001792415863
+Status  : 404
+Response: {"ok":false,"error":{"code":"NOT_FOUND","message":"MÃ³n Äƒn khÃ´ng tá»“n táº¡i"}}
+Verdict : PASS
+
+--- [D13] PATCH cáº­p nháº­t mÃ³n
+Request : PATCH http://localhost:3000/api/admin/dishes/98849da0-9c58-40d4-99c8-3f31d3f7fe8d
+Payload : {"name":"...Updated","price":123000}
+Status  : 200
+Response: {"ok":true,"data":{"dish":{"id":"98849da0-9c58-40d4-99c8-3f31d3f7fe8d","name":"QA Test Dish 1792415863 Updated","slug":"qa-test-dish-1792415863","description":null,"imageUrl":null,"price":"123000","category":"appetizer","isAvailable":true,"isFeatured":true,"prepTimeMinutes":null,"chefId":null,"createdAt":"2026-10-19T13:18:09.428Z","updatedAt":"2026-10-19T13:18:14.934Z","deletedAt":null},"message":"ÄÃ£ cáº­p nháº­t mÃ³n \"QA Test Dish 1792415863 Updated\"."}}
+Verdict : PASS
+
+--- [D14] PATCH mÃ³n dá»¯ liá»‡u khÃ´ng há»£p lá»‡
+Request : PATCH http://localhost:3000/api/admin/dishes/98849da0-9c58-40d4-99c8-3f31d3f7fe8d
+Payload : {"name":"","price":"abc"}
+Status  : 400
+Response: {"ok":false,"error":{"code":"VALIDATION_ERROR","message":"ThÃ´ng tin mÃ³n Äƒn khÃ´ng há»£p lá»‡","fields":{"name":"TÃªn mÃ³n lÃ  báº¯t buá»™c","price":"GiÃ¡ bÃ¡n (VND) pháº£i lÃ  sá»‘"}}}
+Verdict : PASS
+
+--- [D15] DELETE mÃ³n (soft delete)
+Request : DELETE http://localhost:3000/api/admin/dishes/2a35165d-5afd-42ea-9e26-211c2818b475
+Status  : 200
+Response: {"ok":true,"data":{"id":"2a35165d-5afd-42ea-9e26-211c2818b475","message":"ÄÃ£ chuyá»ƒn mÃ³n vÃ o danh sÃ¡ch Ä‘Ã£ xÃ³a."}}
+Verdict : PASS
+
+--- [D16] POST khÃ´i phá»¥c mÃ³n
+Request : POST http://localhost:3000/api/admin/dishes/2a35165d-5afd-42ea-9e26-211c2818b475/restore
+Status  : 200
+Response: {"ok":true,"data":{"id":"2a35165d-5afd-42ea-9e26-211c2818b475","message":"ÄÃ£ khÃ´i phá»¥c mÃ³n Äƒn."}}
+Verdict : PASS
+
+--- [D17] DELETE mÃ³n khÃ´ng tá»“n táº¡i
+Request : DELETE http://localhost:3000/api/admin/dishes/00000000-0000-4000-8000-001792415863
+Status  : 404
+Response: {"ok":false,"error":{"code":"NOT_FOUND","message":"MÃ³n Äƒn khÃ´ng tá»“n táº¡i"}}
+Verdict : PASS
+### SECTION: ADMIN INGREDIENTS CRUD
+
+--- [I01] GET /api/admin/ingredients
+Request : GET http://localhost:3000/api/admin/ingredients
+Status  : 200
+Response: {"ok":true,"data":{"ingredients":[{"id":"fcc1df94-d891-4129-bfb5-0c15a7c57e16","name":"BÃ¡nh phá»Ÿ","unit":"g","stockQuantity":"30000","pricePerUnit":"40","imageUrl":null,"isAvailable":true,"createdAt":"2026-10-12T03:22:40.008Z","updatedAt":"2026-10-12T03:22:40.008Z","deletedAt":null},{"id":"a0868dab-6111-4969-bf6a-3cb343765a9f","name":"BÃ¡nh phá»Ÿ tÆ°Æ¡i","unit":"g","stockQuantity":"20000","pricePerUnit":"50","imageUrl":null,"isAvailable":true,"createdAt":"2026-10-12T04:20:02.854Z","updatedAt":"2026-10-12T04:20:02.854Z","deletedAt":null},{"id":"9bf5e48d-ffe5-4c91-a50b-68186ee4fe16","name":"BÃ¡nh trÃ¡ng","unit":"cai","stockQuantity":"1000","pricePerUnit":"1500","imageUrl":null,"isAvailable":true,"createdAt":"2026-10-12T03:22:40.008Z","updatedAt":"2026-10-12T03:22:40.008Z","deletedAt":null},{"id":"40365544-815e-4dbc-9df6-63e640c9da1e","name":"BÃ­ Ä‘á»","unit":"g","stockQuantity":"10000","pricePerUnit":"40","imageUrl":null,"isAvailable":true,"createdAt":"2026-10-12T03:22:40.008Z","updatedAt":"2026-10-12T03:22:40.008Z","deletedAt":null},{"id":"89a926fb-501a-4595-957c-4b358140d449","name":"CÃ¡ há»“i tÆ°Æ¡i Na Uy","unit":"g","stockQuantity":"8000","pricePerUnit":"600","imageUrl":null,"
+Verdict : PASS
+
+--- [I02] POST táº¡o nguyÃªn liá»‡u há»£p lá»‡
+Request : POST http://localhost:3000/api/admin/ingredients
+Payload : {"name":"QA Test Ingredient 1792415863",...}
+Status  : 201
+Response: {"ok":true,"data":{"ingredient":{"id":"38ae5c37-e4f8-4027-b8c5-ac69f581ca5b","name":"QA Test Ingredient 1792415863","unit":"g","stockQuantity":"500","pricePerUnit":"1500","imageUrl":null,"isAvailable":true,"createdAt":"2026-10-19T13:18:20.657Z","updatedAt":"2026-10-19T13:18:20.657Z","deletedAt":null},"message":"ÄÃ£ táº¡o nguyÃªn liá»‡u \"QA Test Ingredient 1792415863\"."}}
+Verdict : PASS
+
+--- [I03] POST táº¡o nguyÃªn liá»‡u TRÃ™NG tÃªn
+Request : POST http://localhost:3000/api/admin/ingredients
+Payload : {"name":"QA Test Ingredient 1792415863(trÃ¹ng)}
+Status  : 409
+Response: {"ok":false,"error":{"code":"CONFLICT","message":"NguyÃªn liá»‡u nÃ y Ä‘Ã£ tá»“n táº¡i","fields":{"name":"NguyÃªn liá»‡u nÃ y Ä‘Ã£ tá»“n táº¡i"}}}
+Verdict : PASS
+
+--- [I04] POST nguyÃªn liá»‡u thiáº¿u name
+Request : POST http://localhost:3000/api/admin/ingredients
+Payload : {"unit":"g"}
+Status  : 400
+Response: {"ok":false,"error":{"code":"VALIDATION_ERROR","message":"ThÃ´ng tin nguyÃªn liá»‡u khÃ´ng há»£p lá»‡","fields":{"name":"TÃªn nguyÃªn liá»‡u lÃ  báº¯t buá»™c"}}}
+Verdict : PASS
+
+--- [I05] POST nguyÃªn liá»‡u tá»“n kho Ã¢m
+Request : POST http://localhost:3000/api/admin/ingredients
+Payload : {...stockQuantity:-10}
+Status  : 400
+Response: {"ok":false,"error":{"code":"VALIDATION_ERROR","message":"ThÃ´ng tin nguyÃªn liá»‡u khÃ´ng há»£p lá»‡","fields":{"stockQuantity":"Tá»“n kho pháº£i Ã­t nháº¥t 0"}}}
+Verdict : PASS
+
+--- [I06] GET /api/admin/ingredients/<id>
+Request : GET http://localhost:3000/api/admin/ingredients/38ae5c37-e4f8-4027-b8c5-ac69f581ca5b
+Status  : 200
+Response: {"ok":true,"data":{"ingredient":{"id":"38ae5c37-e4f8-4027-b8c5-ac69f581ca5b","name":"QA Test Ingredient 1792415863","unit":"g","stockQuantity":"500","pricePerUnit":"1500","imageUrl":null,"isAvailable":true,"createdAt":"2026-10-19T13:18:20.657Z","updatedAt":"2026-10-19T13:18:20.657Z","deletedAt":null}}}
+Verdict : PASS
+
+--- [I07] PATCH cáº­p nháº­t nguyÃªn liá»‡u
+Request : PATCH http://localhost:3000/api/admin/ingredients/38ae5c37-e4f8-4027-b8c5-ac69f581ca5b
+Payload : {"name":"...Updated","unit":"kg"}
+Status  : 200
+Response: {"ok":true,"data":{"ingredient":{"id":"38ae5c37-e4f8-4027-b8c5-ac69f581ca5b","name":"QA Test Ingredient 1792415863 Updated","unit":"kg","stockQuantity":"250","pricePerUnit":"2000","imageUrl":null,"isAvailable":true,"createdAt":"2026-10-19T13:18:20.657Z","updatedAt":"2026-10-19T13:18:22.870Z","deletedAt":null},"message":"ÄÃ£ cáº­p nháº­t nguyÃªn liá»‡u \"QA Test Ingredient 1792415863 Updated\"."}}
+Verdict : PASS
+
+--- [I08] DELETE nguyÃªn liá»‡u (soft)
+Request : DELETE http://localhost:3000/api/admin/ingredients/38ae5c37-e4f8-4027-b8c5-ac69f581ca5b
+Status  : 200
+Response: {"ok":true,"data":{"id":"38ae5c37-e4f8-4027-b8c5-ac69f581ca5b","message":"ÄÃ£ chuyá»ƒn nguyÃªn liá»‡u vÃ o danh sÃ¡ch Ä‘Ã£ xÃ³a."}}
+Verdict : PASS
+
+--- [I09] POST khÃ´i phá»¥c nguyÃªn liá»‡u
+Request : POST http://localhost:3000/api/admin/ingredients/38ae5c37-e4f8-4027-b8c5-ac69f581ca5b/restore
+Status  : 200
+Response: {"ok":true,"data":{"id":"38ae5c37-e4f8-4027-b8c5-ac69f581ca5b","message":"ÄÃ£ khÃ´i phá»¥c nguyÃªn liá»‡u."}}
+Verdict : PASS
+### SECTION: ADMIN CHEFS CRUD
+
+--- [C01] GET /api/admin/chefs
+Request : GET http://localhost:3000/api/admin/chefs
+Status  : 200
+Response: {"ok":true,"data":{"chefs":[{"id":"00000000-0000-0000-0000-000000000002","name":"Christine HÃ ","avatarUrl":"https://images.unsplash.com/photo-1583394838336-acd977736f90?auto=format&fit=crop&w=400&q=80","specialty":"MÃ³n Viá»‡t Truyá»n Thá»‘ng","bio":"MasterChef winner celebrated for bringing soulful, modern Vietnamese dining to the world.","experienceYears":12,"phone":"+84 903 333 444","isActive":true,"createdAt":"2026-10-12T04:20:01.318Z","updatedAt":"2026-10-12T04:20:01.318Z","deletedAt":null},{"id":"00000000-0000-0000-0000-000000000001","name":"Gordon Ramsay","avatarUrl":"https://images.unsplash.com/photo-1577219491135-ce391730fb2c?auto=format&fit=crop&w=400&q=80","specialty":"MÃ³n Ã‚u & Steak","bio":"Michelin-starred chef celebrated for culinary excellence and rigorous precision.","experienceYears":25,"phone":"+84 901 111 222","isActive":true,"createdAt":"2026-10-12T04:20:00.595Z","updatedAt":"2026-10-12T04:20:00.595Z","deletedAt":null},{"id":"9dabd5cc-846f-4907-a867-c857fa1f4ae5","name":"Pháº¡m Äá»©c Anh","avatarUrl":null,"specialty":"MÃ³n Nháº­t","bio":"Äáº§u báº¿p sushi 8 nÄƒm, chá»©ng chá»‰ knife skill Osaka.","experienceYears":8,"phone":"0903333333","isActive":true,"cr
+Verdict : PASS
+
+--- [C02] POST táº¡o Ä‘áº§u báº¿p há»£p lá»‡
+Request : POST http://localhost:3000/api/admin/chefs
+Payload : {"name":"QA Test Chef 1792415863",...}
+Status  : 201
+Response: {"ok":true,"data":{"chef":{"id":"37572d62-e5a7-47e5-88fb-1e7624452f7f","name":"QA Test Chef 1792415863","avatarUrl":null,"specialty":"QA Specialty","bio":"Chef ph?c v? ki?m th?","experienceYears":5,"phone":"0901234567","isActive":true,"createdAt":"2026-10-19T13:18:26.213Z","updatedAt":"2026-10-19T13:18:26.213Z","deletedAt":null},"message":"ÄÃ£ táº¡o Ä‘áº§u báº¿p \"QA Test Chef 1792415863\"."}}
+Verdict : PASS
+
+--- [C03] POST Ä‘áº§u báº¿p SÄT khÃ´ng há»£p lá»‡
+Request : POST http://localhost:3000/api/admin/chefs
+Payload : {...phone:"abc-xyz"}
+Status  : 400
+Response: {"ok":false,"error":{"code":"VALIDATION_ERROR","message":"ThÃ´ng tin Ä‘áº§u báº¿p khÃ´ng há»£p lá»‡","fields":{"phone":"Sá»‘ Ä‘iá»‡n thoáº¡i khÃ´ng há»£p lá»‡ (vd. 0901234567)"}}}
+Verdict : PASS
+
+--- [C04] POST Ä‘áº§u báº¿p thiáº¿u name
+Request : POST http://localhost:3000/api/admin/chefs
+Payload : {"specialty":"X"}
+Status  : 400
+Response: {"ok":false,"error":{"code":"VALIDATION_ERROR","message":"ThÃ´ng tin Ä‘áº§u báº¿p khÃ´ng há»£p lá»‡","fields":{"name":"Há» vÃ  tÃªn lÃ  báº¯t buá»™c"}}}
+Verdict : PASS
+
+--- [C05] POST Ä‘áº§u báº¿p experienceYears=200
+Request : POST http://localhost:3000/api/admin/chefs
+Payload : {...experienceYears:200}
+Status  : 400
+Response: {"ok":false,"error":{"code":"VALIDATION_ERROR","message":"ThÃ´ng tin Ä‘áº§u báº¿p khÃ´ng há»£p lá»‡","fields":{"experienceYears":"Sá»‘ nÄƒm kinh nghiá»‡m khÃ´ng quÃ¡ 100"}}}
+Verdict : PASS
+
+--- [C06] GET /api/admin/chefs/<id>
+Request : GET http://localhost:3000/api/admin/chefs/37572d62-e5a7-47e5-88fb-1e7624452f7f
+Status  : 200
+Response: {"ok":true,"data":{"chef":{"id":"37572d62-e5a7-47e5-88fb-1e7624452f7f","name":"QA Test Chef 1792415863","avatarUrl":null,"specialty":"QA Specialty","bio":"Chef ph?c v? ki?m th?","experienceYears":5,"phone":"0901234567","isActive":true,"createdAt":"2026-10-19T13:18:26.213Z","updatedAt":"2026-10-19T13:18:26.213Z","deletedAt":null}}}
+Verdict : PASS
+
+--- [C07] PATCH cáº­p nháº­t Ä‘áº§u báº¿p
+Request : PATCH http://localhost:3000/api/admin/chefs/37572d62-e5a7-47e5-88fb-1e7624452f7f
+Payload : {"name":"...Updated","experienceYears":7}
+Status  : 200
+Response: {"ok":true,"data":{"chef":{"id":"37572d62-e5a7-47e5-88fb-1e7624452f7f","name":"QA Test Chef 1792415863 Updated","avatarUrl":null,"specialty":null,"bio":null,"experienceYears":7,"phone":null,"isActive":true,"createdAt":"2026-10-19T13:18:26.213Z","updatedAt":"2026-10-19T13:18:28.005Z","deletedAt":null},"message":"ÄÃ£ cáº­p nháº­t Ä‘áº§u báº¿p \"QA Test Chef 1792415863 Updated\"."}}
+Verdict : PASS
+
+--- [C08] DELETE Ä‘áº§u báº¿p (soft)
+Request : DELETE http://localhost:3000/api/admin/chefs/37572d62-e5a7-47e5-88fb-1e7624452f7f
+Status  : 200
+Response: {"ok":true,"data":{"id":"37572d62-e5a7-47e5-88fb-1e7624452f7f","message":"ÄÃ£ chuyá»ƒn Ä‘áº§u báº¿p vÃ o danh sÃ¡ch Ä‘Ã£ xÃ³a."}}
+Verdict : PASS
+
+--- [C09] POST khÃ´i phá»¥c Ä‘áº§u báº¿p
+Request : POST http://localhost:3000/api/admin/chefs/37572d62-e5a7-47e5-88fb-1e7624452f7f/restore
+Status  : 200
+Response: {"ok":true,"data":{"id":"37572d62-e5a7-47e5-88fb-1e7624452f7f","message":"ÄÃ£ khÃ´i phá»¥c Ä‘áº§u báº¿p."}}
+Verdict : PASS
+### SECTION: ADMIN USERS
+
+--- [U01] GET /api/admin/users
+Request : GET http://localhost:3000/api/admin/users
+Status  : 200
+Response: {"ok":true,"data":{"users":[{"id":"268aff04-5341-4358-8a54-9c1bbad1ea3c","email":"qa.test.1792415863@gmail.com","displayName":"QA Test User","role":"CUSTOMER","createdAt":"2026-10-19T13:18:01.557Z","updatedAt":"2026-10-19T13:18:01.557Z"},{"id":"2771148f-891c-46a5-9c9c-025f5a383444","email":"qa.test.1792409075@gmail.com","displayName":"QA Test User","role":"CUSTOMER","createdAt":"2026-10-19T11:24:51.311Z","updatedAt":"2026-10-19T11:27:44.879Z"},{"id":"9c5daee1-03ad-4a21-a226-4cc848c2583a","email":"qa.test.1792408932@gmail.com","displayName":null,"role":"CUSTOMER","createdAt":"2026-10-19T11:22:30.250Z","updatedAt":"2026-10-19T11:22:30.250Z"},{"id":"c8ffb972-3bf3-44ba-84ba-25f2dd9432bf","email":"pbkhang2428@clc.fitus.edu.vn","displayName":"PhÃ¹ng Báº£o Khang","role":"STAFF","createdAt":"2026-10-13T09:46:10.234Z","updatedAt":"2026-10-13T11:41:25.166Z"},{"id":"552d392b-9749-464c-9dfd-d7bc0ee0efeb","email":"duc.061106@gmail.com","displayName":"Nguyá»…n Minh Äá»©c","role":"CUSTOMER","createdAt":"2026-10-12T07:04:19.976Z","updatedAt":"2026-10-12T07:04:19.976Z"},{"id":"7304f4a9-9b45-483f-8cef-49cbf5d16749","email":"andykhang404@gmail.com","displayName":"Master Admin","role":"ADMIN","create
+Verdict : PASS
+
+--- [U02] PATCH role giÃ¡ trá»‹ khÃ´ng há»£p lá»‡
+Request : PATCH http://localhost:3000/api/admin/users/00000000-0000-4000-8000-001792415863/role
+Payload : {"role":"SUPERADMIN"}
+Status  : 400
+Response: {"ok":false,"error":{"code":"VALIDATION_ERROR","message":"Vai trÃ² Ä‘Æ°á»£c chá»n khÃ´ng há»£p lá»‡."}}
+Verdict : PASS
+
+--- [U03] PATCH role user khÃ´ng tá»“n táº¡i
+Request : PATCH http://localhost:3000/api/admin/users/00000000-0000-4000-8000-001792415863/role
+Payload : {"role":"CUSTOMER"}
+Status  : 404
+Response: {"ok":false,"error":{"code":"NOT_FOUND","message":"NgÆ°á»i dÃ¹ng khÃ´ng tá»“n táº¡i"}}
+Verdict : PASS
+
+--- [U04] PATCH Ä‘á»•i role CHÃNH MÃŒNH
+Request : PATCH http://localhost:3000/api/admin/users/7304f4a9-9b45-483f-8cef-49cbf5d16749/role
+Payload : {"role":"STAFF"}
+Status  : 400
+Response: {"ok":false,"error":{"code":"SELF_ROLE_CHANGE","message":"Báº¡n khÃ´ng thá»ƒ Ä‘á»•i vai trÃ² cá»§a chÃ­nh mÃ¬nh."}}
+Verdict : PASS
+
+--- [U05] update user role roundtrip
+BLOCKED : KhÃ´ng cÃ³ QA user id (A09 tháº¥t báº¡i)
+
+--- [U06] GET /api/admin/users?q=qa.test
+Request : GET http://localhost:3000/api/admin/users?q=qa.test
+Status  : 200
+Response: {"ok":true,"data":{"users":[{"id":"268aff04-5341-4358-8a54-9c1bbad1ea3c","email":"qa.test.1792415863@gmail.com","displayName":"QA Test User","role":"CUSTOMER","createdAt":"2026-10-19T13:18:01.557Z","updatedAt":"2026-10-19T13:18:01.557Z"},{"id":"2771148f-891c-46a5-9c9c-025f5a383444","email":"qa.test.1792409075@gmail.com","displayName":"QA Test User","role":"CUSTOMER","createdAt":"2026-10-19T11:24:51.311Z","updatedAt":"2026-10-19T11:27:44.879Z"},{"id":"9c5daee1-03ad-4a21-a226-4cc848c2583a","email":"qa.test.1792408932@gmail.com","displayName":null,"role":"CUSTOMER","createdAt":"2026-10-19T11:22:30.250Z","updatedAt":"2026-10-19T11:22:30.250Z"}],"roles":["ADMIN","STAFF","CUSTOMER"],"pagination":{"page":1,"pageSize":10,"total":3,"totalPages":1,"hasPrev":false,"hasNext":false,"prevPage":0,"nextPage":2,"baseQuery":"q=qa.test"},"q":"qa.test"}}
+Verdict : PASS
+### SECTION: LOGOUT & SESSION
+
+--- [L01] POST /api/auth/logout
+Request : POST http://localhost:3000/api/auth/logout
+Status  : 200
+Response: {"ok":true,"data":{"message":"Báº¡n Ä‘Ã£ Ä‘Äƒng xuáº¥t."}}
+Verdict : PASS
+
+--- [L02] GET /api/admin/stats sau logout
+Request : GET http://localhost:3000/api/admin/stats
+Status  : 401
+Response: {"ok":false,"error":{"code":"UNAUTHORIZED","message":"Vui lÃ²ng Ä‘Äƒng nháº­p Ä‘á»ƒ tiáº¿p tá»¥c"}}
+Verdict : PASS
+### SECTION: CLEANUP (soft-delete QA data)
+Info    : re-login admin for cleanup HTTP 200
+Cleanup : DELETE dish 98849da0-9c58-40d4-99c8-3f31d3f7fe8d -> HTTP 200
+Cleanup : DELETE dish 2a35165d-5afd-42ea-9e26-211c2818b475 -> HTTP 200
+Cleanup : DELETE ingredient 38ae5c37-e4f8-4027-b8c5-ac69f581ca5b -> HTTP 200
+Cleanup : DELETE chef 37572d62-e5a7-47e5-88fb-1e7624452f7f -> HTTP 200
+Note    : QA records chá»‰ bá»‹ soft-delete (API khÃ´ng cÃ³ hard delete). QA Supabase auth user (qa.test.1792415863@gmail.com) váº«n tá»“n táº¡i â€” cáº§n xÃ³a tay trÃªn Supabase Dashboard náº¿u muá»‘n.
+### SECTION: RATE LIMIT (cháº¡y cuá»‘i â€” lÃ m ngháº½n quota login)
+--- [R01] Rate limit: 25 request liÃªn tiáº¿p POST /api/auth/login
+Statuses:  401 401 401 401 401 401 401 401 401 401 401 401 401 401 401 429 429 429 429 429 429 429 429 429 429
+Verdict : PASS
+
+SUMMARY : PASS=71 FAIL=0 BLOCKED=2 TOTAL=73
+===============================================================
+
+===============================================================
+SUPPLEMENTAL RUN (CORS negative + U05 + F01) — 2026-10-19 20:24:42 +0700
+===============================================================
+--- [CORS03] GET /api/menu với Origin lạ (không nằm trong whitelist)
+Request : GET http://localhost:3000/api/menu   Header: Origin: http://evil.example.com
+Status  : 200
+ACAO    : <không có header>
+Verdict : PASS (origin lạ bị từ chối đúng, không phát ACAO)
+
+--- [CORS04] GET /api/menu không có header Origin (curl thường / Postman)
+Request : GET http://localhost:3000/api/menu   (không Origin)
+Status  : 200
+Body    : {"ok":true,"...
+Verdict : PASS (request không Origin vẫn hoạt động bình thường)
+
+--- [S01] Đăng nhập admin (chuẩn bị U05) — payload đã mask
+Request : POST http://localhost:3000/api/auth/login  Payload: {"email":"andykhang404@gmail.com","password":"***"}
+Status  : 200
+Response: {"ok":true,"data":{"user":{"id":"7304f4a9-9b45-483f-8cef-49cbf5d16749","email":"andykhang404@gmail.com","displayName":"Master Admin","role":"ADMIN","createdAt":"2026-10-12T04:19:59.700Z","updatedAt":"2026-10-12T04:32:01.625Z"},"redirectTo":"/admin","message":"Đăng nhập thành công."}}
+
+--- [S02] Tìm QA user qua admin search
+Request : GET http://localhost:3000/api/admin/users?q=qa.test.1792415863
+Status  : 200
+QA user id: 268aff04-5341-4358-8a54-9c1bbad1ea3c
+
+--- [U05a] PATCH role QA user -> STAFF
+Request : PATCH http://localhost:3000/api/admin/users/268aff04-5341-4358-8a54-9c1bbad1ea3c/role   Payload: {"role":"STAFF"}
+Status  : 200
+Response: {"ok":true,"data":{"user":{"id":"268aff04-5341-4358-8a54-9c1bbad1ea3c","email":"qa.test.1792415863@gmail.com","displayName":"QA Test User","role":"STAFF","createdAt":"2026-10-19T13:18:01.557Z","updatedAt":"2026-10-19T13:24:46.383Z"},"message":"Đã đổi vai trò của qa.test.1792415863@gmail.com thành STAFF."}}
+Verdict : PASS
+
+--- [U05b] PATCH role QA user -> CUSTOMER (khôi phục)
+Request : PATCH http://localhost:3000/api/admin/users/268aff04-5341-4358-8a54-9c1bbad1ea3c/role   Payload: {"role":"CUSTOMER"}
+Status  : 200
+Response: {"ok":true,"data":{"user":{"id":"268aff04-5341-4358-8a54-9c1bbad1ea3c","email":"qa.test.1792415863@gmail.com","displayName":"QA Test User","role":"CUSTOMER","createdAt":"2026-10-19T13:18:01.557Z","updatedAt":"2026-10-19T13:24:47.099Z"},"message":"Đã đổi vai trò của qa.test.1792415863@gmail.com thành CUSTOMER."}}
+Verdict : PASS (roundtrip role hoàn nguyên)
+
+--- [F01] Login QA customer (chưa xác nhận email) — thử lại
+Request : POST http://localhost:3000/api/auth/login   Payload: {"email":"qa.test.1792415863@gmail.com","password":"***"}
+Status  : 401
+Response: {"ok":false,"error":{"code":"EMAIL_NOT_CONFIRMED","message":"Vui lòng xác nhận địa chỉ email trước."}}
+Verdict : BLOCKED (vẫn 401 EMAIL_NOT_CONFIRMED — không thể verify 403 end-to-end, như baseline)
+===============================================================
+
+===============================================================
+FINAL SUMMARY (sau supplemental)
+- Main suite (run_tests.sh): PASS=71 FAIL=0 BLOCKED=2 TOTAL=73
+  (BLOCKED: F01, U05 — cả 2 do A09 register không trả user.id)
+- Supplemental 20:24: U05 -> PASS (roundtrip STAFF->CUSTOMER), F01 -> BLOCKED (vẫn 401 EMAIL_NOT_CONFIRMED)
+- Case mới: CORS03 PASS, CORS04 PASS
+FINAL : PASS=74 FAIL=0 BLOCKED=1 TOTAL=75
+===============================================================
+
+===============================================================
+POST-TEST DB CLEANUP (theo yêu cầu người dùng) — 2026-10-19 ~20:3x +0700
+Script: postfix/qa-cleanup.ts (Prisma hard-delete theo thứ tự FK + Supabase admin API)
+plan: 8 dishes, 4 ingredients, 4 chefs, 3 profiles
+dishIngredient deleted: 0
+dish deleted: 8
+ingredient deleted: 4
+chef deleted: 4
+profile deleted: 3
+supabase auth deleteUser qa.test.1792408932@gmail.com: OK
+supabase auth deleteUser qa.test.1792409075@gmail.com: OK
+supabase auth deleteUser qa.test.1792415863@gmail.com: OK
+VERIFY after cleanup — dish:0 ingredient:0 chef:0 profile:0 (must all be 0)
+===============================================================
