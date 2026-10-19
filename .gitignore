@@ -21,5 +21,7 @@ __pycache__/
 *.tsbuildinfo
 .eslintcache
 
+reports/backend-testing/**/tmp/
+
 .opencode
 block6-deck.html
