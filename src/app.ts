@@ -3,6 +3,7 @@ import express, { type ErrorRequestHandler } from 'express';
 import cookieParser from 'cookie-parser';
 import morgan from 'morgan';
 import helmet from 'helmet';
+import cors from 'cors';
 
 import { env, isProd } from './config/env.js';
 import { browserId, multipart, csrfProtection, csrfToken } from './middleware/security.js';
@@ -19,10 +20,47 @@ const clientDistDir = path.join(process.cwd(), 'dist/client');
 export function createApp() {
   const app = express();
 
+  // Configure explicit CORS
+  const configuredOrigins = env.CORS_ORIGIN
+    ? env.CORS_ORIGIN.split(',').map((o) => o.trim()).filter(Boolean)
+    : [];
+
+  const defaultDevOrigins = [
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+  ];
+
+  const allowedOrigins = Array.from(
+    new Set([
+      env.APP_URL,
+      ...(!isProd ? defaultDevOrigins : []),
+      ...configuredOrigins,
+    ]),
+  );
+
+  app.use(
+    cors({
+      origin: (origin, callback) => {
+        // Allow requests with no origin (like mobile apps, curl, or same-origin)
+        if (!origin || allowedOrigins.includes(origin)) {
+          return callback(null, true);
+        }
+        return callback(null, false);
+      },
+      credentials: true,
+      methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'x-csrf-token'],
+      exposedHeaders: ['x-csrf-token'],
+    }),
+  );
+
   // Basic security headers & logging
   app.use(
     helmet({
       contentSecurityPolicy: false,
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
     }),
   );
   if (!isProd) {

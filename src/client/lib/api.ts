@@ -87,7 +87,7 @@ export async function apiFetch<T>(
     ...options,
     headers,
     body,
-    credentials: 'same-origin',
+    credentials: options.credentials ?? 'include',
   });
 
   let json: ApiResponse<T>;
