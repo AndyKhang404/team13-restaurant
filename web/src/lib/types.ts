@@ -1,8 +1,19 @@
+export type UserRole = 'ADMIN' | 'STAFF' | 'CUSTOMER';
+
 export interface AuthUser {
   id: string;
   email: string;
   displayName: string | null;
-  role: 'ADMIN' | 'STAFF' | 'CUSTOMER';
+  role: UserRole;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UserItem {
+  id: string;
+  email: string;
+  displayName: string | null;
+  role: UserRole;
   createdAt: string;
   updatedAt: string;
 }

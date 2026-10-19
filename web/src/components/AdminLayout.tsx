@@ -7,6 +7,7 @@ function titleFor(pathname: string): string {
   if (pathname.includes('/chefs')) return 'Đầu bếp';
   if (pathname.includes('/ingredients')) return 'Nguyên liệu';
   if (pathname.includes('/dishes')) return 'Món ăn';
+  if (pathname.includes('/users')) return 'Người dùng';
   return 'Quản trị';
 }
 
@@ -87,6 +88,11 @@ export function AdminLayout() {
             <NavLink to="/admin/ingredients" className={sideLinkClass}>
               <span className="n">03</span> Nguyên liệu
             </NavLink>
+            {user?.role === 'ADMIN' && (
+              <NavLink to="/admin/users" className={sideLinkClass}>
+                <span className="n">04</span> Người dùng
+              </NavLink>
+            )}
             <div className="side-label">Khác</div>
             <Link className="side-link" to="/">
               <span className="n">05</span> Trang người dùng

@@ -9,6 +9,8 @@ import type {
   DishInput,
   Ingredient,
   IngredientInput,
+  UserItem,
+  UserRole,
 } from './types';
 
 function qs(q?: string): string {
@@ -283,9 +285,9 @@ export const statsApi = {
 };
 
 export const usersApi = {
-  list: (q?: string) => fetchAllPages<{ id: string; email: string; role: string }>(`/users${qs(q)}`, 'users'),
-  updateRole: (id: string, role: string) =>
-    apiFetch<{ user: unknown; message: string }>(`/users/${id}/role`, {
+  list: (q?: string) => fetchAllPages<UserItem>(`/users${qs(q)}`, 'users'),
+  updateRole: (id: string, role: UserRole) =>
+    apiFetch<{ user: UserItem; message: string }>(`/users/${id}/role`, {
       method: 'PATCH',
       body: { role },
     }),

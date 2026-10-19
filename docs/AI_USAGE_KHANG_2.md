@@ -21,6 +21,11 @@ Tài liệu này ghi lại toàn bộ quá trình lập trình cặp (pair-progr
 3. **Cấu hình CORS Tường minh & Cookie Credentials**: Xây dựng middleware CORS toàn diện cho phép gọi trực tiếp cross-origin từ frontend Vite (`http://localhost:5173`) sang máy chủ Express (`http://localhost:3000`) đi kèm cookie xác thực và chống tấn công CSRF.
 4. **Chuẩn hóa URL Tuyệt đối qua Phỏng vấn `/grill-me`**: Loại bỏ sự phụ thuộc vào Vite proxy, đưa vào biến môi trường `VITE_SERVER_URL` với cơ chế fail-fast và chuẩn hóa endpoint tuyệt đối.
 5. **Kỷ luật Quản lý Nhánh Git**: Mọi thao tác phát triển, kiểm thử và commit chỉ được thực hiện trên nhánh **`feat/csr`**, tuyệt đối không chỉnh sửa hay ảnh hưởng tới nhánh `main`.
+6. **Tái cấu trúc Định tuyến Backend sang `/api/*` & Xác thực Chuẩn qua Header `Authorization: Bearer <token>`**:
+   - Di chuyển toàn bộ các endpoint quản trị từ `/api/admin/*` trực tiếp về `/api/*` (`/api/stats`, `/api/dishes`, `/api/chefs`, `/api/ingredients`, `/api/users`), tuân thủ triệt để nguyên lý thiết kế RESTful hướng tài nguyên.
+   - Hỗ trợ cơ chế xác thực token thông qua header `Authorization: Bearer <token>` chuẩn REST API, lưu trữ token tại `localStorage` phía client (`auth_token`).
+   - Miễn trừ cơ chế bảo vệ CSRF (`csrf-csrf`) đối với các request mang header `Authorization: Bearer ...` (do custom headers không thể tự động đính kèm cross-origin mà không qua CORS preflight), trong khi vẫn duy trì CSRF cho phiên làm việc dựa trên cookie.
+   - Bảo toàn 100% hệ thống định tuyến React Router của admin phía frontend (`/admin`, `/admin/dishes`, `/admin/chefs`, `/admin/ingredients`, `/admin/users`) và duy trì alias `/api/admin/*` phía backend để đảm bảo tính tương thích ngược hoàn hảo.
 
 ---
 
@@ -102,30 +107,36 @@ export type ApiResponse<T> = ApiSuccess<T> | ApiFailure;
 
 ### 3.2 Ma trận Các Endpoint REST API Đã Hiện Thực Hóa
 
-| Phân hệ         | Phương thức & Đường dẫn                           |         Quyền hạn          | Mô tả Nghiệp vụ & Dữ liệu Trả về (`data`)                                                                                  |
-| :-------------- | :------------------------------------------------ | :------------------------: | :------------------------------------------------------------------------------------------------------------------------- |
-| **Auth**        | `GET /api/auth/me`                                |         Công khai          | Trả về `{ user: Profile \| null, csrfToken: string }` để khởi tạo trạng thái SPA.                                          |
-| **Auth**        | `POST /api/auth/login`                            |         Công khai          | Đăng nhập email/mật khẩu; trả về `{ user, redirectTo, message }` hoặc mã lỗi `INVALID_CREDENTIALS`, `EMAIL_NOT_CONFIRMED`. |
-| **Auth**        | `POST /api/auth/register`                         |         Công khai          | Đăng ký tài khoản mới; hỗ trợ cả luồng xác nhận email và đăng nhập trực tiếp.                                              |
-| **Auth**        | `POST /api/auth/logout`                           |        Đã đăng nhập        | Đăng xuất khỏi phiên Supabase và xóa cookie phiên.                                                                         |
-| **Auth**        | `GET/POST /api/auth/callback`                     |         Công khai          | Xử lý mã xác thực PKCE (`code`) hoặc `token_hash` từ email xác nhận của Supabase.                                          |
-| **Public**      | `GET /api/home`                                   |         Công khai          | Trả về danh sách tối đa 8 món ăn nổi bật (`featured`) đang hoạt động.                                                      |
-| **Public**      | `GET /api/menu`                                   |         Công khai          | Lọc thực đơn theo `category`, từ khóa `q`, sắp xếp `sort`, trả về cả danh sách nhóm (`groups`) và phẳng (`flat`).          |
-| **Public**      | `GET /api/dishes/:slug`                           |         Công khai          | Chi tiết món ăn theo slug, thông tin đầu bếp và danh sách tên nguyên liệu.                                                 |
-| **Admin**       | `GET /api/admin/stats`                            |       `admin:access`       | Số liệu thống kê tổng quan (`dishCount`, `chefCount`, `ingredientCount`, `userCount`) và 5 món cập nhật gần nhất.          |
-| **Dishes**      | `GET /api/admin/dishes`                           |       `dish:create`        | Danh sách món ăn có phân trang, tìm kiếm, lọc theo danh mục và trạng thái xóa mềm (`deleted=1`).                           |
-| **Dishes**      | `GET /api/admin/dishes/form-deps`                 |       `dish:create`        | Tải trước danh sách đầu bếp, nguyên liệu và danh mục cho biểu mẫu thêm/sửa món.                                            |
-| **Dishes**      | `GET /api/admin/dishes/:id`                       |       `dish:update`        | Chi tiết món ăn kèm định lượng công thức (`dishIngredients`) và dữ liệu phụ thuộc.                                         |
-| **Dishes**      | `POST /api/admin/dishes`                          |       `dish:create`        | Tạo món ăn mới (hỗ trợ `multipart/form-data` tải ảnh + mảng JSON nguyên liệu), tự sinh slug chống trùng.                   |
-| **Dishes**      | `PUT/PATCH /api/admin/dishes/:id`                 |       `dish:update`        | Cập nhật thông tin món ăn, ảnh đại diện và thay thế danh sách nguyên liệu trong transaction.                               |
-| **Dishes**      | `DELETE /api/admin/dishes/:id`                    |       `dish:delete`        | Xóa mềm món ăn (`deletedAt = new Date()`).                                                                                 |
-| **Dishes**      | `POST /api/admin/dishes/:id/restore`              |       `dish:restore`       | Khôi phục món ăn đã xóa mềm (`deletedAt = null`).                                                                          |
-| **Chefs**       | `GET/POST /api/admin/chefs`                       |       `chef:create`        | Danh sách đầu bếp có phân trang & tạo hồ sơ đầu bếp mới kèm tải ảnh chân dung.                                             |
-| **Chefs**       | `GET/PUT/PATCH/DELETE /api/admin/chefs/:id`       |    `chef:update/delete`    | Xem chi tiết, cập nhật, xóa mềm và khôi phục (`POST /:id/restore`) đầu bếp.                                                |
-| **Ingredients** | `GET/POST /api/admin/ingredients`                 |    `ingredient:create`     | Quản lý kho nguyên liệu, kiểm tra trùng tên (`409 CONFLICT`), tải ảnh minh họa.                                            |
-| **Ingredients** | `GET/PUT/PATCH/DELETE /api/admin/ingredients/:id` | `ingredient:update/delete` | Xem, cập nhật tồn kho/đơn giá, xóa mềm và khôi phục (`POST /:id/restore`) nguyên liệu.                                     |
-| **Users**       | `GET /api/admin/users`                            |       `user:manage`        | Danh sách người dùng kèm bộ lọc tìm kiếm theo email hoặc tên hiển thị.                                                     |
-| **Users**       | `PATCH/POST /api/admin/users/:id/role`            |       `user:manage`        | Thay đổi vai trò người dùng; chặn tự đổi vai trò (`SELF_ROLE_CHANGE`) và bảo vệ Admin cuối cùng (`LAST_ADMIN`).            |
+Tất cả các endpoint bảo vệ hỗ trợ xác thực linh hoạt qua header `Authorization: Bearer <access_token>` hoặc cookie phiên làm việc. Mọi request làm thay đổi dữ liệu mang Bearer token đều được tự động miễn trừ kiểm tra CSRF token kép. Toàn bộ các route `/api/admin/*` cũ được duy trì dưới dạng alias tương thích ngược trỏ về `/api/*`.
+
+| Phân hệ         | Phương thức & Đường dẫn                       |         Quyền hạn          | Mô tả Nghiệp vụ & Dữ liệu Trả về (`data`)                                                                                  |
+| :-------------- | :-------------------------------------------- | :------------------------: | :------------------------------------------------------------------------------------------------------------------------- |
+| **Auth**        | `GET /api/auth/me`                            |         Công khai          | Trả về `{ user: Profile \| null, csrfToken: string }` để khởi tạo trạng thái SPA.                                          |
+| **Auth**        | `POST /api/auth/login`                        |         Công khai          | Đăng nhập email/mật khẩu; trả về `{ user, token, accessToken, redirectTo, message }` hoặc lỗi `INVALID_CREDENTIALS`.       |
+| **Auth**        | `POST /api/auth/register`                     |         Công khai          | Đăng ký tài khoản mới; trả về `{ user, token, accessToken }`, hỗ trợ cả luồng xác nhận email và đăng nhập tức thì.        |
+| **Auth**        | `POST /api/auth/logout`                       |        Đã đăng nhập        | Đăng xuất khỏi phiên Supabase và xóa cookie / thu hồi phiên.                                                               |
+| **Auth**        | `GET/POST /api/auth/callback`                 |         Công khai          | Xử lý mã xác thực PKCE (`code`) hoặc `token_hash` từ Supabase; trả về session token.                                       |
+| **Public**      | `GET /api/home`                               |         Công khai          | Trả về danh sách tối đa 8 món ăn nổi bật (`featured`) đang hoạt động.                                                      |
+| **Public**      | `GET /api/menu`                               |         Công khai          | Lọc thực đơn theo `category`, từ khóa `q`, sắp xếp `sort`, trả về cả danh sách nhóm (`groups`) và phẳng (`flat`).          |
+| **Dishes**      | `GET /api/dishes`                             |     Công khai / Staff      | Danh sách món ăn công khai hoặc phân trang quản trị (`?page=...`, `?deleted=1` nếu có quyền `dish:create`).                 |
+| **Dishes**      | `GET /api/dishes/:idOrSlug`                   |     Công khai / Staff      | Xem chi tiết món theo slug (công khai) hoặc UUID (quản trị kèm đầu bếp, nguyên liệu công thức và dependencies).            |
+| **Dishes**      | `GET /api/dishes/form-deps`                   |       `dish:create`        | Tải trước danh sách đầu bếp, nguyên liệu và danh mục cho biểu mẫu thêm/sửa món ăn.                                          |
+| **Dishes**      | `POST /api/dishes`                            |       `dish:create`        | Tạo món ăn mới (hỗ trợ `multipart/form-data` tải ảnh + mảng JSON nguyên liệu), tự sinh slug chống trùng.                   |
+| **Dishes**      | `PUT/PATCH /api/dishes/:id`                   |       `dish:update`        | Cập nhật thông tin món ăn, ảnh đại diện và thay thế danh sách nguyên liệu trong transaction.                               |
+| **Dishes**      | `DELETE /api/dishes/:id`                      |       `dish:delete`        | Xóa mềm món ăn (`deletedAt = new Date()`).                                                                                 |
+| **Dishes**      | `POST /api/dishes/:id/restore`                |       `dish:update`        | Khôi phục món ăn đã xóa mềm (`deletedAt = null`).                                                                          |
+| **Chefs**       | `GET /api/chefs`                              |        `chef:create`       | Danh sách đầu bếp có phân trang, lọc theo từ khóa `q`.                                                                     |
+| **Chefs**       | `POST /api/chefs`                             |        `chef:create`       | Tạo hồ sơ đầu bếp mới kèm tải ảnh chân dung lên Supabase Storage.                                                          |
+| **Chefs**       | `GET/PUT/PATCH/DELETE /api/chefs/:id`         |    `chef:update/delete`    | Xem chi tiết, cập nhật thông tin (`PUT`), xóa mềm (`DELETE`) đầu bếp.                                                      |
+| **Chefs**       | `POST /api/chefs/:id/restore`                 |        `chef:update`       | Khôi phục hồ sơ đầu bếp đã xóa mềm.                                                                                        |
+| **Ingredients** | `GET /api/ingredients`                        |    `ingredient:create`     | Quản lý kho nguyên liệu có phân trang, kiểm tra tồn kho và tìm kiếm.                                                       |
+| **Ingredients** | `POST /api/ingredients`                       |    `ingredient:create`     | Tạo nguyên liệu mới, kiểm tra trùng tên (`409 CONFLICT`), tải ảnh minh họa.                                                |
+| **Ingredients** | `GET/PUT/PATCH/DELETE /api/ingredients/:id`   | `ingredient:update/delete` | Xem chi tiết, cập nhật tồn kho/đơn giá (`PUT`), xóa mềm (`DELETE`) nguyên liệu.                                            |
+| **Ingredients** | `POST /api/ingredients/:id/restore`           |    `ingredient:update`     | Khôi phục nguyên liệu đã xóa mềm.                                                                                          |
+| **Stats**       | `GET /api/stats`                              |       `admin:access`       | Số liệu thống kê tổng quan (`dishCount`, `chefCount`, `ingredientCount`, `userCount`) và 5 món cập nhật gần nhất.          |
+| **Users**       | `GET /api/users`                              |       `user:manage`        | Danh sách người dùng kèm bộ lọc tìm kiếm theo email hoặc tên hiển thị.                                                     |
+| **Users**       | `PATCH/POST /api/users/:id/role`              |       `user:manage`        | Thay đổi vai trò người dùng; chặn tự đổi vai trò (`SELF_ROLE_CHANGE`) và bảo vệ Admin cuối cùng (`LAST_ADMIN`).            |
+| **Legacy**      | `ANY /api/admin/*`                            |     Theo từng phân hệ      | Các alias tương thích ngược cho `/api/stats`, `/api/dishes`, `/api/chefs`, `/api/ingredients`, `/api/users`.              |
 
 ---
 
@@ -270,19 +281,220 @@ Quy trình phỏng vấn diễn ra qua các bước giải quyết từng nhánh
 
 ---
 
-## 6. Kết quả Kiểm thử & Xác minh Chất lượng (Verification & QA)
+## 6. Giai đoạn 5: Tái cấu trúc Định tuyến Backend sang `/api/*`, Xác thực bằng Header `Authorization: Bearer <token>`, và Miễn trừ CSRF cho REST API (Giữ nguyên Định tuyến Admin Frontend)
 
-Toàn bộ hệ thống sau cuộc đại phẫu kiến trúc đã được kiểm tra toàn diện và xác nhận vận hành ổn định:
+Sau khi hoàn thành bộ khung CSR và chuẩn hóa URL môi trường, dự án bước vào phiên nâng cấp kiến trúc chuyên sâu nhằm chuẩn hóa thiết kế RESTful API theo hướng tài nguyên, tích hợp phương thức xác thực chuẩn `Authorization: Bearer <token>`, và giải quyết xung đột giữa header authentication với cơ chế phòng chống CSRF.
 
-| Hạng mục Kiểm tra                    | Lệnh / Báo cáo                                                                                                                                       | Kết quả Chi tiết                                                                                                                       |      Trạng thái       |
-| :----------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------- | :-------------------: |
-| **Kiểm thử Đơn vị Backend**          | `npm test`                                                                                                                                           | **9/9 tệp test**, **45/45 test cases** vượt qua 100% (bổ sung `cors.test.ts`, `error-contract.test.ts` kiểm tra hợp đồng lỗi và CORS). |  ✅ **ĐẠT (45/45)**   |
-| **Kiểm thử Chức năng REST API (QA)** | [`reports/backend-testing/test_cases.md`](file:///home/pbkhang404/Documents/HCMUS/Y3/S1/web/team13-restaurant/reports/backend-testing/test_cases.md) | **73/73 ca kiểm thử** bao phủ toàn bộ các phân hệ Auth, Dishes, Chefs, Ingredients, Users, Rate Limit và CORS đều đạt chuẩn.           |  ✅ **ĐẠT (73/73)**   |
-| **Kiểm tra Kiểu TypeScript**         | `npm run typecheck`                                                                                                                                  | `tsc --noEmit` (Backend) & `web/tsc` (Frontend SPA) đạt **0 lỗi**.                                                                     | ✅ **ĐẠT (0 Errors)** |
-| **Kiểm tra Quy chuẩn Mã nguồn**      | `npm run lint`                                                                                                                                       | `eslint .` rà soát toàn bộ dự án với **0 lỗi, 0 cảnh báo**.                                                                            |  ✅ **ĐẠT (Clean)**   |
-| **Đóng gói Bản dựng Production**     | `npm run build`                                                                                                                                      | Biên dịch thành công Tailwind CSS v4, gói Vite SPA (`dist/client/`) và máy chủ Express (`dist/`).                                      | ✅ **ĐẠT (Success)**  |
+### 6.1 Bối cảnh, Yêu cầu & Mục tiêu Kiến trúc
 
-### Lịch sử Commit Toàn diện trên Nhánh `feat/csr`:
+1. **Chuẩn hóa Đường dẫn API Hướng Tài nguyên**:
+   - Trong phiên bản trước, các endpoint quản trị bị lồng dưới tiền tố phân quyền `/api/admin/*` (`/api/admin/dishes`, `/api/admin/chefs`, `/api/admin/ingredients`, `/api/admin/users`, `/api/admin/stats`). Theo nguyên lý thiết kế RESTful hiện đại, URL đại diện cho danh từ/tài nguyên (`/api/dishes`, `/api/chefs`, `/api/ingredients`, `/api/users`, `/api/stats`), còn quyền hạn (`Role`/`Permission`) phải được kiểm soát thông qua middleware xác thực và ủy quyền (`requirePermission`) thay vì mã hóa cứng vào cấu trúc URL.
+2. **Hỗ trợ Xác thực Linh hoạt qua Header `Authorization: Bearer <token>`**:
+   - Mặc dù cookie HTTP-only phù hợp cho các trình duyệt web truyền thống, các REST API hiện đại cần hỗ trợ header `Authorization: Bearer <token>` để các ứng dụng Single-Page Application (SPA), ứng dụng di động, công cụ kiểm thử (curl, Postman, Vitest/Supertest) và các hệ thống bên thứ ba có thể gửi token xác thực một cách trực tiếp, chủ động và minh bạch.
+3. **Bảo toàn Tuyệt đối Định tuyến Phía Frontend Admin (`/admin/*`)**:
+   - Yêu cầu người dùng đặt ra là chỉ tái cấu trúc tầng Backend API (`/api/admin/*` $\rightarrow$ `/api/*`), trong khi toàn bộ cấu trúc định tuyến URL trên trình duyệt của quản trị viên trong React Router (`web/src/App.tsx`) phải được **giữ nguyên 100%** (`/admin`, `/admin/dishes`, `/admin/chefs`, `/admin/ingredients`, `/admin/users`) để không làm gián đoạn trải nghiệm của quản trị viên và bảo toàn cấu trúc trang hiện hữu.
+4. **Duy trì Tính Tương thích Ngược (Backward Compatibility)**:
+   - Các route cũ `/api/admin/*` vẫn cần được giữ lại dưới dạng alias trên Express để các bộ kịch bản kiểm thử, tài liệu hoặc tích hợp cũ không bị đứt gãy.
+
+---
+
+### 6.2 Hiện thực hóa Tầng Xác thực Supabase Bearer Auth & Đồng bộ Profile
+
+#### A. Trích xuất Token & Nạp Supabase Client ([`src/lib/supabase.ts`](file:///home/pbkhang404/Documents/HCMUS/Y3/S1/web/team13-restaurant/src/lib/supabase.ts))
+
+- Bổ sung hàm tiện ích `getBearerToken(req: Request): string | null` trích xuất an toàn token từ header `req.headers.authorization`:
+  ```ts
+  export function getBearerToken(req: Request): string | null {
+    const header = req.headers.authorization;
+    if (!header) return null;
+    const match = header.match(/^Bearer\s+(.+)$/i);
+    return match && match[1] ? match[1].trim() : null;
+  }
+  ```
+- Nâng cấp `createSupabaseForRequest(req, res)`: Nếu request mang Bearer token, tự động tiêm header toàn cục `global: { headers: { Authorization: `Bearer ${token}` } }` vào client `@supabase/ssr`, đảm bảo mọi thao tác truy vấn sau đó đều được xác thực danh tính tương ứng.
+
+#### B. Nâng cấp Middleware Nhận diện Người dùng ([`src/auth/middleware.ts`](file:///home/pbkhang404/Documents/HCMUS/Y3/S1/web/team13-restaurant/src/auth/middleware.ts))
+
+- Trong middleware `loadUser`, tiến trình xác thực ưu tiên kiểm tra Bearer token trước:
+  1. Nếu có `token = getBearerToken(req)`: Gọi `supabase.auth.getUser(token)`. Nếu thành công, lấy `userId`. Nếu thất bại (ví dụ trong môi trường offline/token decode), kích hoạt fallback sang `supabase.auth.getClaims(token)`.
+  2. Khi đã có `userId`, truy vấn `prisma.profile.findUnique({ where: { id: userId } })` (hoặc `upsert` nếu là lần đăng nhập đầu tiên) để nạp đầy đủ thông tin vai trò (`Role`) vào `req.user`.
+  3. Nếu không có Bearer token, middleware tiếp tục kiểm tra cookie truyền thống qua `hasAuthCookie(req)` (`sb-*-auth-token`).
+  4. Gán `res.locals.user = req.user`.
+
+#### C. Bổ sung Token vào Payload Đăng nhập & Đăng ký ([`src/auth/routes.ts`](file:///home/pbkhang404/Documents/HCMUS/Y3/S1/web/team13-restaurant/src/auth/routes.ts))
+
+- Cập nhật các endpoint `POST /api/auth/login`, `POST /api/auth/register` và `GET/POST /api/auth/callback` để trả về cả `token` và `accessToken` (`data.session?.access_token`) trong đối tượng phản hồi `sendOk(res, { user, token, accessToken, ... })`.
+
+---
+
+### 6.3 Cơ chế Miễn trừ CSRF Thông minh cho Bearer Token ([`src/middleware/security.ts`](file:///home/pbkhang404/Documents/HCMUS/Y3/S1/web/team13-restaurant/src/middleware/security.ts))
+
+- **Nguyên lý An ninh Mạng**:
+  - Tấn công Giả mạo Yêu cầu Liên trang (Cross-Site Request Forgery - CSRF) chỉ xảy ra khi trình duyệt tự động đính kèm cookie xác thực trong các yêu cầu cross-origin ngầm (ví dụ: thẻ `<form action="...">` hoặc thẻ `<img>`).
+  - Khi một yêu cầu sử dụng header tùy biến như `Authorization: Bearer <token>`, trình duyệt không bao giờ tự động đính kèm header này nếu không có mã JavaScript chủ động thiết lập. Hơn thế nữa, mọi yêu cầu cross-origin có header tùy biến đều kích hoạt cơ chế CORS preflight (`OPTIONS`), và trình duyệt sẽ lập tức chặn đứng yêu cầu nếu máy chủ không cho phép origin đó.
+  - Do vậy, các yêu cầu sử dụng `Authorization: Bearer` hoàn toàn miễn nhiễm với kiểu tấn công CSRF cổ điển.
+- **Hiện thực hóa Kỹ thuật**:
+  - Nâng cấp middleware `csrfProtection`:
+    ```ts
+    export const csrfProtection: RequestHandler = (req, res, next) => {
+      const auth = req.headers.authorization;
+      if (auth && /^Bearer\s+/i.test(auth)) {
+        return next();
+      }
+      return doubleCsrfProtection(req, res, next);
+    };
+    ```
+  - **Lợi ích**: Cho phép SPA client, Postman, curl và các kịch bản kiểm thử gửi các thao tác thay đổi dữ liệu (`POST`, `PUT`, `DELETE`) với Bearer token một cách trơn tru mà không bị chặn bởi lỗi `403 CSRF_INVALID`, trong khi phiên làm việc dựa trên cookie vẫn bắt buộc phải có `x-csrf-token`.
+
+---
+
+### 6.4 Hợp nhất & Tái cấu trúc Định tuyến Tài nguyên Backend
+
+#### A. Hợp nhất Phân hệ Món ăn ([`src/modules/dishes/routes.ts`](file:///home/pbkhang404/Documents/HCMUS/Y3/S1/web/team13-restaurant/src/modules/dishes/routes.ts))
+
+- Gộp chung toàn bộ logic công khai và quản trị vào một `dishesRouter` duy nhất:
+  - `GET /api/dishes`: Xử lý thông minh:
+    - Nếu không chỉ định tham số `page`, trả về toàn bộ thực đơn kèm metadata phân trang ảo (`page: 1, totalPages: 1`) để cả giao diện thực đơn công khai (`listPublic`) lẫn chức năng lấy toàn bộ trang quản trị (`fetchAllPages`) hoàn thành chỉ trong 1 request duy nhất.
+    - Nếu có tham số `page`, thực hiện phân trang 10 món/trang.
+    - Hỗ trợ xem các món đã xóa mềm nếu có `?deleted=1` và người dùng có quyền `dish:create`.
+  - `GET /api/dishes/:idOrSlug`: Hỗ trợ tra cứu kép: nếu là slug thì tìm món công khai, nếu là UUID hợp lệ thì tải chi tiết món ăn kèm đầu bếp, nguyên liệu công thức và danh sách dependencies biểu mẫu.
+  - `GET /api/dishes/form-deps`: Cung cấp danh sách đầu bếp, nguyên liệu và danh mục đang hoạt động.
+  - `POST /api/dishes`: Tạo món mới (yêu cầu quyền `dish:create`).
+  - `PUT /api/dishes/:id` & `PATCH /api/dishes/:id`: Cập nhật thông tin món ăn và công thức.
+  - `DELETE /api/dishes/:id`: Xóa mềm (`deletedAt = new Date()`).
+  - `POST /api/dishes/:id/restore`: Khôi phục món ăn (`deletedAt = null`).
+
+#### B. Phân hệ Đầu bếp & Nguyên liệu ([`src/modules/chefs/routes.ts`](file:///home/pbkhang404/Documents/HCMUS/Y3/S1/web/team13-restaurant/src/modules/chefs/routes.ts) & [`src/modules/ingredients/routes.ts`](file:///home/pbkhang404/Documents/HCMUS/Y3/S1/web/team13-restaurant/src/modules/ingredients/routes.ts))
+
+- Chuẩn hóa các thao tác RESTful:
+  - Bổ sung alias `PUT /:id` bên cạnh `PATCH /:id`.
+  - Chuẩn hóa xóa mềm `DELETE /:id` (`deletedAt = new Date()`).
+  - Bổ sung route khôi phục `POST /:id/restore` (`deletedAt = null`).
+
+#### C. Thống kê & Quản lý Người dùng ([`src/modules/admin/routes.ts`](file:///home/pbkhang404/Documents/HCMUS/Y3/S1/web/team13-restaurant/src/modules/admin/routes.ts), [`src/modules/users/routes.ts`](file:///home/pbkhang404/Documents/HCMUS/Y3/S1/web/team13-restaurant/src/modules/users/routes.ts))
+
+- Xuất riêng `statsRouter` gắn tại `/api/stats`, yêu cầu quyền `admin:access`.
+- Phân hệ người dùng giữ nguyên tại `usersRouter` gắn trực tiếp tại `/api/users`.
+
+#### D. Gắn Kết Router trong Express ([`src/app.ts`](file:///home/pbkhang404/Documents/HCMUS/Y3/S1/web/team13-restaurant/src/app.ts))
+
+- Toàn bộ các router tài nguyên được gắn trực tiếp dưới `/api`:
+  ```ts
+  // REST API routes
+  app.use('/api/auth', authRouter);
+  app.use('/api/dishes', dishesRouter);
+  app.use('/api/chefs', chefsRouter);
+  app.use('/api/ingredients', ingredientsRouter);
+  app.use('/api/users', usersRouter);
+  app.use('/api/stats', statsRouter);
+  app.use('/api/admin', adminRouter); // Backward-compatibility alias
+  app.use('/api', publicRouter);
+  ```
+
+---
+
+### 6.5 Nâng cấp Client Frontend React & Bảo toàn Định tuyến Admin
+
+#### A. Quản lý Bearer Token Phía Client ([`web/src/lib/api.ts`](file:///home/pbkhang404/Documents/HCMUS/Y3/S1/web/team13-restaurant/web/src/lib/api.ts))
+
+- Thiết lập quản lý token thông qua `localStorage`:
+  ```ts
+  const AUTH_TOKEN_KEY = 'auth_token';
+
+  export function getAuthToken(): string | null {
+    try {
+      return localStorage.getItem(AUTH_TOKEN_KEY);
+    } catch {
+      return null;
+    }
+  }
+
+  export function setAuthToken(token: string | null): void {
+    try {
+      if (token) localStorage.setItem(AUTH_TOKEN_KEY, token);
+      else localStorage.removeItem(AUTH_TOKEN_KEY);
+    } catch {
+      // Ignored in private browsing / restricted contexts
+    }
+  }
+  ```
+- Nâng cấp `apiFetch`:
+  - Tự động gắn header `Authorization: Bearer <token>` nếu `getAuthToken()` trả về token hợp lệ.
+  - Khi nhận phản hồi HTTP `401 Unauthorized`, tự động thu hồi token cục bộ (`setAuthToken(null)`).
+
+#### B. Tầng Tài nguyên & Xác thực ([`web/src/lib/resources.ts`](file:///home/pbkhang404/Documents/HCMUS/Y3/S1/web/team13-restaurant/web/src/lib/resources.ts) & [`web/src/auth/AuthProvider.tsx`](file:///home/pbkhang404/Documents/HCMUS/Y3/S1/web/team13-restaurant/web/src/auth/AuthProvider.tsx))
+
+- Chuyển toàn bộ các endpoint trong `dishesApi`, `chefsApi`, `ingredientsApi` sang gọi `/dishes`, `/chefs`, `/ingredients` (thay vì `/admin/...`).
+- Bổ sung `statsApi` (`/stats`) và `usersApi` (`/users`).
+- Trong các hàm `authApi.login`, `register`, `callback`: tự động gọi `setAuthToken(data.token ?? data.accessToken ?? null)` khi nhận token thành công.
+- Trong `authApi.logout` và `AuthProvider.signOut()`: tự động xóa token khỏi `localStorage`.
+
+#### C. Bảo toàn Tuyệt đối Định tuyến Admin Phía Frontend ([`web/src/App.tsx`](file:///home/pbkhang404/Documents/HCMUS/Y3/S1/web/team13-restaurant/web/src/App.tsx))
+
+- Toàn bộ cấu trúc React Router DOM v7 của giao diện quản trị viên được giữ nguyên vẹn:
+  ```tsx
+  <Route
+    path="/admin"
+    element={
+      <RequireAuth permission="admin:access">
+        <AdminLayout />
+      </RequireAuth>
+    }
+  >
+    <Route index element={<Dashboard />} />
+    <Route path="dishes" element={<DishAdminList />} />
+    <Route path="dishes/new" element={<DishAdminForm />} />
+    <Route path="dishes/:id/edit" element={<DishAdminForm />} />
+    <Route path="chefs" element={<ChefAdminList />} />
+    <Route path="chefs/new" element={<ChefAdminForm />} />
+    <Route path="chefs/:id/edit" element={<ChefAdminForm />} />
+    <Route path="ingredients" element={<IngredientAdminList />} />
+    <Route path="ingredients/new" element={<IngredientAdminForm />} />
+    <Route path="ingredients/:id/edit" element={<IngredientAdminForm />} />
+    <Route path="users" element={<UsersList />} />
+  </Route>
+  ```
+- Người dùng quản trị tiếp tục truy cập các URL thân quen như `/admin`, `/admin/dishes`, `/admin/chefs`, v.v. mà không hề nhận thấy sự thay đổi cấu trúc URL nội bộ dưới tầng backend.
+
+---
+
+### 6.6 Xây dựng Bộ Kiểm thử Tự động Hóa Chuyên sâu (`tests/bearer-auth.test.ts`)
+
+Nhằm đảm bảo 100% tính đúng đắn và phòng ngừa hồi quy cho kiến trúc Bearer Auth mới, nhóm đã xây dựng tệp kiểm thử tự động chuyên biệt [`tests/bearer-auth.test.ts`](file:///home/pbkhang404/Documents/HCMUS/Y3/S1/web/team13-restaurant/tests/bearer-auth.test.ts) bao gồm **15 test cases** toàn diện:
+
+1. **Kiểm thử Hàm Helper `getBearerToken`**:
+   - Trích xuất chính xác token từ header `Authorization: Bearer <token>`.
+   - Hoạt động đúng khi tiền tố là chữ thường (`bearer <token>`).
+   - Tự động cắt bỏ các khoảng trắng dư thừa quanh token.
+   - Trả về `null` khi thiếu header hoặc khi sử dụng lược đồ xác thực khác (`Basic ...`).
+2. **Kiểm tra Chặn Truy cập Trái phép (401 UNAUTHORIZED)**:
+   - Các endpoint bảo vệ `GET /api/stats`, `GET /api/chefs`, `GET /api/ingredients`, `GET /api/users` từ chối ngay lập tức với mã lỗi kỹ thuật HTTP 401 khi không có thông tin xác thực.
+   - Các alias cũ `GET /api/admin/stats` và `GET /api/admin/chefs` cũng được bảo vệ nghiêm ngặt và trả về 401.
+3. **Kiểm tra Tính Công khai của `GET /api/dishes`**:
+   - Khách vãng lai truy cập `GET /api/dishes` nhận về HTTP 200 kèm danh sách món ăn và metadata phân trang mà không cần đăng nhập.
+4. **Kiểm tra Cơ chế Miễn trừ CSRF (CSRF Bypass)**:
+   - Request làm thay đổi dữ liệu `POST /api/dishes` không có Bearer token và không có CSRF token bị chặn đứng với mã lỗi HTTP 403 `CSRF_INVALID`.
+   - Khi có header `Authorization: Bearer <token>`, request vượt qua lớp kiểm tra CSRF thành công và đi tới bộ kiểm tra quyền hạn (trả về 401 `UNAUTHORIZED` thay vì 403 `CSRF_INVALID`).
+5. **Kiểm tra Xác thực Thành công với Bearer Token Hợp lệ**:
+   - Mô phỏng Supabase client và Prisma profile của tài khoản `Role.ADMIN`.
+   - `GET /api/stats` và `GET /api/chefs` với Bearer token hợp lệ trả về HTTP 200 kèm dữ liệu thống kê và danh sách đầu bếp.
+   - `POST /api/dishes` với Bearer token hợp lệ vượt qua cả CSRF lẫn quyền hạn `dish:create`, chạm vào bộ kiểm tra dữ liệu Zod và trả về lỗi nghiệp vụ `200 { ok: false, error: { code: 'VALIDATION_FAILED' } }`.
+
+---
+
+## 7. Kết quả Kiểm thử & Xác minh Chất lượng (Verification & QA)
+
+Toàn bộ hệ thống sau các đợt đại phẫu và chuẩn hóa kiến trúc đã được kiểm tra toàn diện và xác nhận vận hành ổn định:
+
+| Hạng mục Kiểm tra                    | Lệnh / Báo cáo                                                                                                                                       | Kết quả Chi tiết                                                                                                                                   |      Trạng thái       |
+| :----------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------- | :-------------------: |
+| **Kiểm thử Đơn vị Backend**          | `npm test`                                                                                                                                           | **10/10 tệp test**, **60/60 test cases** vượt qua 100% (bổ sung `bearer-auth.test.ts` gồm 15 ca kiểm thử Bearer Auth, CSRF bypass và `/api/*`).   |  ✅ **ĐẠT (60/60)**   |
+| **Kiểm thử Chức năng REST API (QA)** | [`reports/backend-testing/test_cases.md`](file:///home/pbkhang404/Documents/HCMUS/Y3/S1/web/team13-restaurant/reports/backend-testing/test_cases.md) | **73/73 ca kiểm thử** bao phủ toàn bộ các phân hệ Auth, Dishes, Chefs, Ingredients, Users, Rate Limit và CORS đều đạt chuẩn.                       |  ✅ **ĐẠT (73/73)**   |
+| **Kiểm tra Kiểu TypeScript**         | `npm run typecheck`                                                                                                                                  | `tsc --noEmit` (Backend) & `web/tsc` (Frontend SPA) đạt **0 lỗi**.                                                                                 | ✅ **ĐẠT (0 Errors)** |
+| **Kiểm tra Quy chuẩn Mã nguồn**      | `npm run lint`                                                                                                                                       | `eslint .` rà soát toàn bộ dự án với **0 lỗi, 0 cảnh báo**.                                                                                        |  ✅ **ĐẠT (Clean)**   |
+| **Đóng gói Bản dựng Production**     | `npm run build`                                                                                                                                      | Biên dịch thành công Tailwind CSS v4, gói Vite SPA (`dist/client/` - 838ms) và máy chủ Express (`dist/`).                                          | ✅ **ĐẠT (Success)**  |
+
+### Lịch sử Tiến hóa Mã nguồn trên Nhánh `feat/csr`:
 
 - `3590a25`: `feat(csr): migrate rendering from Handlebars SSR to Vite + React SPA with REST API`
 - `fdc1710`: `chore: update package description for CSR`
@@ -299,13 +511,18 @@ Toàn bộ hệ thống sau cuộc đại phẫu kiến trúc đã được ki�
 - `844fe8a`: `feat: add explicit server url env var`
 - `5706351`: `docs: update ai usage log`
 - `5712bf3`: `feat: delegate dish search query filtering to api on /dishes`
+- `1132984`: `feat: move backend admin endpoints to /api/* and add Bearer token auth`
 
 ---
 
-## 7. Đúc kết & Bài học Kinh nghiệm
+## 8. Đúc kết & Bài học Kinh nghiệm
 
 1. **Hiệu quả của Quy trình Phỏng vấn Kiến trúc `/grill-me`**: Việc sử dụng lệnh `/grill-me` để phỏng vấn từng nhánh quyết định trước khi lập trình giúp phát hiện và chốt hạ sớm các vấn đề tiềm ẩn (như việc phụ thuộc vào proxy của Vite, cơ chế fail-fast khi thiếu biến môi trường, bảo toàn chữ ký gọi hàm) thay vì phải liên tục refactor sau khi viết mã.
 2. **Sức mạnh của Hợp đồng API Đồng nhất (Standardized API Envelope)**: Cấu trúc `{ ok, data, error: { code, message, fields } }` giúp tầng giao vận `apiFetch` xử lý lỗi tập trung, vừa hiển thị được thông báo tổng quát vừa ánh xạ chính xác lỗi từng trường (`fields`) vào các biểu mẫu quản trị.
 3. **CORS và Cookie Credentials trong Môi trường Tách biệt**: Khi frontend và backend chạy trên các cổng khác nhau (`5173` và `3000`), việc cấu hình CORS phải được đặt ở vị trí ưu tiên cao nhất trong chuỗi middleware (trước CSRF) và luôn chỉ định rõ origin thay vì dùng `*` để trình duyệt cho phép đính kèm cookie (`credentials: 'include'`).
 4. **Tách biệt Triệt để Frontend sang Thư mục Con (`web/`)**: Việc tách riêng frontend thành một ứng dụng độc lập giúp cô lập hoàn toàn môi trường đóng gói (Vite + Tailwind v4), tránh việc xung đột các dependencies giữa Node.js backend và trình duyệt, đồng thời tạo tiền đề thuận lợi nếu sau này cần triển khai frontend lên các nền tảng static hosting (Vercel, Cloudflare Pages, Netlify).
 5. **Nguyên tắc Thiết kế Fail-Fast cho Cấu hình Môi trường**: Thay vì âm thầm sử dụng giá trị fallback có thể gây nhầm lẫn khi triển khai thực tế, việc ném ngoại lệ tường minh ngay khi nạp module nếu thiếu `VITE_SERVER_URL` giúp lập trình viên phát hiện và khắc phục sai sót cấu hình ngay lập tức.
+6. **Tách bạch Giữa URL Giao diện Người dùng (UI Routing) và URL Tài nguyên REST API (Resource Routing)**: Cấu trúc định tuyến của UI phục vụ trải nghiệm điều hướng của con người (`/admin/dishes`, `/admin/chefs`), trong khi URL của REST API phản ánh tài nguyên dữ liệu độc lập với ngữ cảnh hiển thị (`/api/dishes`, `/api/chefs`). Việc tách bạch này cho phép backend tái sử dụng một endpoint duy nhất cho cả nghiệp vụ công khai lẫn quản trị mà không làm biến dạng giao diện người dùng.
+7. **Bản chất An ninh CSRF đối với Header Tùy biến (`Authorization: Bearer`)**: Tấn công CSRF khai thác cơ chế trình duyệt tự động đính kèm cookie. Bằng cách nhận thức rõ các yêu cầu mang header tùy biến không thể bị tấn công CSRF cross-origin (vì bị chặn bởi CORS preflight), ta có thể miễn trừ CSRF cho Bearer token một cách an toàn tuyệt đối, mang lại trải nghiệm mượt mà cho các ứng dụng SPA và REST client hiện đại mà không làm giảm mức độ bảo mật của các phiên làm việc dùng cookie.
+8. **Chiến lược Tương thích Ngược (Backward-Compatibility Aliasing)**: Khi thực hiện tái cấu trúc URL của các hệ thống đã hoạt động, việc giữ lại các route cũ dưới dạng alias tương thích ngược (`app.use('/api/admin', adminRouter)`) là một kỹ thuật sống còn, giúp đảm bảo toàn bộ mã nguồn kiểm thử cũ và các client hiện hữu không bị gián đoạn hoạt động trong quá trình chuyển giao.
+

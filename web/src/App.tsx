@@ -18,6 +18,7 @@ import ChefDelete from './pages/admin/chefs/ChefDelete';
 import IngredientAdminList from './pages/admin/ingredients/IngredientAdminList';
 import IngredientForm from './pages/admin/ingredients/IngredientForm';
 import IngredientDelete from './pages/admin/ingredients/IngredientDelete';
+import UserAdminList from './pages/admin/users/UserAdminList';
 
 export function App() {
   return (
@@ -53,6 +54,7 @@ export function App() {
         <Route path="ingredients/new" element={<IngredientForm mode="new" />} />
         <Route path="ingredients/:id/edit" element={<IngredientForm mode="edit" />} />
         <Route path="ingredients/:id/delete" element={<IngredientDelete />} />
+        <Route path="users" element={<UserAdminList />} />
       </Route>
     </Routes>
   );
