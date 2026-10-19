@@ -24,6 +24,7 @@ export function createApp() {
   app.use(
     helmet({
       contentSecurityPolicy: false,
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
     }),
   );
   if (!isProd) {

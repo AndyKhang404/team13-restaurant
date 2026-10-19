@@ -8,19 +8,23 @@ const devOriginPatterns = [
   /^https?:\/\/127\.0\.0\.1(:\d+)?$/,
 ];
 
-/** Extra browser origins allowed to call the API (comma-separated). */
-const configuredOrigins = (env.SPA_ORIGIN ?? '')
-  .split(',')
+/**
+ * Extra browser origins allowed to call the API (comma-separated). `CORS_ORIGIN`
+ * is accepted as an alias of `SPA_ORIGIN` so either name works in `.env`.
+ */
+const configuredOrigins = [env.SPA_ORIGIN ?? '', env.CORS_ORIGIN ?? '']
+  .flatMap((value) => value.split(','))
   .map((origin) => origin.trim())
   .filter(Boolean);
 
 /**
  * Decides whether a browser origin may call the API. Same-origin and
- * non-browser requests (no `Origin`) always pass; dev localhost origins pass
- * while not in production; anything else must be listed in `SPA_ORIGIN`.
+ * non-browser requests (no `Origin`) always pass; the app's own origin and dev
+ * localhost origins pass, and anything else must be listed in `SPA_ORIGIN`.
  */
 export function isAllowedOrigin(origin?: string | null): boolean {
   if (!origin) return true;
+  if (origin === env.APP_URL) return true;
   if (configuredOrigins.includes(origin)) return true;
   if (!isProd && devOriginPatterns.some((pattern) => pattern.test(origin))) return true;
   return false;
@@ -35,4 +39,7 @@ export const corsMiddleware: RequestHandler = cors({
     return callback(null, isAllowedOrigin(origin));
   },
   credentials: true,
+  methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-csrf-token'],
+  exposedHeaders: ['x-csrf-token'],
 });

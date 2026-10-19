@@ -5,6 +5,7 @@ const EnvSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.coerce.number().int().positive().default(3000),
   APP_URL: z.url().default('http://localhost:3000'),
+  CORS_ORIGIN: z.string().optional().default(''),
 
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required (Supabase pooler URL)'),
 
