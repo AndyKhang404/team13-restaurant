@@ -1,4 +1,4 @@
-import { apiFetch, loadSession } from './api';
+import { apiFetch, loadSession, setAuthToken } from './api';
 import type {
   AuthUser,
   Chef,
@@ -126,74 +126,74 @@ export const dishesApi = {
 
   /** Admin list (paginated, 10/page server-side). */
   list: async (q?: string) => {
-    const dishes = await fetchAllPages<RawDish>(`/admin/dishes${qs(q)}`, 'dishes');
+    const dishes = await fetchAllPages<RawDish>(`/dishes${qs(q)}`, 'dishes');
     return dishes.map(normalizeDish);
   },
   get: async (id: string) => {
-    const data = await apiFetch<{ dish: RawDish }>(`/admin/dishes/${id}`);
+    const data = await apiFetch<{ dish: RawDish }>(`/dishes/${id}`);
     return normalizeDish(data.dish);
   },
   create: async (input: DishInput, image?: File | null) => {
-    const data = await apiFetch<{ dish: RawDish }>('/admin/dishes', {
+    const data = await apiFetch<{ dish: RawDish }>('/dishes', {
       method: 'POST',
       body: toFormData({ ...input }, image),
     });
     return normalizeDish(data.dish);
   },
   update: async (id: string, input: DishInput, image?: File | null, removeImage?: boolean) => {
-    const data = await apiFetch<{ dish: RawDish }>(`/admin/dishes/${id}`, {
+    const data = await apiFetch<{ dish: RawDish }>(`/dishes/${id}`, {
       method: 'PATCH',
       body: toFormData({ ...input, removeImage }, image),
     });
     return normalizeDish(data.dish);
   },
   remove: async (id: string) => {
-    await apiFetch<{ id: string }>(`/admin/dishes/${id}`, { method: 'DELETE' });
+    await apiFetch<{ id: string }>(`/dishes/${id}`, { method: 'DELETE' });
   },
 };
 
 export const chefsApi = {
   list: async (q?: string) => {
-    const chefs = await fetchAllPages<Chef>(`/admin/chefs${qs(q)}`, 'chefs');
+    const chefs = await fetchAllPages<Chef>(`/chefs${qs(q)}`, 'chefs');
     return chefs;
   },
   get: async (id: string) => {
-    const data = await apiFetch<{ chef: Chef }>(`/admin/chefs/${id}`);
+    const data = await apiFetch<{ chef: Chef }>(`/chefs/${id}`);
     return data.chef;
   },
   create: async (input: ChefInput, avatar?: File | null) => {
-    const data = await apiFetch<{ chef: Chef }>('/admin/chefs', {
+    const data = await apiFetch<{ chef: Chef }>('/chefs', {
       method: 'POST',
       body: toFormData({ ...input }, avatar, 'avatar'),
     });
     return data.chef;
   },
   update: async (id: string, input: ChefInput, avatar?: File | null, removeImage?: boolean) => {
-    const data = await apiFetch<{ chef: Chef }>(`/admin/chefs/${id}`, {
+    const data = await apiFetch<{ chef: Chef }>(`/chefs/${id}`, {
       method: 'PATCH',
       body: toFormData({ ...input, removeImage }, avatar, 'avatar'),
     });
     return data.chef;
   },
   remove: async (id: string) => {
-    await apiFetch<{ id: string }>(`/admin/chefs/${id}`, { method: 'DELETE' });
+    await apiFetch<{ id: string }>(`/chefs/${id}`, { method: 'DELETE' });
   },
 };
 
 export const ingredientsApi = {
   list: async (q?: string) => {
     const ingredients = await fetchAllPages<Ingredient>(
-      `/admin/ingredients${qs(q)}`,
+      `/ingredients${qs(q)}`,
       'ingredients',
     );
     return ingredients;
   },
   get: async (id: string) => {
-    const data = await apiFetch<{ ingredient: Ingredient }>(`/admin/ingredients/${id}`);
+    const data = await apiFetch<{ ingredient: Ingredient }>(`/ingredients/${id}`);
     return data.ingredient;
   },
   create: async (input: IngredientInput, image?: File | null) => {
-    const data = await apiFetch<{ ingredient: Ingredient }>('/admin/ingredients', {
+    const data = await apiFetch<{ ingredient: Ingredient }>('/ingredients', {
       method: 'POST',
       body: toFormData({ ...input }, image),
     });
@@ -205,19 +205,21 @@ export const ingredientsApi = {
     image?: File | null,
     removeImage?: boolean,
   ) => {
-    const data = await apiFetch<{ ingredient: Ingredient }>(`/admin/ingredients/${id}`, {
+    const data = await apiFetch<{ ingredient: Ingredient }>(`/ingredients/${id}`, {
       method: 'PATCH',
       body: toFormData({ ...input, removeImage }, image),
     });
     return data.ingredient;
   },
   remove: async (id: string) => {
-    await apiFetch<{ id: string }>(`/admin/ingredients/${id}`, { method: 'DELETE' });
+    await apiFetch<{ id: string }>(`/ingredients/${id}`, { method: 'DELETE' });
   },
 };
 
 export interface LoginResult {
   user: AuthUser | null;
+  token?: string | null;
+  accessToken?: string | null;
   redirectTo: string;
   message?: string;
 }
@@ -226,6 +228,8 @@ export interface RegisterResult {
   requiresEmailConfirmation: boolean;
   email: string;
   user?: AuthUser | null;
+  token?: string | null;
+  accessToken?: string | null;
   redirectTo?: string;
   message?: string;
 }
@@ -234,7 +238,12 @@ export const authApi = {
   me: () => loadSession(),
   login: async (email: string, password: string) => {
     await loadSession();
-    return apiFetch<LoginResult>('/auth/login', { method: 'POST', body: { email, password } });
+    const result = await apiFetch<LoginResult>('/auth/login', { method: 'POST', body: { email, password } });
+    const token = result.token ?? result.accessToken;
+    if (token) {
+      setAuthToken(token);
+    }
+    return result;
   },
   register: async (input: {
     displayName?: string;
@@ -243,13 +252,41 @@ export const authApi = {
     confirmPassword: string;
   }) => {
     await loadSession();
-    return apiFetch<RegisterResult>('/auth/register', { method: 'POST', body: input });
+    const result = await apiFetch<RegisterResult>('/auth/register', { method: 'POST', body: input });
+    const token = result.token ?? result.accessToken;
+    if (token) {
+      setAuthToken(token);
+    }
+    return result;
   },
   logout: async () => {
-    await loadSession();
-    await apiFetch<{ message: string }>('/auth/logout', { method: 'POST' });
+    try {
+      await loadSession();
+      await apiFetch<{ message: string }>('/auth/logout', { method: 'POST' });
+    } finally {
+      setAuthToken(null);
+    }
     return loadSession();
   },
-  callback: (search: string) =>
-    apiFetch<LoginResult>(`/auth/callback${search}`, {}, false),
+  callback: async (search: string) => {
+    const result = await apiFetch<LoginResult>(`/auth/callback${search}`, {}, false);
+    const token = result.token ?? result.accessToken;
+    if (token) {
+      setAuthToken(token);
+    }
+    return result;
+  },
+};
+
+export const statsApi = {
+  get: () => apiFetch<{ stats: Record<string, number>; recentDishes: unknown[] }>('/stats'),
+};
+
+export const usersApi = {
+  list: (q?: string) => fetchAllPages<{ id: string; email: string; role: string }>(`/users${qs(q)}`, 'users'),
+  updateRole: (id: string, role: string) =>
+    apiFetch<{ user: unknown; message: string }>(`/users/${id}/role`, {
+      method: 'PATCH',
+      body: { role },
+    }),
 };

@@ -12,7 +12,11 @@ import { HttpError, isBusinessError, sendBusinessError, technicalErrorBody, type
 
 import publicRouter from './modules/public/routes.js';
 import authRouter from './auth/routes.js';
-import adminRouter from './modules/admin/routes.js';
+import adminRouter, { statsRouter } from './modules/admin/routes.js';
+import dishesRouter from './modules/dishes/routes.js';
+import chefsRouter from './modules/chefs/routes.js';
+import ingredientsRouter from './modules/ingredients/routes.js';
+import usersRouter from './modules/users/routes.js';
 
 const publicDir = path.join(process.cwd(), 'public');
 const clientDistDir = path.join(process.cwd(), 'dist/client');
@@ -57,9 +61,14 @@ export function createApp() {
   app.use(loadUser);
 
   // REST API routes
-  app.use('/api', publicRouter);
   app.use('/api/auth', authRouter);
+  app.use('/api/dishes', dishesRouter);
+  app.use('/api/chefs', chefsRouter);
+  app.use('/api/ingredients', ingredientsRouter);
+  app.use('/api/users', usersRouter);
+  app.use('/api/stats', statsRouter);
   app.use('/api/admin', adminRouter);
+  app.use('/api', publicRouter);
 
   // SPA fallback for HTML navigation (production) or 404 for API
   app.use((req, res, next) => {

@@ -54,10 +54,11 @@ A modern client-side rendered (CSR) web application for restaurant meal manageme
 
 - **Runtime**: [Express 5](https://expressjs.com/) on Node.js (TypeScript, ES modules)
 - **Database / ORM**: PostgreSQL via Supabase + [Prisma ORM 7](https://www.prisma.io/) with `@prisma/adapter-pg`
-- **Authentication**: Supabase Auth (HTTP-only cookies via `@supabase/ssr` + lazy `Profile` sync)
+- **Authentication**: Supabase Auth supporting `Authorization: Bearer <token>` header (primary for SPA / REST clients) and HTTP-only session cookies (`@supabase/ssr` fallback) + lazy `Profile` sync
 - **Object Storage**: Supabase Storage (`images` bucket for meals, chefs, and ingredients)
 - **Security**:
-  - Double-submit CSRF protection (`csrf-csrf`) with token delivered via `/api/auth/me` and validated on mutation requests.
+  - `Authorization: Bearer <token>` support for REST API endpoints and CSRF-exempt header authentication.
+  - Double-submit CSRF protection (`csrf-csrf`) for browser cookie sessions.
   - HTTP security headers (`helmet`).
   - Rate limiting with standardized `RATE_LIMITED` JSON error responses.
   - Request validation using [Zod](https://zod.dev/).
@@ -92,30 +93,33 @@ Common error codes include: `VALIDATION_ERROR`, `UNAUTHORIZED`, `FORBIDDEN`, `NO
 
 ## 📡 REST API Overview
 
+All protected endpoints accept authentication via `Authorization: Bearer <access_token>` header or session cookies.
+Mutating endpoints using `Authorization: Bearer <token>` bypass double-submit CSRF enforcement (since cross-origin requests cannot attach custom headers without CORS preflight).
+Legacy `/api/admin/*` routes remain fully supported as backward-compatibility aliases to `/api/*`.
+
 | Route                                |      Method      |    Access     | Description                                                          |
 | ------------------------------------ | :--------------: | :-----------: | -------------------------------------------------------------------- |
 | `/api/auth/me`                       |       GET        |    Public     | Current profile and CSRF token                                       |
-| `/api/auth/login`                    |       POST       |    Public     | Sign in with email and password                                      |
-| `/api/auth/register`                 |       POST       |    Public     | Register new account                                                 |
-| `/api/auth/logout`                   |       POST       | Authenticated | Clear session cookies                                                |
+| `/api/auth/login`                    |       POST       |    Public     | Sign in with email and password (returns session token)              |
+| `/api/auth/register`                 |       POST       |    Public     | Register new account (returns session token)                         |
+| `/api/auth/logout`                   |       POST       | Authenticated | Clear session cookies / invalidate session                           |
 | `/api/auth/callback`                 |     GET/POST     |    Public     | Supabase OAuth / email verification callback                         |
 | `/api/home`                          |       GET        |    Public     | Featured dishes, stats, and promotional data                         |
-| `/api/dishes`                        |       GET        |    Public     | Public dishes catalog with `?q=`, `?category=`, and `?sort=` filters |
 | `/api/menu`                          |       GET        |    Public     | Paginated dish catalog with category & sort filters                  |
-| `/api/dishes/:slug`                  |       GET        |    Public     | Detailed dish info by slug or UUID id, recipe ingredients, and chef  |
-| `/api/admin/stats`                   |       GET        | Staff / Admin | Dashboard summary counts                                             |
-| `/api/admin/dishes`                  |    GET, POST     | Staff / Admin | List dishes with filters; create new dish                            |
-| `/api/admin/dishes/:id`              | GET, PUT, DELETE | Staff / Admin | View detail; update dish; soft delete dish                           |
-| `/api/admin/dishes/:id/restore`      |       POST       | Staff / Admin | Restore soft-deleted dish                                            |
-| `/api/admin/dishes/form-deps`        |       GET        | Staff / Admin | Active chefs and ingredients options for dish editor                 |
-| `/api/admin/chefs`                   |    GET, POST     | Staff / Admin | List chefs; create new chef profile                                  |
-| `/api/admin/chefs/:id`               | GET, PUT, DELETE | Staff / Admin | View, update, or soft-delete chef                                    |
-| `/api/admin/chefs/:id/restore`       |       POST       | Staff / Admin | Restore soft-deleted chef                                            |
-| `/api/admin/ingredients`             |    GET, POST     | Staff / Admin | List ingredients inventory; create new ingredient                    |
-| `/api/admin/ingredients/:id`         | GET, PUT, DELETE | Staff / Admin | View, update, or soft-delete ingredient                              |
-| `/api/admin/ingredients/:id/restore` |       POST       | Staff / Admin | Restore soft-deleted ingredient                                      |
-| `/api/admin/users`                   |       GET        |  Admin only   | List registered users with pagination & search                       |
-| `/api/admin/users/:id/role`          |   PATCH, POST    |  Admin only   | Change user role (`CUSTOMER`, `STAFF`, `ADMIN`)                      |
+| `/api/dishes`                        |    GET, POST     | Public / Staff| List catalog (public) or admin filter; create dish (`dish:create`)   |
+| `/api/dishes/:idOrSlug`              | GET, PUT, DELETE | Public / Staff| View dish (public); update / soft-delete (`dish:update`/`delete`)     |
+| `/api/dishes/:id/restore`            |       POST       | Staff / Admin | Restore soft-deleted dish                                            |
+| `/api/dishes/form-deps`              |       GET        | Staff / Admin | Active chefs and ingredients options for dish editor                 |
+| `/api/chefs`                         |    GET, POST     | Staff / Admin | List chefs; create new chef profile                                  |
+| `/api/chefs/:id`                     | GET, PUT, DELETE | Staff / Admin | View, update, or soft-delete chef                                    |
+| `/api/chefs/:id/restore`             |       POST       | Staff / Admin | Restore soft-deleted chef                                            |
+| `/api/ingredients`                   |    GET, POST     | Staff / Admin | List ingredients inventory; create new ingredient                    |
+| `/api/ingredients/:id`               | GET, PUT, DELETE | Staff / Admin | View, update, or soft-delete ingredient                              |
+| `/api/ingredients/:id/restore`       |       POST       | Staff / Admin | Restore soft-deleted ingredient                                      |
+| `/api/stats`                         |       GET        | Staff / Admin | Dashboard summary counts (dishes, chefs, ingredients, users)         |
+| `/api/users`                         |       GET        |  Admin only   | List registered users with pagination & search                       |
+| `/api/users/:id/role`                |   PATCH, POST    |  Admin only   | Change user role (`CUSTOMER`, `STAFF`, `ADMIN`)                      |
+| `/api/admin/*`                       |       ANY        | Staff / Admin | Backward-compatibility aliases for `/api/*` management endpoints     |
 
 ---
 
@@ -194,7 +198,7 @@ npm run dev:css     # Tailwind CSS compiler in watch mode
 
 ## 🧪 Testing & Code Quality
 
-Run Vitest unit test suite (9 test suites, 45 test cases covering HTTP envelopes, business/technical error contracts, CORS, validation, rate limiting, and RBAC):
+Run Vitest unit test suite (10 test suites, 60 test cases covering HTTP envelopes, Bearer token auth, CSRF bypass, business/technical error contracts, CORS, validation, rate limiting, and RBAC):
 
 ```bash
 npm test

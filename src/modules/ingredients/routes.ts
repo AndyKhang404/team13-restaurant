@@ -112,7 +112,7 @@ router.post('/', requirePermission('ingredient:create'), async (req, res) => {
   }
 });
 
-router.patch('/:id', requirePermission('ingredient:update'), async (req, res) => {
+async function handleUpdateIngredient(req: import('express').Request, res: import('express').Response) {
   const id = paramId(req.params.id);
   const ingredient = await prisma.ingredient.findUnique({ where: { id } });
   if (!ingredient) throw notFound('Nguyên liệu');
@@ -163,13 +163,37 @@ router.patch('/:id', requirePermission('ingredient:update'), async (req, res) =>
     }
     throw e;
   }
-});
+}
+
+router.patch('/:id', requirePermission('ingredient:update'), handleUpdateIngredient);
+router.put('/:id', requirePermission('ingredient:update'), handleUpdateIngredient);
 
 router.delete('/:id', requirePermission('ingredient:delete'), async (req, res) => {
   const id = paramId(req.params.id);
   try {
-    await prisma.ingredient.delete({ where: { id } });
+    const existing = await prisma.ingredient.findUnique({ where: { id } });
+    if (!existing || existing.deletedAt !== null) throw notFound('Nguyên liệu');
+    await prisma.ingredient.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
     return sendOk(res, null);
+  } catch (e) {
+    if (isNotFound(e)) throw notFound('Nguyên liệu');
+    throw e;
+  }
+});
+
+router.post('/:id/restore', requirePermission('ingredient:update'), async (req, res) => {
+  const id = paramId(req.params.id);
+  try {
+    const existing = await prisma.ingredient.findUnique({ where: { id } });
+    if (!existing) throw notFound('Nguyên liệu');
+    const ingredient = await prisma.ingredient.update({
+      where: { id },
+      data: { deletedAt: null },
+    });
+    return sendOk(res, { ingredient, message: `Đã khôi phục nguyên liệu "${ingredient.name}".` });
   } catch (e) {
     if (isNotFound(e)) throw notFound('Nguyên liệu');
     throw e;

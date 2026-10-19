@@ -90,7 +90,20 @@ const { doubleCsrfProtection, generateCsrfToken } = doubleCsrf({
     (req.headers['x-csrf-token'] as string | undefined),
 });
 
-export const csrfProtection = doubleCsrfProtection;
+/**
+ * CSRF protection middleware:
+ * If the request uses Bearer token authorization header, CSRF check is bypassed
+ * (Bearer tokens are not automatically attached by browsers cross-origin).
+ * Cookie-authenticated requests are protected via double-submit CSRF.
+ */
+export const csrfProtection: RequestHandler = (req, res, next) => {
+  const auth = req.headers.authorization;
+  if (auth && /^Bearer\s+/i.test(auth)) {
+    return next();
+  }
+  return doubleCsrfProtection(req, res, next);
+};
+
 export { generateCsrfToken };
 
 /** Exposes a CSRF token to res.locals.csrfToken. */

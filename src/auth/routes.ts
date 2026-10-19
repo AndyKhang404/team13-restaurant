@@ -73,6 +73,9 @@ router.post('/login', authRateLimit(), async (req, res) => {
 
   return sendOk(res, {
     user: profile,
+    token: data.session?.access_token,
+    accessToken: data.session?.access_token,
+    session: data.session,
     redirectTo,
     message: 'Đăng nhập thành công.',
   });
@@ -115,6 +118,9 @@ router.post('/register', authRateLimit(), async (req, res) => {
       requiresEmailConfirmation: false,
       email,
       user: profile,
+      token: data.session.access_token,
+      accessToken: data.session.access_token,
+      session: data.session,
       redirectTo,
       message: 'Chào mừng! Tài khoản của bạn đã được tạo.',
     });
@@ -156,6 +162,9 @@ async function handleAuthCallback(req: Request, res: Response) {
 
   return sendOk(res, {
     user: profile,
+    token: data.session?.access_token,
+    accessToken: data.session?.access_token,
+    session: data.session,
     redirectTo,
     message: 'Email đã được xác nhận. Chào mừng bạn!',
   });

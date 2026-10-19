@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
-import { loadSession } from '../lib/api';
+import { loadSession, setAuthToken } from '../lib/api';
 import { authApi } from '../lib/resources';
 import type { AuthUser } from '../lib/types';
 
@@ -17,7 +17,7 @@ const AuthContext = createContext<AuthValue>({
   signOut: async () => {},
 });
 
-/** Holds only the authenticated user (cookie session), not list/record data. */
+/** Holds only the authenticated user (Bearer token session), not list/record data. */
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
@@ -28,6 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(data.user);
     } catch {
       setUser(null);
+      setAuthToken(null);
     } finally {
       setLoading(false);
     }
@@ -41,6 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await authApi.logout();
     } finally {
+      setAuthToken(null);
       setUser(null);
     }
   };

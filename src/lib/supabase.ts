@@ -4,11 +4,25 @@ import { createClient } from '@supabase/supabase-js';
 import { env, isProd } from '../config/env.js';
 
 /**
- * Per-request Supabase client for auth (publishable key + user's cookies).
- * Reads cookies from the request, writes refreshed session cookies to the response.
+ * Extract Bearer token from Authorization header if present.
+ */
+export function getBearerToken(req: Request): string | null {
+  const header = req.headers.authorization;
+  if (!header) return null;
+  const match = header.match(/^Bearer\s+(.+)$/i);
+  return match && match[1] ? match[1].trim() : null;
+}
+
+/**
+ * Per-request Supabase client for auth (publishable key + user's Bearer token or cookies).
+ * Reads Bearer token from header or cookies from the request, writes refreshed session cookies to the response.
  */
 export function createSupabaseForRequest(req: Request, res: Response) {
+  const token = getBearerToken(req);
   return createServerClient(env.SUPABASE_URL, env.SUPABASE_PUBLISHABLE_KEY, {
+    global: {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    },
     cookieOptions: { sameSite: 'lax', secure: isProd, path: '/', httpOnly: true },
     cookies: {
       getAll() {
@@ -38,3 +52,4 @@ export function hasAuthCookie(req: Request): boolean {
   const header = req.headers.cookie ?? '';
   return /(?:^|;\s*)sb-[^=]+-auth-token/.test(header);
 }
+

@@ -9,10 +9,7 @@ import usersRouter from '../users/routes.js';
 
 const router = Router();
 
-// Every route in /admin requires admin:access (ADMIN and STAFF)
-router.use(requirePermission('admin:access'));
-
-const getAdminStats = async () => {
+export const getAdminStats = async () => {
   const [dishCount, chefCount, ingredientCount, userCount, recentDishes] = await Promise.all([
     prisma.dish.count({ where: { deletedAt: null } }),
     prisma.chef.count({ where: { deletedAt: null } }),
@@ -37,19 +34,38 @@ const getAdminStats = async () => {
   };
 };
 
-router.get('/', async (_req, res) => {
+export const statsRouter = Router();
+statsRouter.use(requirePermission('admin:access'));
+
+statsRouter.get('/', async (_req, res) => {
   const data = await getAdminStats();
   return sendOk(res, data);
 });
 
-router.get('/stats', async (_req, res) => {
+statsRouter.get('/stats', async (_req, res) => {
   const data = await getAdminStats();
   return sendOk(res, data);
 });
 
-router.use('/dishes', dishesRouter);
-router.use('/chefs', chefsRouter);
-router.use('/ingredients', ingredientsRouter);
-router.use('/users', usersRouter);
+const adminRouter = Router();
 
-export default router;
+// Every route in /admin requires admin:access (ADMIN and STAFF)
+adminRouter.use(requirePermission('admin:access'));
+
+adminRouter.get('/', async (_req, res) => {
+  const data = await getAdminStats();
+  return sendOk(res, data);
+});
+
+adminRouter.get('/stats', async (_req, res) => {
+  const data = await getAdminStats();
+  return sendOk(res, data);
+});
+
+adminRouter.use('/dishes', dishesRouter);
+adminRouter.use('/chefs', chefsRouter);
+adminRouter.use('/ingredients', ingredientsRouter);
+adminRouter.use('/users', usersRouter);
+
+export default adminRouter;
+

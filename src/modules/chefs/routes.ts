@@ -92,7 +92,7 @@ router.post('/', requirePermission('chef:create'), async (req, res) => {
   return sendOk(res, { chef: createdChef, message: `Đã tạo đầu bếp "${data.name}".` });
 });
 
-router.patch('/:id', requirePermission('chef:update'), async (req, res) => {
+async function handleUpdateChef(req: import('express').Request, res: import('express').Response) {
   const id = paramId(req.params.id);
   const chef = await prisma.chef.findUnique({ where: { id } });
   if (!chef) throw notFound('Đầu bếp');
@@ -133,13 +133,37 @@ router.patch('/:id', requirePermission('chef:update'), async (req, res) => {
   );
 
   return sendOk(res, { chef: updatedChef, message: `Đã cập nhật đầu bếp "${data.name}".` });
-});
+}
+
+router.patch('/:id', requirePermission('chef:update'), handleUpdateChef);
+router.put('/:id', requirePermission('chef:update'), handleUpdateChef);
 
 router.delete('/:id', requirePermission('chef:delete'), async (req, res) => {
   const id = paramId(req.params.id);
   try {
-    await prisma.chef.delete({ where: { id } });
+    const existing = await prisma.chef.findUnique({ where: { id } });
+    if (!existing || existing.deletedAt !== null) throw notFound('Đầu bếp');
+    await prisma.chef.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
     return sendOk(res, null);
+  } catch (e) {
+    if (isNotFound(e)) throw notFound('Đầu bếp');
+    throw e;
+  }
+});
+
+router.post('/:id/restore', requirePermission('chef:update'), async (req, res) => {
+  const id = paramId(req.params.id);
+  try {
+    const existing = await prisma.chef.findUnique({ where: { id } });
+    if (!existing) throw notFound('Đầu bếp');
+    const chef = await prisma.chef.update({
+      where: { id },
+      data: { deletedAt: null },
+    });
+    return sendOk(res, { chef, message: `Đã khôi phục đầu bếp "${chef.name}".` });
   } catch (e) {
     if (isNotFound(e)) throw notFound('Đầu bếp');
     throw e;

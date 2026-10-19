@@ -20,6 +20,7 @@ import {
 } from '../../lib/validation.js';
 import { fileFor, validateImage, saveWithImage, type UploadedFile } from '../../lib/storage.js';
 import { CATEGORY_LABELS } from '../../lib/format.js';
+import { can } from '../../auth/permissions.js';
 import { requirePermission } from '../../auth/middleware.js';
 
 const router = Router();
@@ -176,60 +177,128 @@ async function loadFormDependencies(currentDishId?: string) {
   };
 }
 
+const visibleDish: Prisma.DishWhereInput = { deletedAt: null };
+
+const SORTS: Record<string, Prisma.DishOrderByWithRelationInput[]> = {
+  '': [{ name: 'asc' }],
+  'name-asc': [{ name: 'asc' }],
+  'name-desc': [{ name: 'desc' }],
+  'price-asc': [{ price: 'asc' }],
+  'price-desc': [{ price: 'desc' }],
+  newest: [{ updatedAt: 'desc' }],
+};
+
 router.get('/form-deps', requirePermission('dish:create'), async (req, res) => {
   const dishId = typeof req.query.dishId === 'string' ? req.query.dishId : undefined;
   const deps = await loadFormDependencies(dishId);
   return sendOk(res, deps);
 });
 
-router.get('/', requirePermission('dish:create'), async (req, res) => {
+router.get('/', async (req, res) => {
   const { page, q, filters } = listParams(req);
   const rawCat = typeof req.query.category === 'string' ? req.query.category : '';
   const category = CATEGORIES.includes(rawCat as DishCategory) ? (rawCat as DishCategory) : undefined;
   if (category) filters['category'] = category;
 
+  const sortRaw = typeof req.query.sort === 'string' ? req.query.sort : '';
+  const sort = sortRaw in SORTS ? sortRaw : '';
+
+  const hasStaffPerm = can(req.user, 'dish:create');
+  const showDeleted = req.query.deleted === '1' && hasStaffPerm;
+
   const where: Prisma.DishWhereInput = {
-    deletedAt: null,
+    ...(showDeleted ? {} : visibleDish),
     ...(category ? { category } : {}),
     ...(q ? { name: { contains: q, mode: 'insensitive' } } : {}),
   };
 
-  const [total, dishes] = await Promise.all([
-    prisma.dish.count({ where }),
-    prisma.dish.findMany({
+  const orderBy = SORTS[sort] ?? [{ updatedAt: 'desc' }];
+  const total = await prisma.dish.count({ where });
+
+  const isPageSpecified = req.query.page !== undefined;
+  const isAll = req.query.all === '1' || req.query.all === 'true';
+
+  let dishes: Awaited<ReturnType<typeof prisma.dish.findMany>>;
+  let paginationInfo;
+
+  if (isPageSpecified && !isAll) {
+    dishes = await prisma.dish.findMany({
       where,
       include: { chef: true },
-      orderBy: [{ updatedAt: 'desc' }],
+      orderBy,
       skip: skipFor(page),
       take: 10,
-    }),
-  ]);
+    });
+    paginationInfo = buildPagination(page, total, filters);
+  } else {
+    dishes = await prisma.dish.findMany({
+      where,
+      include: { chef: true },
+      orderBy,
+    });
+    paginationInfo = {
+      page: 1,
+      totalPages: 1,
+      total,
+      hasPrev: false,
+      hasNext: false,
+      filters,
+    };
+  }
 
   return sendOk(res, {
     dishes,
-    pagination: buildPagination(page, total, filters),
+    pagination: paginationInfo,
     q,
     category,
     categories: CATEGORIES.map((c) => ({ key: c, label: CATEGORY_LABELS[c] ?? c })),
   });
 });
 
-router.get('/:id', requirePermission('dish:update'), async (req, res) => {
-  const id = paramId(req.params.id);
-  const deps = await loadFormDependencies(id);
-  const dish = deps.currentDish;
+router.get('/:idOrSlug', async (req, res) => {
+  const raw = req.params.idOrSlug;
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(raw);
+
+  const where: Prisma.DishWhereInput = isUuid
+    ? { OR: [{ id: raw }, { slug: raw }] }
+    : { slug: raw };
+
+  const dish = await prisma.dish.findFirst({
+    where,
+    include: {
+      chef: true,
+      ingredients: {
+        include: { ingredient: true },
+        orderBy: { ingredient: { name: 'asc' } },
+      },
+    },
+  });
+
   if (!dish) throw notFound('Món ăn');
+
+  const hasStaffPerm = can(req.user, 'dish:create');
+  if (dish.deletedAt !== null && !hasStaffPerm) {
+    throw notFound('Món ăn');
+  }
+
+  const deps = await loadFormDependencies(dish.id);
+  const chef = dish.chef && dish.chef.deletedAt === null && dish.chef.isActive ? dish.chef : null;
 
   return sendOk(res, {
     dish,
+    chef: dish.chef ?? chef,
+    ingredients: dish.ingredients
+      .filter((di) => di.ingredient.deletedAt === null)
+      .map((di) => di.ingredient.name),
     dishIngredients: dish.ingredients.map((di) => ({
       ingredientId: di.ingredientId,
       quantity: Number(di.quantity),
       unit: di.unit ?? 'g',
     })),
     chefs: deps.chefs,
-    ingredients: deps.ingredients,
+    availableIngredients: deps.ingredients,
     categories: deps.categories,
+    categoryLabel: CATEGORY_LABELS[dish.category] ?? dish.category,
   });
 });
 
@@ -295,7 +364,7 @@ router.post('/', requirePermission('dish:create'), async (req, res) => {
   }
 });
 
-router.patch('/:id', requirePermission('dish:update'), async (req, res) => {
+async function handleUpdateDish(req: import('express').Request, res: import('express').Response) {
   const id = paramId(req.params.id);
   const existing = await prisma.dish.findUnique({ where: { id } });
   if (!existing) throw notFound('Món ăn');
@@ -372,13 +441,37 @@ router.patch('/:id', requirePermission('dish:update'), async (req, res) => {
     }
     throw e;
   }
-});
+}
+
+router.patch('/:id', requirePermission('dish:update'), handleUpdateDish);
+router.put('/:id', requirePermission('dish:update'), handleUpdateDish);
 
 router.delete('/:id', requirePermission('dish:delete'), async (req, res) => {
   const id = paramId(req.params.id);
   try {
-    await prisma.dish.delete({ where: { id } });
+    const existing = await prisma.dish.findUnique({ where: { id } });
+    if (!existing || existing.deletedAt !== null) throw notFound('Món ăn');
+    await prisma.dish.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
     return sendOk(res, null);
+  } catch (e) {
+    if (isNotFound(e)) throw notFound('Món ăn');
+    throw e;
+  }
+});
+
+router.post('/:id/restore', requirePermission('dish:update'), async (req, res) => {
+  const id = paramId(req.params.id);
+  try {
+    const existing = await prisma.dish.findUnique({ where: { id } });
+    if (!existing) throw notFound('Món ăn');
+    const dish = await prisma.dish.update({
+      where: { id },
+      data: { deletedAt: null },
+    });
+    return sendOk(res, { dish, message: `Đã khôi phục món "${dish.name}".` });
   } catch (e) {
     if (isNotFound(e)) throw notFound('Món ăn');
     throw e;

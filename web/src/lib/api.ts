@@ -55,6 +55,27 @@ export function getCsrfToken(): string {
   return csrfToken;
 }
 
+const TOKEN_KEY = 'auth_token';
+let authToken: string | null = typeof localStorage !== 'undefined' ? localStorage.getItem(TOKEN_KEY) : null;
+
+export function setAuthToken(token: string | null): void {
+  authToken = token;
+  if (typeof localStorage !== 'undefined') {
+    if (token) {
+      localStorage.setItem(TOKEN_KEY, token);
+    } else {
+      localStorage.removeItem(TOKEN_KEY);
+    }
+  }
+}
+
+export function getAuthToken(): string | null {
+  if (!authToken && typeof localStorage !== 'undefined') {
+    authToken = localStorage.getItem(TOKEN_KEY);
+  }
+  return authToken;
+}
+
 export interface ApiFetchOptions extends Omit<RequestInit, 'body'> {
   body?: BodyInit | Record<string, unknown> | unknown[] | null;
 }
@@ -124,6 +145,11 @@ export async function apiFetch<T>(
     body = JSON.stringify(body);
   }
 
+  const token = getAuthToken();
+  if (token && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
   if (method !== 'GET' && method !== 'HEAD' && csrfToken) {
     headers.set('x-csrf-token', csrfToken);
   }
@@ -133,6 +159,10 @@ export async function apiFetch<T>(
     { ...options, headers, body, credentials: 'include' },
     method,
   );
+
+  if (res.status === 401) {
+    setAuthToken(null);
+  }
 
   let json: Partial<Envelope<T>> | null = null;
   try {
