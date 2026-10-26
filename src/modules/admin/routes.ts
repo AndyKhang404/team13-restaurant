@@ -2,18 +2,17 @@ import { Router } from 'express';
 import { prisma } from '../../lib/prisma.js';
 import { requirePermission } from '../../auth/middleware.js';
 import { sendOk } from '../../lib/http.js';
+import { getVisibleRecordCount } from '../../lib/record-counters.js';
 import dishesRouter from '../dishes/routes.js';
 import chefsRouter from '../chefs/routes.js';
 import ingredientsRouter from '../ingredients/routes.js';
 import usersRouter from '../users/routes.js';
 
-const router = Router();
-
 export const getAdminStats = async () => {
   const [dishCount, chefCount, ingredientCount, userCount, recentDishes] = await Promise.all([
-    prisma.dish.count({ where: { deletedAt: null } }),
-    prisma.chef.count({ where: { deletedAt: null } }),
-    prisma.ingredient.count({ where: { deletedAt: null } }),
+    getVisibleRecordCount('dish'),
+    getVisibleRecordCount('chef'),
+    getVisibleRecordCount('ingredient'),
     prisma.profile.count(),
     prisma.dish.findMany({
       where: { deletedAt: null },

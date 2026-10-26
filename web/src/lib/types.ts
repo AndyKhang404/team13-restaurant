@@ -1,5 +1,23 @@
 export type UserRole = 'ADMIN' | 'STAFF' | 'CUSTOMER';
 
+export type PagingMode = 'infinite' | 'loadMore' | 'pages';
+
+export interface Pagination {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+  hasPrev: boolean;
+  hasNext: boolean;
+  prevPage: number;
+  nextPage: number;
+}
+
+export interface Paged<T> {
+  items: T[];
+  pagination: Pagination;
+}
+
 export interface AuthUser {
   id: string;
   email: string;

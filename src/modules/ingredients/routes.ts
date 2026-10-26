@@ -4,6 +4,7 @@ import type { Prisma } from '../../generated/prisma/client.js';
 import { prisma } from '../../lib/prisma.js';
 import { badRequest, conflict, notFound, sendOk } from '../../lib/http.js';
 import { buildPagination, skipFor } from '../../lib/pagination.js';
+import { bumpVisibleRecordCount, getVisibleRecordCount } from '../../lib/record-counters.js';
 import { listParams, isNotFound, isUniqueViolation, paramId } from '../../lib/admin.js';
 import { requiredText, decimal, checkbox, toFieldErrors } from '../../lib/validation.js';
 import { fileFor, validateImage, saveWithImage, type UploadedFile } from '../../lib/storage.js';
@@ -33,25 +34,27 @@ async function findNameClash(name: string, excludeId?: string) {
 }
 
 router.get('/', requirePermission('ingredient:create'), async (req, res) => {
-  const { page, q, filters } = listParams(req);
+  const { page, pageSize, q, filters } = listParams(req);
   const where: Prisma.IngredientWhereInput = {
     deletedAt: null,
     ...(q ? { name: { contains: q, mode: 'insensitive' } } : {}),
   };
 
-  const [total, ingredients] = await Promise.all([
-    prisma.ingredient.count({ where }),
-    prisma.ingredient.findMany({
-      where,
-      orderBy: [{ name: 'asc' }],
-      skip: skipFor(page),
-      take: 10,
-    }),
-  ]);
+  const total = q
+    ? await prisma.ingredient.count({ where })
+    : await getVisibleRecordCount('ingredient');
+  const pagination = buildPagination(page, total, filters, pageSize);
+
+  const ingredients = await prisma.ingredient.findMany({
+    where,
+    orderBy: [{ name: 'asc' }],
+    skip: skipFor(page, pageSize),
+    take: pageSize,
+  });
 
   return sendOk(res, {
     ingredients,
-    pagination: buildPagination(page, total, filters),
+    pagination,
     q,
   });
 });
@@ -102,6 +105,7 @@ router.post('/', requirePermission('ingredient:create'), async (req, res) => {
             data: { ...fields, imageUrl: imageUrl ?? null },
           });
     });
+    bumpVisibleRecordCount('ingredient', 1);
 
     return sendOk(res, { ingredient: createdIngredient, message: `Đã tạo nguyên liệu "${data.name}".` });
   } catch (e) {
@@ -177,6 +181,7 @@ router.delete('/:id', requirePermission('ingredient:delete'), async (req, res) =
       where: { id },
       data: { deletedAt: new Date() },
     });
+    bumpVisibleRecordCount('ingredient', -1);
     return sendOk(res, null);
   } catch (e) {
     if (isNotFound(e)) throw notFound('Nguyên liệu');
@@ -189,10 +194,12 @@ router.post('/:id/restore', requirePermission('ingredient:update'), async (req, 
   try {
     const existing = await prisma.ingredient.findUnique({ where: { id } });
     if (!existing) throw notFound('Nguyên liệu');
+    const wasDeleted = existing.deletedAt !== null;
     const ingredient = await prisma.ingredient.update({
       where: { id },
       data: { deletedAt: null },
     });
+    if (wasDeleted) bumpVisibleRecordCount('ingredient', 1);
     return sendOk(res, { ingredient, message: `Đã khôi phục nguyên liệu "${ingredient.name}".` });
   } catch (e) {
     if (isNotFound(e)) throw notFound('Nguyên liệu');

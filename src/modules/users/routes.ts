@@ -17,7 +17,7 @@ const UpdateRoleSchema = z.object({
 const ROLES = Object.values(Role);
 
 router.get('/', requirePermission('user:manage'), async (req, res) => {
-  const { page, q, filters } = listParams(req);
+  const { page, pageSize, q, filters } = listParams(req);
   const where: Prisma.ProfileWhereInput = q
     ? {
         OR: [
@@ -27,20 +27,20 @@ router.get('/', requirePermission('user:manage'), async (req, res) => {
       }
     : {};
 
-  const [total, users] = await Promise.all([
-    prisma.profile.count({ where }),
-    prisma.profile.findMany({
-      where,
-      orderBy: [{ createdAt: 'desc' }],
-      skip: skipFor(page),
-      take: 10,
-    }),
-  ]);
+  const total = await prisma.profile.count({ where });
+  const pagination = buildPagination(page, total, filters, pageSize);
+
+  const users = await prisma.profile.findMany({
+    where,
+    orderBy: [{ createdAt: 'desc' }],
+    skip: skipFor(page, pageSize),
+    take: pageSize,
+  });
 
   return sendOk(res, {
     users,
     roles: ROLES,
-    pagination: buildPagination(page, total, filters),
+    pagination,
     q,
   });
 });

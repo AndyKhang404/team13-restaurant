@@ -22,6 +22,8 @@ __pycache__/
 .eslintcache
 
 reports/backend-testing/**/tmp/
+opencode.json
 
 .opencode
 block6-deck.html
+block7-deck.html

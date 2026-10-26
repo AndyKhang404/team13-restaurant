@@ -31,7 +31,10 @@ export default function DishForm({ mode }: { mode: 'new' | 'edit' }) {
   const editing = mode === 'edit';
   const navigate = useNavigate();
 
-  const deps = useApi(() => Promise.all([chefsApi.list(), ingredientsApi.list()]), []);
+  const deps = useApi(
+    () => Promise.all([chefsApi.options(), ingredientsApi.options()]),
+    [],
+  );
   const dishState = useApi(
     () => (editing ? dishesApi.get(id ?? '') : Promise.resolve(null)),
     [editing, id],

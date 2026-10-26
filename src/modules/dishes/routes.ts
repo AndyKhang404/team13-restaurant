@@ -5,6 +5,7 @@ import type { Prisma } from '../../generated/prisma/client.js';
 import { prisma } from '../../lib/prisma.js';
 import { badRequest, conflict, notFound, sendOk } from '../../lib/http.js';
 import { buildPagination, skipFor } from '../../lib/pagination.js';
+import { bumpVisibleRecordCount, getVisibleRecordCount } from '../../lib/record-counters.js';
 import { listParams, isNotFound, isUniqueViolation, paramId } from '../../lib/admin.js';
 import { slugify, nextFreeSlug } from '../../lib/slug.js';
 import {
@@ -195,13 +196,14 @@ router.get('/form-deps', requirePermission('dish:create'), async (req, res) => {
 });
 
 router.get('/', async (req, res) => {
-  const { page, q, filters } = listParams(req);
+  const { page, pageSize, q, filters } = listParams(req);
   const rawCat = typeof req.query.category === 'string' ? req.query.category : '';
   const category = CATEGORIES.includes(rawCat as DishCategory) ? (rawCat as DishCategory) : undefined;
   if (category) filters['category'] = category;
 
   const sortRaw = typeof req.query.sort === 'string' ? req.query.sort : '';
   const sort = sortRaw in SORTS ? sortRaw : '';
+  if (sort) filters['sort'] = sort;
 
   const hasStaffPerm = can(req.user, 'dish:create');
   const showDeleted = req.query.deleted === '1' && hasStaffPerm;
@@ -213,44 +215,26 @@ router.get('/', async (req, res) => {
   };
 
   const orderBy = SORTS[sort] ?? [{ updatedAt: 'desc' }];
-  const total = await prisma.dish.count({ where });
+  const total =
+    !showDeleted && !q && !category
+      ? await getVisibleRecordCount('dish')
+      : await prisma.dish.count({ where });
+  const paginationInfo = buildPagination(page, total, filters, pageSize);
 
-  const isPageSpecified = req.query.page !== undefined;
-  const isAll = req.query.all === '1' || req.query.all === 'true';
-
-  let dishes: Awaited<ReturnType<typeof prisma.dish.findMany>>;
-  let paginationInfo;
-
-  if (isPageSpecified && !isAll) {
-    dishes = await prisma.dish.findMany({
-      where,
-      include: { chef: true },
-      orderBy,
-      skip: skipFor(page),
-      take: 10,
-    });
-    paginationInfo = buildPagination(page, total, filters);
-  } else {
-    dishes = await prisma.dish.findMany({
-      where,
-      include: { chef: true },
-      orderBy,
-    });
-    paginationInfo = {
-      page: 1,
-      totalPages: 1,
-      total,
-      hasPrev: false,
-      hasNext: false,
-      filters,
-    };
-  }
+  const dishes = await prisma.dish.findMany({
+    where,
+    include: { chef: true },
+    orderBy,
+    skip: skipFor(page, pageSize),
+    take: pageSize,
+  });
 
   return sendOk(res, {
     dishes,
     pagination: paginationInfo,
     q,
     category,
+    sort,
     categories: CATEGORIES.map((c) => ({ key: c, label: CATEGORY_LABELS[c] ?? c })),
   });
 });
@@ -354,6 +338,7 @@ router.post('/', requirePermission('dish:create'), async (req, res) => {
         },
       });
     });
+    bumpVisibleRecordCount('dish', 1);
 
     return sendOk(res, { dish: createdDish, message: `Đã tạo món "${data.name}".` });
   } catch (e) {
@@ -455,6 +440,7 @@ router.delete('/:id', requirePermission('dish:delete'), async (req, res) => {
       where: { id },
       data: { deletedAt: new Date() },
     });
+    bumpVisibleRecordCount('dish', -1);
     return sendOk(res, null);
   } catch (e) {
     if (isNotFound(e)) throw notFound('Món ăn');
@@ -467,10 +453,12 @@ router.post('/:id/restore', requirePermission('dish:update'), async (req, res) =
   try {
     const existing = await prisma.dish.findUnique({ where: { id } });
     if (!existing) throw notFound('Món ăn');
+    const wasDeleted = existing.deletedAt !== null;
     const dish = await prisma.dish.update({
       where: { id },
       data: { deletedAt: null },
     });
+    if (wasDeleted) bumpVisibleRecordCount('dish', 1);
     return sendOk(res, { dish, message: `Đã khôi phục món "${dish.name}".` });
   } catch (e) {
     if (isNotFound(e)) throw notFound('Món ăn');

@@ -1,10 +1,12 @@
-import { useEffect, useState, type FormEvent } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { Link } from 'react-router-dom';
 import { dishesApi } from '../../lib/resources';
-import { useApi } from '../../lib/useApi';
+import { useListParams } from '../../lib/useListParams';
+import { usePagedList } from '../../lib/usePagedList';
 import { DishCard } from '../../components/DishCard';
 import { ErrorState, SkeletonGrid } from '../../components/StateViews';
-import { CATEGORIES, categoryLabel } from '../../lib/types';
+import { PaginationFooter, PaginationToolbar } from '../../components/Pagination';
+import { CATEGORIES, categoryLabel, type Dish } from '../../lib/types';
 
 const SORTS = [
   { value: '', label: 'Tên A → Z' },
@@ -15,42 +17,48 @@ const SORTS = [
 ];
 
 export default function DishList() {
-  const [params, setParams] = useSearchParams();
-  const q = params.get('q') ?? '';
-  const category = params.get('category') ?? '';
-  const sort = params.get('sort') ?? '';
+  const {
+    q,
+    category,
+    sort,
+    page,
+    pageSize,
+    mode,
+    setFilter,
+    setPage,
+    setPageSize,
+    setMode,
+    buildFilterUrl,
+  } = useListParams('infinite');
   const [input, setInput] = useState(q);
+  const resultsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setInput(q);
   }, [q]);
 
-  const { data, loading, error, reload } = useApi(
-    () => dishesApi.listPublic(q, category, sort),
-    [q, category, sort],
-  );
+  const list = usePagedList<Dish>({
+    loadPage: (targetPage) =>
+      dishesApi.listPublic({ q, category, sort, page: targetPage, pageSize }),
+    page,
+    mode,
+    filtersKey: `${q}|${category}|${sort}|${pageSize}`,
+    onPageChange: setPage,
+  });
 
-  function setParam(key: string, value: string) {
-    const next = new URLSearchParams(params);
-    if (value) next.set(key, value);
-    else next.delete(key);
-    setParams(next);
+  useEffect(() => {
+    if (mode === 'pages' && page > 1) {
+      resultsRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    }
+  }, [mode, page, pageSize]);
+
+  function onSubmit(event: FormEvent) {
+    event.preventDefault();
+    setFilter('q', input.trim());
   }
 
-  function onSubmit(e: FormEvent) {
-    e.preventDefault();
-    setParam('q', input.trim());
-  }
-
-  function categoryTo(key: string): string {
-    const next = new URLSearchParams(params);
-    if (key) next.set('category', key);
-    else next.delete('category');
-    const qs = next.toString();
-    return qs ? `/dishes?${qs}` : '/dishes';
-  }
-
-  const results = data ?? [];
+  const results = list.items;
+  const total = list.pagination?.total ?? 0;
 
   return (
     <div>
@@ -62,11 +70,15 @@ export default function DishList() {
 
       <div className="toolbar">
         <div className="filters">
-          <Link to="/dishes" className={category ? undefined : 'active'}>
+          <Link to={`/dishes${buildFilterUrl({ category: '' })}`} className={category ? undefined : 'active'}>
             Tất cả
           </Link>
           {CATEGORIES.map((key) => (
-            <Link key={key} to={categoryTo(key)} className={category === key ? 'active' : undefined}>
+            <Link
+              key={key}
+              to={`/dishes${buildFilterUrl({ category: key })}`}
+              className={category === key ? 'active' : undefined}
+            >
               {categoryLabel(key)}
             </Link>
           ))}
@@ -76,19 +88,19 @@ export default function DishList() {
             className="menu-search"
             type="search"
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(event) => setInput(event.target.value)}
             placeholder="Tìm món theo tên…"
             aria-label="Tìm món theo tên"
           />
           <select
             className="menu-sort"
             value={sort}
-            onChange={(e) => setParam('sort', e.target.value)}
+            onChange={(event) => setFilter('sort', event.target.value)}
             aria-label="Sắp xếp"
           >
-            {SORTS.map((s) => (
-              <option key={s.value} value={s.value}>
-                {s.label}
+            {SORTS.map((item) => (
+              <option key={item.value} value={item.value}>
+                {item.label}
               </option>
             ))}
           </select>
@@ -98,21 +110,37 @@ export default function DishList() {
         </form>
       </div>
 
-      {loading ? (
+      {(list.loading || list.loadingMore) && results.length === 0 ? (
         <SkeletonGrid />
-      ) : error ? (
-        <ErrorState error={error} onRetry={reload} />
+      ) : list.error && results.length === 0 ? (
+        <ErrorState error={list.error} onRetry={list.reload} />
       ) : (
-        <div className="menu-skel">
+        <div className="menu-skel" ref={resultsRef}>
           <div className="eyebrow" style={{ marginTop: 38 }}>
             Kết quả{q ? ` cho “${q}”` : ''}{' '}
-            <span style={{ color: 'var(--ink-2)' }}>— {results.length} món</span>
+            <span style={{ color: 'var(--ink-2)' }}>— {total} món</span>
           </div>
+
+          <PaginationToolbar
+            mode={mode}
+            onMode={setMode}
+            page={page}
+            pageSize={pageSize}
+            onPageSize={setPageSize}
+            pagination={list.pagination}
+            unit="món"
+          />
+
           {results.length ? (
             <div className="grid" style={{ marginTop: 22 }}>
               {results.map((dish) => (
                 <DishCard key={dish.id} dish={dish} />
               ))}
+            </div>
+          ) : list.outOfRange ? (
+            <div className="empty" style={{ marginTop: 36 }}>
+              <b>Trang {page} vượt quá phạm vi</b>
+              Kết quả hiện có {list.pagination?.totalPages ?? 0} trang. Dùng nút bên dưới để quay lại.
             </div>
           ) : (
             <div className="empty" style={{ marginTop: 36 }}>
@@ -125,6 +153,20 @@ export default function DishList() {
               </div>
             </div>
           )}
+
+          <PaginationFooter
+            mode={mode}
+            page={page}
+            pagination={list.pagination}
+            loading={list.loading}
+            loadingMore={list.loadingMore}
+            error={list.error}
+            moreError={list.moreError}
+            hasNext={list.hasNext}
+            onPage={setPage}
+            onLoadMore={list.loadNext}
+            unit="món"
+          />
         </div>
       )}
     </div>

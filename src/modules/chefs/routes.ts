@@ -4,6 +4,7 @@ import type { Prisma } from '../../generated/prisma/client.js';
 import { prisma } from '../../lib/prisma.js';
 import { badRequest, notFound, sendOk } from '../../lib/http.js';
 import { buildPagination, skipFor } from '../../lib/pagination.js';
+import { bumpVisibleRecordCount, getVisibleRecordCount } from '../../lib/record-counters.js';
 import { listParams, isNotFound, paramId } from '../../lib/admin.js';
 import { requiredText, optionalText, optionalInt, optionalPhone, checkbox, toFieldErrors } from '../../lib/validation.js';
 import { fileFor, validateImage, saveWithImage, type UploadedFile } from '../../lib/storage.js';
@@ -22,7 +23,7 @@ export const ChefSchema = z.object({
 });
 
 router.get('/', requirePermission('chef:create'), async (req, res) => {
-  const { page, q, filters } = listParams(req);
+  const { page, pageSize, q, filters } = listParams(req);
   const where: Prisma.ChefWhereInput = {
     deletedAt: null,
     ...(q
@@ -35,19 +36,19 @@ router.get('/', requirePermission('chef:create'), async (req, res) => {
       : {}),
   };
 
-  const [total, chefs] = await Promise.all([
-    prisma.chef.count({ where }),
-    prisma.chef.findMany({
-      where,
-      orderBy: [{ updatedAt: 'desc' }],
-      skip: skipFor(page),
-      take: 10,
-    }),
-  ]);
+  const total = q ? await prisma.chef.count({ where }) : await getVisibleRecordCount('chef');
+  const pagination = buildPagination(page, total, filters, pageSize);
+
+  const chefs = await prisma.chef.findMany({
+    where,
+    orderBy: [{ updatedAt: 'desc' }],
+    skip: skipFor(page, pageSize),
+    take: pageSize,
+  });
 
   return sendOk(res, {
     chefs,
-    pagination: buildPagination(page, total, filters),
+    pagination,
     q,
   });
 });
@@ -88,6 +89,7 @@ router.post('/', requirePermission('chef:create'), async (req, res) => {
       });
     },
   );
+  bumpVisibleRecordCount('chef', 1);
 
   return sendOk(res, { chef: createdChef, message: `Đã tạo đầu bếp "${data.name}".` });
 });
@@ -147,6 +149,7 @@ router.delete('/:id', requirePermission('chef:delete'), async (req, res) => {
       where: { id },
       data: { deletedAt: new Date() },
     });
+    bumpVisibleRecordCount('chef', -1);
     return sendOk(res, null);
   } catch (e) {
     if (isNotFound(e)) throw notFound('Đầu bếp');
@@ -159,10 +162,12 @@ router.post('/:id/restore', requirePermission('chef:update'), async (req, res) =
   try {
     const existing = await prisma.chef.findUnique({ where: { id } });
     if (!existing) throw notFound('Đầu bếp');
+    const wasDeleted = existing.deletedAt !== null;
     const chef = await prisma.chef.update({
       where: { id },
       data: { deletedAt: null },
     });
+    if (wasDeleted) bumpVisibleRecordCount('chef', 1);
     return sendOk(res, { chef, message: `Đã khôi phục đầu bếp "${chef.name}".` });
   } catch (e) {
     if (isNotFound(e)) throw notFound('Đầu bếp');

@@ -9,7 +9,7 @@ A modern client-side rendered (CSR) web application for restaurant meal manageme
 ### 1. Public Dining Portal (`/`)
 
 - **Homepage (`/`)**: Hero carousel, chef-highlighted dishes (`isFeatured`), and brand ticker.
-- **Menu & Dish Catalog (`/dishes`)**: Category filter pills (`appetizer`, `main`, `dessert`, `drink`, `combo`), server-side keyword search via query parameter (`/dishes?q=...`), price/name sorting, and real-time **"Sold out"** badges.
+- **Menu & Dish Catalog (`/dishes`)**: Category filter pills (`appetizer`, `main`, `dessert`, `drink`, `combo`), server-side keyword search via query parameter (`/dishes?q=...`), price/name sorting, and real-time **"Sold out"** badges. Server pagination supports `page` and `pageSize` (default 20, max 100) with switchable **infinite scroll / load more / numbered pages** modes; all paging/filter state is URL-backed.
 - **Dish Detail (`/dishes/:id` & `/dishes/:slug`)**: High-resolution dish imagery, formatted pricing in VND, preparation time, ingredient breakdown (names only, protecting internal inventory costs), and creator Chef spotlight. Supports direct lookup by both UUID `id` and SEO `slug`.
 
 ### 2. Admin Operations Portal (`/admin`)
@@ -118,18 +118,18 @@ Legacy `/api/admin/*` routes remain fully supported as backward-compatibility al
 | `/api/auth/callback`           |        GET/POST         |     Public     | Supabase OAuth / email verification callback                                |
 | `/api/home`                    |           GET           |     Public     | Featured dishes for the home page                                           |
 | `/api/menu`                    |           GET           |     Public     | Full visible dish catalog; optional `q`, `category`, `sort` (no pagination) |
-| `/api/dishes`                  |        GET, POST        | Public / Staff | List catalog (public) or admin filter; create dish (`dish:create`)          |
+| `/api/dishes`                  |        GET, POST        | Public / Staff | List catalog with server pagination (`page`, `pageSize` ≤ 100), `q`, `category`, `sort`; create dish (`dish:create`) |
 | `/api/dishes/:idOrSlug`        | GET, PATCH, PUT, DELETE | Public / Staff | View dish (public); update / soft-delete (`dish:update`/`delete`)           |
 | `/api/dishes/:id/restore`      |          POST           | Staff / Admin  | Restore soft-deleted dish                                                   |
 | `/api/dishes/form-deps`        |           GET           | Staff / Admin  | Active chefs and ingredients options for dish editor                        |
-| `/api/chefs`                   |        GET, POST        | Staff / Admin  | List chefs; create new chef profile                                         |
+| `/api/chefs`                   |        GET, POST        | Staff / Admin  | List chefs with pagination (`page`, `pageSize`) & search; create new chef profile |
 | `/api/chefs/:id`               | GET, PATCH, PUT, DELETE | Staff / Admin  | View, update, or soft-delete chef                                           |
 | `/api/chefs/:id/restore`       |          POST           | Staff / Admin  | Restore soft-deleted chef                                                   |
-| `/api/ingredients`             |        GET, POST        | Staff / Admin  | List ingredients inventory; create new ingredient                           |
+| `/api/ingredients`             |        GET, POST        | Staff / Admin  | List ingredients with pagination (`page`, `pageSize`) & search; create new ingredient |
 | `/api/ingredients/:id`         | GET, PATCH, PUT, DELETE | Staff / Admin  | View, update, or soft-delete ingredient                                     |
 | `/api/ingredients/:id/restore` |          POST           | Staff / Admin  | Restore soft-deleted ingredient                                             |
 | `/api/stats`                   |           GET           | Staff / Admin  | Dashboard summary counts (dishes, chefs, ingredients, users)                |
-| `/api/users`                   |           GET           |   Admin only   | List registered users with pagination & search                              |
+| `/api/users`                   |           GET           |   Admin only   | List registered users with pagination (`page`, `pageSize`) & search                              |
 | `/api/users/:id/role`          |       PATCH, POST       |   Admin only   | Change user role (`CUSTOMER`, `STAFF`, `ADMIN`)                             |
 | `/api/admin/*`                 |           ANY           | Staff / Admin  | Backward-compatibility aliases for `/api/*` management endpoints            |
 

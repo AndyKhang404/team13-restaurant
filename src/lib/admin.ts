@@ -1,15 +1,18 @@
 import type { Request } from 'express';
 import { Prisma } from '../generated/prisma/client.js';
 import { notFound } from './http.js';
-import { parsePage } from './pagination.js';
+import { PAGE_SIZE, parsePaginationQuery } from './pagination.js';
 
 export function listParams(req: Request) {
   const q = typeof req.query.q === 'string' ? req.query.q.trim().slice(0, 100) : '';
+  const { page, pageSize } = parsePaginationQuery(req.query as Record<string, unknown>);
   const filters: Record<string, string | undefined> = {
     q: q || undefined,
+    ...(pageSize !== PAGE_SIZE ? { pageSize: String(pageSize) } : {}),
   };
   return {
-    page: parsePage(req.query.page),
+    page,
+    pageSize,
     q,
     filters,
   };

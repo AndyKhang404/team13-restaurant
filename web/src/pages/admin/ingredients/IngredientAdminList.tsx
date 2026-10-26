@@ -1,66 +1,72 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { ingredientsApi } from '../../../lib/resources';
-import { useApi } from '../../../lib/useApi';
+import { useListParams } from '../../../lib/useListParams';
+import { usePagedList } from '../../../lib/usePagedList';
 import { ErrorState, SkeletonRows } from '../../../components/StateViews';
-import { PanelPager } from '../../../components/PanelPager';
+import { PaginationFooter, PaginationToolbar } from '../../../components/Pagination';
 import { formatVnd } from '../../../lib/format';
-
-const PAGE_SIZE = 10;
+import type { Ingredient } from '../../../lib/types';
 
 export default function IngredientAdminList() {
-  const { data, loading, error, reload } = useApi(() => ingredientsApi.list(), []);
-  const [q, setQ] = useState('');
-  const [appliedQ, setAppliedQ] = useState('');
-  const [page, setPage] = useState(1);
+  const { q, page, pageSize, mode, setFilter, setPage, setPageSize, setMode, clearFilters } =
+    useListParams('pages');
+  const [qInput, setQInput] = useState(q);
 
-  function onSubmit(e: FormEvent) {
-    e.preventDefault();
-    setAppliedQ(q);
-    setPage(1);
+  useEffect(() => {
+    setQInput(q);
+  }, [q]);
+
+  const list = usePagedList<Ingredient>({
+    loadPage: (targetPage) => ingredientsApi.listPaged({ q, page: targetPage, pageSize }),
+    page,
+    mode,
+    filtersKey: `${q}|${pageSize}`,
+    onPageChange: setPage,
+  });
+
+  function onSubmit(event: FormEvent) {
+    event.preventDefault();
+    setFilter('q', qInput.trim());
   }
 
-  const filtered = useMemo(() => {
-    const term = appliedQ.trim().toLowerCase();
-    if (!term) return data ?? [];
-    return (data ?? []).filter((i) => i.name.toLowerCase().includes(term));
-  }, [data, appliedQ]);
+  function reset() {
+    setQInput('');
+    clearFilters(['q']);
+  }
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const current = Math.min(page, totalPages);
-  const rows = filtered.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE);
+  const rows = list.items;
+  const total = list.pagination?.total ?? 0;
 
   return (
     <section className="panel">
       <div className="panel-head">
         <h2>Danh sách nguyên liệu</h2>
-        <span className="count">{filtered.length} bản ghi</span>
+        <span className="count">{total} bản ghi</span>
         <div className="panel-tools">
           <form className="search" onSubmit={onSubmit}>
             <input
               type="search"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
+              value={qInput}
+              onChange={(event) => setQInput(event.target.value)}
               placeholder="Tìm theo tên nguyên liệu"
             />
             <button type="submit">Tìm</button>
           </form>
           <form
-            onSubmit={(e) => {
-              e.preventDefault();
+            onSubmit={(event) => {
+              event.preventDefault();
               setPage(1);
             }}
             style={{ display: 'flex', gap: 10, alignItems: 'center' }}
           >
-            {appliedQ ? (
+            {q ? (
               <a
                 className="link-quiet"
                 href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setQ('');
-                  setAppliedQ('');
-                  setPage(1);
+                onClick={(event) => {
+                  event.preventDefault();
+                  reset();
                 }}
               >
                 Xóa lọc
@@ -72,6 +78,16 @@ export default function IngredientAdminList() {
           </Link>
         </div>
       </div>
+
+      <PaginationToolbar
+        mode={mode}
+        onMode={setMode}
+        page={page}
+        pageSize={pageSize}
+        onPageSize={setPageSize}
+        pagination={list.pagination}
+        unit="bản ghi"
+      />
 
       <div className="table-wrap">
         <table>
@@ -87,36 +103,36 @@ export default function IngredientAdminList() {
             </tr>
           </thead>
           <tbody className="fade-late">
-            {error ? (
+            {list.error && rows.length === 0 ? (
               <tr>
                 <td colSpan={7}>
-                  <ErrorState error={error} onRetry={reload} />
+                  <ErrorState error={list.error} onRetry={list.reload} />
                 </td>
               </tr>
             ) : (
-              rows.map((ing) => (
-                <tr key={ing.id}>
+              rows.map((ingredient) => (
+                <tr key={ingredient.id}>
                   <td>
-                    {ing.imageUrl ? (
-                      <img className="thumb" src={ing.imageUrl} alt={ing.name} />
+                    {ingredient.imageUrl ? (
+                      <img className="thumb" src={ingredient.imageUrl} alt={ingredient.name} />
                     ) : (
-                      <span className="avatar">{ing.unit}</span>
+                      <span className="avatar">{ingredient.unit}</span>
                     )}
                   </td>
                   <td>
                     <div className="cell-item">
                       <div>
-                        <b>{ing.name}</b>
+                        <b>{ingredient.name}</b>
                       </div>
                     </div>
                   </td>
                   <td>
-                    <span className="badge">{ing.unit}</span>
+                    <span className="badge">{ingredient.unit}</span>
                   </td>
-                  <td className="num">{ing.stockQuantity}</td>
-                  <td className="num">{formatVnd(ing.pricePerUnit)}</td>
+                  <td className="num">{ingredient.stockQuantity}</td>
+                  <td className="num">{formatVnd(ingredient.pricePerUnit)}</td>
                   <td>
-                    {ing.isAvailable ? (
+                    {ingredient.isAvailable ? (
                       <span className="badge ok">Sẵn có</span>
                     ) : (
                       <span className="badge warn">Hết</span>
@@ -124,12 +140,15 @@ export default function IngredientAdminList() {
                   </td>
                   <td>
                     <div className="row-actions">
-                      <Link className="btn btn-sm btn-quiet" to={`/admin/ingredients/${ing.id}/edit`}>
+                      <Link
+                        className="btn btn-sm btn-quiet"
+                        to={`/admin/ingredients/${ingredient.id}/edit`}
+                      >
                         Sửa
                       </Link>
                       <Link
                         className="btn btn-sm btn-danger"
-                        to={`/admin/ingredients/${ing.id}/delete`}
+                        to={`/admin/ingredients/${ingredient.id}/delete`}
                       >
                         Xóa
                       </Link>
@@ -141,17 +160,31 @@ export default function IngredientAdminList() {
           </tbody>
         </table>
 
-        {!loading && !error && filtered.length === 0 ? (
+        {!list.loading && !list.error && total === 0 ? (
           <div className="empty">
             <b>Không có nguyên liệu nào</b>
             Thử đổi từ khóa bộ lọc, hoặc thêm nguyên liệu mới cho kho.
           </div>
         ) : null}
 
-        {loading ? <SkeletonRows rows={3} /> : null}
+        {(list.loading || list.loadingMore) && rows.length === 0 ? <SkeletonRows rows={3} /> : null}
       </div>
 
-      <PanelPager page={current} totalPages={totalPages} total={filtered.length} onPage={setPage} />
+      <div className="panel-foot">
+        <PaginationFooter
+          mode={mode}
+          page={page}
+          pagination={list.pagination}
+          loading={list.loading}
+          loadingMore={list.loadingMore}
+          error={list.error}
+          moreError={list.moreError}
+          hasNext={list.hasNext}
+          onPage={setPage}
+          onLoadMore={list.loadNext}
+          unit="bản ghi"
+        />
+      </div>
     </section>
   );
 }

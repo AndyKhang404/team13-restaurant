@@ -9,6 +9,8 @@ import type {
   DishInput,
   Ingredient,
   IngredientInput,
+  Paged,
+  Pagination,
   UserItem,
   UserRole,
 } from './types';
@@ -18,17 +20,18 @@ function qs(q?: string): string {
   return term ? `?q=${encodeURIComponent(term)}` : '';
 }
 
-function buildQuery(params: Record<string, string | undefined>): string {
+function buildQuery(params: Record<string, string | number | undefined>): string {
   const sp = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
-    const term = value?.trim();
+    if (value === undefined) continue;
+    const term = String(value).trim();
     if (term) sp.set(key, term);
   }
   const s = sp.toString();
   return s ? `?${s}` : '';
 }
 
-/** Follows `pagination` and collects every page (admin lists render 10/page server-side). */
+/** Follows `pagination` and collects every page (server default is 20/page). */
 async function fetchAllPages<T>(
   path: string,
   key: string,
@@ -102,14 +105,24 @@ function toFormData(
   return fd;
 }
 
+export interface DishListParams {
+  q?: string;
+  category?: string;
+  sort?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+async function fetchDishesPage(params: DishListParams): Promise<Paged<Dish>> {
+  const data = await apiFetch<{ dishes: RawDish[]; pagination: Pagination }>(
+    `/dishes${buildQuery({ ...params })}`,
+  );
+  return { items: data.dishes.map(normalizeDish), pagination: data.pagination };
+}
+
 export const dishesApi = {
   /** Public menu / dishes (visible dishes only). */
-  listPublic: async (q?: string, category?: string, sort?: string) => {
-    const query = buildQuery({ q, category, sort });
-    const data = await apiFetch<RawDish[] | { dishes: RawDish[] }>(`/dishes${query}`);
-    const list = Array.isArray(data) ? data : data.dishes;
-    return list.map(normalizeDish);
-  },
+  listPublic: (params: DishListParams = {}) => fetchDishesPage(params),
   /** Featured dishes for the home page. */
   featured: async () => {
     const data = await apiFetch<{ featured: RawDish[] }>('/');
@@ -126,11 +139,8 @@ export const dishesApi = {
     return normalizeDish(data);
   },
 
-  /** Admin list (paginated, 10/page server-side). */
-  list: async (q?: string) => {
-    const dishes = await fetchAllPages<RawDish>(`/dishes${qs(q)}`, 'dishes');
-    return dishes.map(normalizeDish);
-  },
+  /** Admin list (paginated, 20/page server-side). */
+  listPaged: (params: DishListParams = {}) => fetchDishesPage(params),
   get: async (id: string) => {
     const data = await apiFetch<{ dish: RawDish }>(`/dishes/${id}`);
     return normalizeDish(data.dish);
@@ -155,10 +165,14 @@ export const dishesApi = {
 };
 
 export const chefsApi = {
-  list: async (q?: string) => {
-    const chefs = await fetchAllPages<Chef>(`/chefs${qs(q)}`, 'chefs');
-    return chefs;
+  listPaged: async (params: { q?: string; page?: number; pageSize?: number } = {}): Promise<Paged<Chef>> => {
+    const data = await apiFetch<{ chefs: Chef[]; pagination: Pagination }>(
+      `/chefs${buildQuery({ ...params })}`,
+    );
+    return { items: data.chefs, pagination: data.pagination };
   },
+  /** All chef options for form dropdowns (may span multiple pages). */
+  options: async (q?: string) => fetchAllPages<Chef>(`/chefs${qs(q)}`, 'chefs'),
   get: async (id: string) => {
     const data = await apiFetch<{ chef: Chef }>(`/chefs/${id}`);
     return data.chef;
@@ -183,13 +197,14 @@ export const chefsApi = {
 };
 
 export const ingredientsApi = {
-  list: async (q?: string) => {
-    const ingredients = await fetchAllPages<Ingredient>(
-      `/ingredients${qs(q)}`,
-      'ingredients',
+  listPaged: async (params: { q?: string; page?: number; pageSize?: number } = {}): Promise<Paged<Ingredient>> => {
+    const data = await apiFetch<{ ingredients: Ingredient[]; pagination: Pagination }>(
+      `/ingredients${buildQuery({ ...params })}`,
     );
-    return ingredients;
+    return { items: data.ingredients, pagination: data.pagination };
   },
+  /** All ingredient options for form dropdowns (may span multiple pages). */
+  options: async (q?: string) => fetchAllPages<Ingredient>(`/ingredients${qs(q)}`, 'ingredients'),
   get: async (id: string) => {
     const data = await apiFetch<{ ingredient: Ingredient }>(`/ingredients/${id}`);
     return data.ingredient;
@@ -285,7 +300,12 @@ export const statsApi = {
 };
 
 export const usersApi = {
-  list: (q?: string) => fetchAllPages<UserItem>(`/users${qs(q)}`, 'users'),
+  listPaged: async (params: { q?: string; page?: number; pageSize?: number } = {}): Promise<Paged<UserItem>> => {
+    const data = await apiFetch<{ users: UserItem[]; pagination: Pagination }>(
+      `/users${buildQuery({ ...params })}`,
+    );
+    return { items: data.users, pagination: data.pagination };
+  },
   updateRole: (id: string, role: UserRole) =>
     apiFetch<{ user: UserItem; message: string }>(`/users/${id}/role`, {
       method: 'PATCH',

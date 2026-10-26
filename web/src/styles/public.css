@@ -78,10 +78,13 @@ a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid var(-
 
 /* ---------- pagination ---------- */
 .pager{display:flex;gap:0;justify-content:center;padding:24px 0 72px;border-top:1px solid var(--line);margin-top:40px}
-.pager a,.pager span{min-width:44px;height:44px;padding:0 14px;display:grid;place-items:center;border:1px solid var(--line);border-left:0;font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-2);background:var(--surface);transition:background .3s var(--ease),color .3s var(--ease),border-color .3s var(--ease)}
-.pager a:first-child,.pager span:first-child{border-left:1px solid var(--line)}
-.pager a:hover{color:var(--paper);background:var(--accent);border-color:var(--accent);z-index:1}
+.pager a,.pager span,.pager button{min-width:44px;height:44px;padding:0 14px;display:grid;place-items:center;border:1px solid var(--line);border-left:0;font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-2);background:var(--surface);transition:background .3s var(--ease),color .3s var(--ease),border-color .3s var(--ease);cursor:pointer}
+.pager a:first-child,.pager span:first-child,.pager button:first-child{border-left:1px solid var(--line)}
+.pager a:hover,.pager button:hover:not(:disabled){color:var(--paper);background:var(--accent);border-color:var(--accent);z-index:1}
+.pager button:disabled{opacity:.45;cursor:not-allowed}
 .pager .current{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.menu-skel .pagination-more,.menu-skel .pagination-infinite{margin-top:40px;border-top:1px solid var(--line);padding:24px 0 64px}
+.menu-skel .pagination-status{margin-top:40px;border-top:1px solid var(--line);padding:24px 0}
 
 /* ---------- detail ---------- */
 .crumbs{font-family:var(--mono);font-size:11.5px;text-transform:uppercase;letter-spacing:.14em;color:var(--ink-2);padding:30px 0 0}

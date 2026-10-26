@@ -1,3 +1,6 @@
+import { beforeEach } from 'vitest';
+import { resetRecordCounters } from '../src/lib/record-counters.js';
+
 process.env.NODE_ENV = 'test';
 process.env.PORT = '3000';
 process.env.APP_URL = 'http://localhost:3000';
@@ -7,3 +10,7 @@ process.env.SUPABASE_PUBLISHABLE_KEY = 'dummy-publishable-key';
 process.env.SUPABASE_SECRET_KEY = 'dummy-secret-key';
 process.env.STORAGE_BUCKET = 'images';
 process.env.CSRF_SECRET = 'a-very-long-dummy-csrf-secret-key-at-least-32-chars';
+
+beforeEach(() => {
+  resetRecordCounters();
+});

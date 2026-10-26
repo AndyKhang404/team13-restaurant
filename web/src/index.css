@@ -2,6 +2,28 @@
 @import './styles/public.css';
 @import './styles/admin.css';
 
+/* ---------- shared list pagination controls ---------- */
+.pagination-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:22px}
+.pagination-summary{font-family:var(--mono);font-size:11.5px;text-transform:uppercase;letter-spacing:.13em;color:var(--ink-2)}
+.pagination-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.pagination-size{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-2)}
+.pagination-size select{height:34px;padding:0 8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-family:var(--mono);font-size:11px;cursor:pointer}
+.pagination-modes{display:inline-flex;border:1px solid var(--line);background:var(--surface)}
+.pagination-modes button{height:34px;padding:0 12px;border:0;border-left:1px solid var(--line);background:transparent;color:var(--ink-2);font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.12em;cursor:pointer;transition:background .3s var(--ease),color .3s var(--ease)}
+.pagination-modes button:first-child{border-left:0}
+.pagination-modes button:hover{color:var(--accent)}
+.pagination-modes button.is-active{background:var(--ink);color:var(--paper)}
+.pagination-status{width:100%;padding:18px 0;text-align:center;font-family:var(--mono);font-size:11.5px;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-2)}
+.pagination-out-of-range{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap}
+.pagination-more,.pagination-infinite{width:100%;display:flex;flex-direction:column;align-items:center;gap:10px;padding:22px 0 8px}
+.pagination-sentinel{min-height:52px;display:grid;place-items:center;font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-2)}
+.pagination-error{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;padding:12px 16px;border:1px solid var(--danger);color:var(--danger);font-size:13.5px}
+.pager button{appearance:none}
+.pager .gap{pointer-events:none}
+.shell .panel > .pagination-toolbar{margin-top:0;padding:12px 20px;border-bottom:1px solid var(--line)}
+.shell .panel-foot > .pagination-more,.shell .panel-foot > .pagination-infinite,.shell .panel-foot > .pagination-status{flex:1;width:auto}
+@media (max-width:640px){.pagination-toolbar{align-items:flex-start;flex-direction:column}.pagination-controls{width:100%;justify-content:space-between}.pagination-modes{flex:1}.pagination-modes button{flex:1}}
+
 /* Prevent duplicate submits: controls are disabled while a request is in flight. */
 button:disabled,
 .btn:disabled,

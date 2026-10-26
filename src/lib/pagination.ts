@@ -1,4 +1,9 @@
-export const PAGE_SIZE = 10;
+import { z } from 'zod';
+import { badRequest } from './http.js';
+import { toFieldErrors } from './validation.js';
+
+export const PAGE_SIZE = 20;
+export const MAX_PAGE_SIZE = 100;
 
 export interface Pagination {
   page: number;
@@ -13,9 +18,51 @@ export interface Pagination {
   baseQuery: string;
 }
 
-export function parsePage(raw: unknown): number {
-  const n = Number.parseInt(String(raw ?? '1'), 10);
-  return Number.isFinite(n) && n > 0 ? n : 1;
+const blankToUndefined = (value: unknown) =>
+  value === undefined || value === null || value === '' ? undefined : value;
+
+const pageSchema = z.preprocess(
+  blankToUndefined,
+  z.coerce
+    .number({ error: 'Trang phải là số' })
+    .int('Trang phải là số nguyên')
+    .min(1, 'Trang phải ít nhất 1')
+    .optional()
+    .default(1),
+);
+
+const pageSizeSchema = z.preprocess(
+  blankToUndefined,
+  z.coerce
+    .number({ error: 'Số bản ghi mỗi trang phải là số' })
+    .int('Số bản ghi mỗi trang phải là số nguyên')
+    .min(1, 'Số bản ghi mỗi trang phải ít nhất 1')
+    .max(MAX_PAGE_SIZE, `Số bản ghi mỗi trang không quá ${MAX_PAGE_SIZE}`)
+    .optional()
+    .default(PAGE_SIZE),
+);
+
+const PaginationQuerySchema = z.object({
+  page: pageSchema,
+  pageSize: pageSizeSchema,
+});
+
+export function parsePaginationQuery(query: Record<string, unknown>): {
+  page: number;
+  pageSize: number;
+} {
+  const parsed = PaginationQuerySchema.safeParse({
+    page: query.page,
+    pageSize: query.pageSize,
+  });
+  if (!parsed.success) {
+    throw badRequest(
+      'Tham số phân trang không hợp lệ.',
+      'VALIDATION_FAILED',
+      toFieldErrors(parsed.error),
+    );
+  }
+  return parsed.data;
 }
 
 export function buildPagination(
@@ -24,19 +71,18 @@ export function buildPagination(
   filters: Record<string, string | undefined> = {},
   pageSize = PAGE_SIZE,
 ): Pagination {
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const current = Math.min(page, totalPages);
+  const totalPages = Math.ceil(total / pageSize);
   const params = new URLSearchParams();
   for (const [k, v] of Object.entries(filters)) if (v) params.set(k, v);
   return {
-    page: current,
+    page,
     pageSize,
     total,
     totalPages,
-    hasPrev: current > 1,
-    hasNext: current < totalPages,
-    prevPage: current - 1,
-    nextPage: current + 1,
+    hasPrev: page > 1,
+    hasNext: page < totalPages,
+    prevPage: page - 1,
+    nextPage: page + 1,
     baseQuery: params.toString(),
   };
 }

@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { DishCategory } from '../../generated/prisma/enums.js';
 import type { Prisma } from '../../generated/prisma/client.js';
 import { prisma } from '../../lib/prisma.js';
-import { notFound, sendOk } from '../../lib/http.js';
+import { sendOk } from '../../lib/http.js';
 import { CATEGORY_LABELS } from '../../lib/format.js';
 
 const router = Router();

@@ -175,7 +175,7 @@ function FeaturedCarousel({ items }: { items: Dish[] }) {
 
 export default function Home() {
   const { user } = useAuth();
-  const { data, loading, error, reload } = useApi(() => dishesApi.listPublic(), []);
+  const { data, loading, error, reload } = useApi(() => dishesApi.featured(), []);
   const featured = (data ?? []).filter((d) => d.isFeatured);
   const hero = featured[0];
 

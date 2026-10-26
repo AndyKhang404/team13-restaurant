@@ -1,65 +1,72 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { dishesApi } from '../../../lib/resources';
-import { useApi } from '../../../lib/useApi';
+import { useListParams } from '../../../lib/useListParams';
+import { usePagedList } from '../../../lib/usePagedList';
 import { ErrorState, SkeletonRows } from '../../../components/StateViews';
-import { PanelPager } from '../../../components/PanelPager';
+import { PaginationFooter, PaginationToolbar } from '../../../components/Pagination';
 import { formatVnd } from '../../../lib/format';
-import { CATEGORIES, categoryLabel } from '../../../lib/types';
-
-const PAGE_SIZE = 10;
+import { CATEGORIES, categoryLabel, type Dish } from '../../../lib/types';
 
 export default function DishAdminList() {
-  const { data, loading, error, reload } = useApi(() => dishesApi.list(), []);
-  const [q, setQ] = useState('');
-  const [appliedQ, setAppliedQ] = useState('');
-  const [category, setCategory] = useState('');
-  const [page, setPage] = useState(1);
+  const {
+    q,
+    category,
+    page,
+    pageSize,
+    mode,
+    setFilter,
+    setPage,
+    setPageSize,
+    setMode,
+    clearFilters,
+  } = useListParams('pages');
+  const [qInput, setQInput] = useState(q);
 
-  function onSubmit(e: FormEvent) {
-    e.preventDefault();
-    setAppliedQ(q);
-    setPage(1);
+  useEffect(() => {
+    setQInput(q);
+  }, [q]);
+
+  const list = usePagedList<Dish>({
+    loadPage: (targetPage) =>
+      dishesApi.listPaged({ q, category, page: targetPage, pageSize }),
+    page,
+    mode,
+    filtersKey: `${q}|${category}|${pageSize}`,
+    onPageChange: setPage,
+  });
+
+  function onSubmit(event: FormEvent) {
+    event.preventDefault();
+    setFilter('q', qInput.trim());
   }
 
   function reset() {
-    setQ('');
-    setAppliedQ('');
-    setCategory('');
-    setPage(1);
+    setQInput('');
+    clearFilters(['q', 'category']);
   }
 
-  const filtered = useMemo(() => {
-    const term = appliedQ.trim().toLowerCase();
-    return (data ?? []).filter((d) => {
-      if (category && d.category !== category) return false;
-      if (term && !d.name.toLowerCase().includes(term)) return false;
-      return true;
-    });
-  }, [data, appliedQ, category]);
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const current = Math.min(page, totalPages);
-  const rows = filtered.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE);
+  const rows = list.items;
+  const total = list.pagination?.total ?? 0;
 
   return (
     <section className="panel">
       <div className="panel-head">
         <h2>Danh sách món ăn</h2>
-        <span className="count">{filtered.length} bản ghi</span>
+        <span className="count">{total} bản ghi</span>
         <div className="panel-tools">
           <form className="search" onSubmit={onSubmit}>
             <input
               type="search"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
+              value={qInput}
+              onChange={(event) => setQInput(event.target.value)}
               placeholder="Tìm theo tên món"
             />
             <button type="submit">Tìm</button>
           </form>
           <form
-            onSubmit={(e) => {
-              e.preventDefault();
+            onSubmit={(event) => {
+              event.preventDefault();
               setPage(1);
             }}
             style={{ display: 'flex', gap: 10, alignItems: 'center' }}
@@ -67,10 +74,7 @@ export default function DishAdminList() {
             <select
               className="tools-select"
               value={category}
-              onChange={(e) => {
-                setCategory(e.target.value);
-                setPage(1);
-              }}
+              onChange={(event) => setFilter('category', event.target.value)}
             >
               <option value="">Tất cả danh mục</option>
               {CATEGORIES.map((key) => (
@@ -79,12 +83,12 @@ export default function DishAdminList() {
                 </option>
               ))}
             </select>
-            {appliedQ || category ? (
+            {q || category ? (
               <a
                 className="link-quiet"
                 href="#"
-                onClick={(e) => {
-                  e.preventDefault();
+                onClick={(event) => {
+                  event.preventDefault();
                   reset();
                 }}
               >
@@ -97,6 +101,16 @@ export default function DishAdminList() {
           </Link>
         </div>
       </div>
+
+      <PaginationToolbar
+        mode={mode}
+        onMode={setMode}
+        page={page}
+        pageSize={pageSize}
+        onPageSize={setPageSize}
+        pagination={list.pagination}
+        unit="bản ghi"
+      />
 
       <div className="table-wrap">
         <table>
@@ -112,10 +126,10 @@ export default function DishAdminList() {
             </tr>
           </thead>
           <tbody className="fade-late">
-            {error ? (
+            {list.error && rows.length === 0 ? (
               <tr>
                 <td colSpan={7}>
-                  <ErrorState error={error} onRetry={reload} />
+                  <ErrorState error={list.error} onRetry={list.reload} />
                 </td>
               </tr>
             ) : (
@@ -164,17 +178,31 @@ export default function DishAdminList() {
           </tbody>
         </table>
 
-        {!loading && !error && filtered.length === 0 ? (
+        {!list.loading && !list.error && total === 0 ? (
           <div className="empty">
             <b>Không có món ăn nào</b>
             Thử đổi từ khóa bộ lọc, hoặc thêm món mới vào thực đơn.
           </div>
         ) : null}
 
-        {loading ? <SkeletonRows rows={5} /> : null}
+        {(list.loading || list.loadingMore) && rows.length === 0 ? <SkeletonRows rows={5} /> : null}
       </div>
 
-      <PanelPager page={current} totalPages={totalPages} total={filtered.length} onPage={setPage} />
+      <div className="panel-foot">
+        <PaginationFooter
+          mode={mode}
+          page={page}
+          pagination={list.pagination}
+          loading={list.loading}
+          loadingMore={list.loadingMore}
+          error={list.error}
+          moreError={list.moreError}
+          hasNext={list.hasNext}
+          onPage={setPage}
+          onLoadMore={list.loadNext}
+          unit="bản ghi"
+        />
+      </div>
     </section>
   );
 }
