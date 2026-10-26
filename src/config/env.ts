@@ -5,6 +5,7 @@ const EnvSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.coerce.number().int().positive().default(3000),
   APP_URL: z.url().default('http://localhost:3000'),
+  CORS_ORIGIN: z.string().optional().default(''),
 
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required (Supabase pooler URL)'),
 
@@ -18,6 +19,10 @@ const EnvSchema = z.object({
     .min(1, 'SUPABASE_SECRET_KEY is required')
     .default(() => process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''),
   STORAGE_BUCKET: z.string().min(1).default('images'),
+
+  // Extra browser origin(s) allowed to call the API, comma-separated (CORS).
+  // In development, localhost/127.0.0.1 origins are allowed automatically.
+  SPA_ORIGIN: z.string().optional(),
 
   CSRF_SECRET: z.string().min(32, 'CSRF_SECRET must be at least 32 characters'),
 });

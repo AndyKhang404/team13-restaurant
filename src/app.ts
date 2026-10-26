@@ -1,148 +1,127 @@
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import express, { type ErrorRequestHandler } from 'express';
-import { engine } from 'express-handlebars';
 import cookieParser from 'cookie-parser';
 import morgan from 'morgan';
 import helmet from 'helmet';
 
 import { env, isProd } from './config/env.js';
-import { formatVnd, formatDateTime, CATEGORY_LABELS } from './lib/format.js';
-import { can, type Permission } from './auth/permissions.js';
-import { browserId, flash, multipart, csrfProtection, csrfToken } from './middleware/security.js';
-import { methodOverride } from './middleware/method-override.js';
+import { corsMiddleware } from './middleware/cors.js';
+import { browserId, multipart, csrfProtection, csrfToken } from './middleware/security.js';
 import { loadUser } from './auth/middleware.js';
-import { HttpError } from './lib/http.js';
+import { HttpError, isBusinessError, sendBusinessError, technicalErrorBody, type ApiErrorCode } from './lib/http.js';
 
 import publicRouter from './modules/public/routes.js';
 import authRouter from './auth/routes.js';
-import adminRouter from './modules/admin/routes.js';
+import adminRouter, { statsRouter } from './modules/admin/routes.js';
+import dishesRouter from './modules/dishes/routes.js';
+import chefsRouter from './modules/chefs/routes.js';
+import ingredientsRouter from './modules/ingredients/routes.js';
+import usersRouter from './modules/users/routes.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const viewsDir = path.join(__dirname, 'views');
 const publicDir = path.join(process.cwd(), 'public');
+const clientDistDir = path.join(process.cwd(), 'dist/client');
 
 export function createApp() {
   const app = express();
 
+  // API payloads are dynamic and business errors are HTTP 200 with `ok:false`.
+  // ETag revalidation would let Express answer a repeat GET with 304 (no body),
+  // hiding the error envelope, so never generate ETags for dynamic responses.
+  app.set('etag', false);
+
   // Basic security headers & logging
   app.use(
     helmet({
-      contentSecurityPolicy: false, // Allows flexible CDN assets / inline SVGs in SSR templates
+      contentSecurityPolicy: false,
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
     }),
   );
   if (!isProd) {
     app.use(morgan('dev'));
   }
 
-  // Static assets
-  app.use(express.static(publicDir));
+  // CORS (must run before CSRF so preflight OPTIONS is answered)
+  app.use(corsMiddleware);
 
-  // Handlebars template engine setup
-  app.engine(
-    'hbs',
-    engine({
-      extname: '.hbs',
-      defaultLayout: 'public',
-      layoutsDir: path.join(viewsDir, 'layouts'),
-      partialsDir: path.join(viewsDir, 'partials'),
-      helpers: {
-        formatVnd: (val: unknown) => formatVnd(val),
-        formatDateTime: (val: unknown) => formatDateTime(val),
-        categoryLabel: (cat: string) => CATEGORY_LABELS[cat] ?? cat,
-        eq: (a: unknown, b: unknown) => a === b,
-        neq: (a: unknown, b: unknown) => a !== b,
-        gt: (a: unknown, b: unknown) => Number(a) > Number(b),
-        gte: (a: unknown, b: unknown) => Number(a) >= Number(b),
-        lt: (a: unknown, b: unknown) => Number(a) < Number(b),
-        lte: (a: unknown, b: unknown) => Number(a) <= Number(b),
-        or: (a: unknown, b: unknown) => Boolean(a || b),
-        and: (a: unknown, b: unknown) => Boolean(a && b),
-        not: (a: unknown) => !a,
-        concat: (...args: unknown[]) => args.slice(0, -1).join(''),
-        can: (user: unknown, perm: unknown) => can(user as any, perm as Permission),
-        json: (val: unknown) => JSON.stringify(val),
-        add: (a: unknown, b: unknown) => Number(a) + Number(b),
-        subtract: (a: unknown, b: unknown) => Number(a) - Number(b),
-      },
-    }),
-  );
-  app.set('view engine', 'hbs');
-  app.set('views', viewsDir);
+  // Static assets: public files and built SPA client bundle
+  app.use(express.static(publicDir));
+  app.use(express.static(clientDistDir));
 
   // Body and cookie parsing
   app.use(express.urlencoded({ extended: true }));
   app.use(express.json());
   app.use(cookieParser(env.CSRF_SECRET));
 
-  // Browser ID cookie for CSRF binding + Flash messages.
-  // NOTE: `flash` runs before `multipart` so oversized uploads can redirect
-  // back with a friendly message instead of a bare 500 page.
+  // Browser ID cookie for CSRF binding
   app.use(browserId);
-  app.use(flash);
 
   // Multipart parser (for image uploads)
   app.use(multipart);
 
-  // HTML forms can only send GET/POST natively; allow PATCH/DELETE via a
-  // hidden `_method` field (must run after multipart so req.body is populated)
-  app.use(methodOverride);
-
-  // Double-submit CSRF protection + inject csrfToken helper to res.locals
+  // Double-submit CSRF protection
   app.use(csrfProtection);
   app.use(csrfToken);
 
   // Load user from Supabase auth cookie and link to Prisma Profile
   app.use(loadUser);
 
-  // App routes
-  app.use('/', publicRouter);
-  app.use('/', authRouter);
-  app.use('/admin', adminRouter);
-
-  // 404 Handler
-  app.use((req, res, _next) => {
-    const isAdmin = req.path.startsWith('/admin');
-    res.status(404).render('pages/errors/404', {
-      layout: isAdmin ? 'admin' : 'public',
-      title: 'Page Not Found',
-      path: req.path,
-    });
+  // Never let the browser cache API JSON (including `ok:false` business errors).
+  app.use('/api', (_req, res, next) => {
+    res.setHeader('Cache-Control', 'no-store');
+    next();
   });
 
-  // Global Error Handler
+  // REST API routes
+  app.use('/api/auth', authRouter);
+  app.use('/api/dishes', dishesRouter);
+  app.use('/api/chefs', chefsRouter);
+  app.use('/api/ingredients', ingredientsRouter);
+  app.use('/api/users', usersRouter);
+  app.use('/api/stats', statsRouter);
+  app.use('/api/admin', adminRouter);
+  app.use('/api', publicRouter);
+
+  // SPA fallback for HTML navigation (production) or 404 for API
+  app.use((req, res, next) => {
+    if (req.path.startsWith('/api')) {
+      return res
+        .status(404)
+        .json(technicalErrorBody('NOT_FOUND', `Endpoint ${req.method} ${req.path} not found`));
+    }
+    if (req.method === 'GET' && req.accepts('html')) {
+      return res.sendFile(path.join(clientDistDir, 'index.html'), (err) => {
+        if (err) next(err);
+      });
+    }
+    next();
+  });
+
+  // Global Error Handler returning consistent JSON response
   const errorHandler: ErrorRequestHandler = (err, req, res, _next) => {
-    const status = err instanceof HttpError ? err.status : err.status || 500;
-    const isAdmin = req.path.startsWith('/admin');
-    const layout = isAdmin ? 'admin' : 'public';
+    let status = err instanceof HttpError ? err.status : err.status || 500;
+    let code: ApiErrorCode | string = err instanceof HttpError ? err.code : 'INTERNAL_ERROR';
+    let message = err.message || 'An unexpected server error occurred.';
+    const fields = err instanceof HttpError ? err.fields : undefined;
 
-    if (status === 403) {
-      return res.status(403).render('pages/errors/403', {
-        layout,
-        title: 'Access Denied',
-        message: err.message || 'You do not have permission to view this resource.',
-      });
+    // Handle doubleCsrf errors
+    if (err.code === 'EBADCSRFTOKEN' || message.toLowerCase().includes('csrf')) {
+      status = 403;
+      code = 'CSRF_INVALID';
+      message = 'CSRF token không hợp lệ hoặc đã hết hạn.';
     }
 
-    if (status === 404) {
-      return res.status(404).render('pages/errors/404', {
-        layout,
-        title: 'Not Found',
-        message: err.message || 'The requested resource was not found.',
-      });
+    if (!isProd && status >= 500) {
+      console.error('[API Server Error]', err);
     }
 
-    if (!isProd) {
-      console.error('[Error]', err);
+    // Handler-produced business errors: HTTP 200 + { ok:false, error } (deck slide 13).
+    if (isBusinessError(err)) {
+      return sendBusinessError(res, code, message, fields);
     }
 
-    res.status(status).render('pages/errors/500', {
-      layout,
-      title: 'Server Error',
-      message: isProd ? 'An unexpected server error occurred.' : err.message,
-      stack: isProd ? null : err.stack,
-    });
+    // Technical errors (wrong URL, crash, auth): real status, body without `ok`.
+    const safeMessage = isProd && status >= 500 ? 'An unexpected server error occurred.' : message;
+    return res.status(status).json(technicalErrorBody(code, safeMessage, fields));
   };
 
   app.use(errorHandler);

@@ -1,13 +1,14 @@
-import { Router } from 'express';
+import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 import type { EmailOtpType } from '@supabase/supabase-js';
 import { env } from '../config/env.js';
 import { prisma } from '../lib/prisma.js';
 import { createSupabaseForRequest } from '../lib/supabase.js';
-import { safeNext } from '../lib/http.js';
+import { safeNext, sendOk, sendError } from '../lib/http.js';
 import { toFieldErrors } from '../lib/validation.js';
 import { can } from './permissions.js';
 import { authRateLimit } from '../middleware/rate-limit.js';
+import { generateCsrfToken } from '../middleware/security.js';
 
 const router = Router();
 
@@ -42,56 +43,51 @@ async function landingFor(userId: string, email: string, next: unknown): Promise
   return safeNext(next, fallback);
 }
 
-router.get('/login', (req, res) => {
-  if (req.user) return res.redirect(safeNext(req.query.next, '/'));
-  res.render('pages/auth/login', { title: 'Sign in', next: req.query.next ?? '', values: {} });
+/** Returns the authenticated user session and fresh CSRF token. */
+router.get('/me', (req, res) => {
+  const csrf = generateCsrfToken(req, res);
+  return sendOk(res, {
+    user: req.user,
+    csrfToken: csrf,
+  });
 });
 
 router.post('/login', authRateLimit(), async (req, res) => {
   const next = req.body?.next;
   const parsed = LoginSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(422).render('pages/auth/login', {
-      title: 'Sign in',
-      next,
-      values: req.body,
-      errors: toFieldErrors(parsed.error),
-    });
+    return sendError(res, 422, 'VALIDATION_ERROR', 'Dữ liệu đăng nhập không hợp lệ', toFieldErrors(parsed.error));
   }
+
   const supabase = createSupabaseForRequest(req, res);
   const { data, error } = await supabase.auth.signInWithPassword(parsed.data);
   if (error || !data.user) {
-    return res.status(401).render('pages/auth/login', {
-      title: 'Sign in',
-      next,
-      values: { email: parsed.data.email },
-      formError:
-        error?.code === 'email_not_confirmed'
-          ? 'Vui lòng xác nhận địa chỉ email trước.'
-          : 'Email hoặc mật khẩu không đúng.',
-    });
+    if (error?.code === 'email_not_confirmed') {
+      return sendError(res, 401, 'EMAIL_NOT_CONFIRMED', 'Vui lòng xác nhận địa chỉ email trước.');
+    }
+    return sendError(res, 401, 'INVALID_CREDENTIALS', 'Email hoặc mật khẩu không đúng.');
   }
-  req.flash('success', 'Đăng nhập thành công.');
-  res.redirect(await landingFor(data.user.id, data.user.email ?? parsed.data.email, next));
-});
 
-router.get('/register', (req, res) => {
-  if (req.user) return res.redirect('/');
-  res.render('pages/auth/register', { title: 'Create account', values: {} });
+  const redirectTo = await landingFor(data.user.id, data.user.email ?? parsed.data.email, next);
+  const profile = await prisma.profile.findUnique({ where: { id: data.user.id } });
+
+  return sendOk(res, {
+    user: profile,
+    token: data.session?.access_token,
+    accessToken: data.session?.access_token,
+    session: data.session,
+    redirectTo,
+    message: 'Đăng nhập thành công.',
+  });
 });
 
 router.post('/register', authRateLimit(), async (req, res) => {
   const parsed = RegisterSchema.safeParse(req.body);
-  const values = { displayName: req.body?.displayName, email: req.body?.email };
   if (!parsed.success) {
-    return res.status(422).render('pages/auth/register', {
-      title: 'Create account',
-      values,
-      errors: toFieldErrors(parsed.error),
-    });
+    return sendError(res, 422, 'VALIDATION_ERROR', 'Dữ liệu đăng ký không hợp lệ', toFieldErrors(parsed.error));
   }
+
   const { email, password, displayName } = parsed.data;
-  // Whitespace-only names become null so profiles never store "".
   const cleanName = displayName && displayName.trim() !== '' ? displayName : null;
   const supabase = createSupabaseForRequest(req, res);
   const { data, error } = await supabase.auth.signUp({
@@ -102,41 +98,54 @@ router.post('/register', authRateLimit(), async (req, res) => {
       emailRedirectTo: `${env.APP_URL}/auth/callback`,
     },
   });
+
   if (error) {
-    return res.status(400).render('pages/auth/register', {
-      title: 'Create account',
-      values,
-      formError: error.message,
-    });
+    return sendError(res, 400, 'AUTH_ERROR', error.message);
   }
+
+  let profile = null;
   if (data.user) {
-    await prisma.profile.upsert({
+    profile = await prisma.profile.upsert({
       where: { id: data.user.id },
       create: { id: data.user.id, email, displayName: cleanName },
       update: {},
     });
   }
+
   if (data.session) {
-    // Email confirmation disabled: user is signed in immediately.
-    req.flash('success', 'Chào mừng! Tài khoản của bạn đã được tạo.');
-    return res.redirect('/');
+    const redirectTo = await landingFor(data.user!.id, email, undefined);
+    return sendOk(res, {
+      requiresEmailConfirmation: false,
+      email,
+      user: profile,
+      token: data.session.access_token,
+      accessToken: data.session.access_token,
+      session: data.session,
+      redirectTo,
+      message: 'Chào mừng! Tài khoản của bạn đã được tạo.',
+    });
   }
-  res.render('pages/auth/check-email', { title: 'Check your email', email });
+
+  return sendOk(res, {
+    requiresEmailConfirmation: true,
+    email,
+    message: 'Vui lòng kiểm tra email để xác nhận tài khoản.',
+  });
 });
 
 router.post('/logout', async (req, res) => {
   const supabase = createSupabaseForRequest(req, res);
   await supabase.auth.signOut();
-  req.flash('info', 'Bạn đã đăng xuất.');
-  res.redirect('/');
+  return sendOk(res, { message: 'Bạn đã đăng xuất.' });
 });
 
 /** Email confirmation / magic-link landing (PKCE `code` or `token_hash` flow). */
-router.get('/auth/callback', async (req, res) => {
+async function handleAuthCallback(req: Request, res: Response) {
   const supabase = createSupabaseForRequest(req, res);
-  const code = typeof req.query.code === 'string' ? req.query.code : null;
-  const tokenHash = typeof req.query.token_hash === 'string' ? req.query.token_hash : null;
-  const type = typeof req.query.type === 'string' ? (req.query.type as EmailOtpType) : null;
+  const code = typeof req.query.code === 'string' ? req.query.code : typeof req.body?.code === 'string' ? req.body.code : null;
+  const tokenHash = typeof req.query.token_hash === 'string' ? req.query.token_hash : typeof req.body?.token_hash === 'string' ? req.body.token_hash : null;
+  const type = typeof req.query.type === 'string' ? (req.query.type as EmailOtpType) : typeof req.body?.type === 'string' ? (req.body.type as EmailOtpType) : null;
+  const next = req.query.next ?? req.body?.next;
 
   const { data, error } = code
     ? await supabase.auth.exchangeCodeForSession(code)
@@ -145,11 +154,23 @@ router.get('/auth/callback', async (req, res) => {
       : { data: { user: null }, error: new Error('Missing confirmation code') };
 
   if (error || !data.user) {
-    req.flash('error', 'Liên kết xác nhận không hợp lệ hoặc đã hết hạn. Vui lòng đăng nhập.');
-    return res.redirect('/login');
+    return sendError(res, 400, 'AUTH_ERROR', 'Liên kết xác nhận không hợp lệ hoặc đã hết hạn.');
   }
-  req.flash('success', 'Email đã được xác nhận. Chào mừng bạn!');
-  res.redirect(await landingFor(data.user.id, data.user.email ?? '', req.query.next));
-});
+
+  const redirectTo = await landingFor(data.user.id, data.user.email ?? '', next);
+  const profile = await prisma.profile.findUnique({ where: { id: data.user.id } });
+
+  return sendOk(res, {
+    user: profile,
+    token: data.session?.access_token,
+    accessToken: data.session?.access_token,
+    session: data.session,
+    redirectTo,
+    message: 'Email đã được xác nhận. Chào mừng bạn!',
+  });
+}
+
+router.get('/callback', handleAuthCallback);
+router.post('/callback', handleAuthCallback);
 
 export default router;

@@ -9,30 +9,24 @@ export type Permission =
   | 'dish:create'
   | 'dish:update'
   | 'dish:delete'
-  | 'dish:restore'
   | 'chef:create'
   | 'chef:update'
   | 'chef:delete'
-  | 'chef:restore'
   | 'ingredient:create'
   | 'ingredient:update'
   | 'ingredient:delete'
-  | 'ingredient:restore'
   | 'user:manage';
 
 const CONTENT_PERMISSIONS: Permission[] = [
   'dish:create',
   'dish:update',
   'dish:delete',
-  'dish:restore',
   'chef:create',
   'chef:update',
   'chef:delete',
-  'chef:restore',
   'ingredient:create',
   'ingredient:update',
   'ingredient:delete',
-  'ingredient:restore',
 ];
 
 export const ROLE_PERMISSIONS: Record<Role, ReadonlySet<Permission>> = {

@@ -1,8 +1,0 @@
-{{#if flash}}
-  {{#each flash}}
-    <div class="alert {{#if (eq type 'error')}}error{{else if (eq type 'info')}}info{{/if}}">
-      <b>{{#if (eq type 'error')}}Lỗi{{else if (eq type 'info')}}Thông tin{{else}}Thành công{{/if}}</b>
-      <span>{{message}}</span>
-    </div>
-  {{/each}}
-{{/if}}

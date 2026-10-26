@@ -1,0 +1,14 @@
+@import 'tailwindcss';
+@import './styles/public.css';
+@import './styles/admin.css';
+
+/* Prevent duplicate submits: controls are disabled while a request is in flight. */
+button:disabled,
+.btn:disabled,
+.shell .btn:disabled,
+.shell .side-link:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}

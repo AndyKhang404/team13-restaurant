@@ -5,15 +5,12 @@ import { parsePage } from './pagination.js';
 
 export function listParams(req: Request) {
   const q = typeof req.query.q === 'string' ? req.query.q.trim().slice(0, 100) : '';
-  const showDeleted = req.query.deleted === '1';
   const filters: Record<string, string | undefined> = {
     q: q || undefined,
-    deleted: showDeleted ? '1' : undefined,
   };
   return {
     page: parsePage(req.query.page),
     q,
-    showDeleted,
     filters,
   };
 }

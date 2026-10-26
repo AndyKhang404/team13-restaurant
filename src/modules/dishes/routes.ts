@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { DishCategory } from '../../generated/prisma/enums.js';
 import type { Prisma } from '../../generated/prisma/client.js';
 import { prisma } from '../../lib/prisma.js';
-import { notFound } from '../../lib/http.js';
+import { badRequest, conflict, notFound, sendOk } from '../../lib/http.js';
 import { buildPagination, skipFor } from '../../lib/pagination.js';
 import { listParams, isNotFound, isUniqueViolation, paramId } from '../../lib/admin.js';
 import { slugify, nextFreeSlug } from '../../lib/slug.js';
@@ -12,6 +12,7 @@ import {
   optionalText,
   decimal,
   optionalInt,
+  uuid,
   optionalUuid,
   checkbox,
   toFieldErrors,
@@ -19,6 +20,7 @@ import {
 } from '../../lib/validation.js';
 import { fileFor, validateImage, saveWithImage, type UploadedFile } from '../../lib/storage.js';
 import { CATEGORY_LABELS } from '../../lib/format.js';
+import { can } from '../../auth/permissions.js';
 import { requirePermission } from '../../auth/middleware.js';
 
 const router = Router();
@@ -26,7 +28,7 @@ const router = Router();
 const CATEGORIES = Object.values(DishCategory);
 
 const DishIngredientItemSchema = z.object({
-  ingredientId: z.uuid({ error: 'Nguyên liệu không hợp lệ' }),
+  ingredientId: uuid('Nguyên liệu'),
   quantity: decimal('Số lượng', 0.01),
   unit: optionalText(30).default('g'),
 });
@@ -45,9 +47,39 @@ const DishSchema = z.object({
 });
 
 /** Parse dynamically submitted dish ingredient rows from body.
- * Body can have: `ingredient_id[]`, `quantity[]`, `unit[]`
+ * Supports:
+ * - JSON array of objects: `body.ingredients = [{ ingredientId, quantity, unit }]`
+ * - JSON string: `body.ingredients = '[{...}]'`
+ * - Multi-field form: `ingredient_id[]`, `quantity[]`, `unit[]`
  */
 function parseIngredientRows(body: Record<string, unknown>): Array<{ ingredientId: string; quantity: number; unit: string }> {
+  if (Array.isArray(body['ingredients'])) {
+    return (body['ingredients'] as Array<Record<string, unknown>>)
+      .map((item) => ({
+        ingredientId: String(item?.['ingredientId'] ?? item?.['ingredient_id'] ?? '').trim(),
+        quantity: Number(item?.['quantity']),
+        unit: String(item?.['unit'] ?? 'g').trim() || 'g',
+      }))
+      .filter((r) => r.ingredientId && Number.isFinite(r.quantity) && r.quantity > 0);
+  }
+
+  if (typeof body['ingredients'] === 'string') {
+    try {
+      const parsed = JSON.parse(body['ingredients']);
+      if (Array.isArray(parsed)) {
+        return (parsed as Array<Record<string, unknown>>)
+          .map((item) => ({
+            ingredientId: String(item?.['ingredientId'] ?? item?.['ingredient_id'] ?? '').trim(),
+            quantity: Number(item?.['quantity']),
+            unit: String(item?.['unit'] ?? 'g').trim() || 'g',
+          }))
+          .filter((r) => r.ingredientId && Number.isFinite(r.quantity) && r.quantity > 0);
+      }
+    } catch {
+      // Ignore JSON parse errors for non-JSON strings
+    }
+  }
+
   const ids = Array.isArray(body['ingredient_id'])
     ? (body['ingredient_id'] as string[])
     : body['ingredient_id']
@@ -76,11 +108,7 @@ function parseIngredientRows(body: Record<string, unknown>): Array<{ ingredientI
   return rows;
 }
 
-/** Schema-check each ingredient row and reject duplicates.
- * A duplicated ingredient would otherwise violate the (dishId, ingredientId)
- * primary key and crash with a 500, so it is reported as a 400 form error.
- * `raw` rows are echoed back to the form unchanged so the user can fix them.
- */
+/** Schema-check each ingredient row and reject duplicates. */
 export function validateIngredientRows(
   raw: Array<{ ingredientId: string; quantity: number; unit: string }>,
 ): {
@@ -110,10 +138,7 @@ export function validateIngredientRows(
   return { rows, errors };
 }
 
-/** Preload options for dropdowns in dish form (chefs & ingredients).
- * New forms only list active records; edit forms additionally keep records
- * that are already linked to the dish (marked [đã xóa] in the template).
- */
+/** Preload options for dropdowns in dish form (chefs & ingredients). */
 async function loadFormDependencies(currentDishId?: string) {
   const linkedDish = currentDishId ? { some: { id: currentDishId } } : undefined;
   const linkedDishIngredient = currentDishId ? { some: { dishId: currentDishId } } : undefined;
@@ -152,51 +177,128 @@ async function loadFormDependencies(currentDishId?: string) {
   };
 }
 
-router.get('/', requirePermission('dish:create'), async (req, res) => {
-  const { page, q, showDeleted, filters } = listParams(req);
+const visibleDish: Prisma.DishWhereInput = { deletedAt: null };
+
+const SORTS: Record<string, Prisma.DishOrderByWithRelationInput[]> = {
+  '': [{ name: 'asc' }],
+  'name-asc': [{ name: 'asc' }],
+  'name-desc': [{ name: 'desc' }],
+  'price-asc': [{ price: 'asc' }],
+  'price-desc': [{ price: 'desc' }],
+  newest: [{ updatedAt: 'desc' }],
+};
+
+router.get('/form-deps', requirePermission('dish:create'), async (req, res) => {
+  const dishId = typeof req.query.dishId === 'string' ? req.query.dishId : undefined;
+  const deps = await loadFormDependencies(dishId);
+  return sendOk(res, deps);
+});
+
+router.get('/', async (req, res) => {
+  const { page, q, filters } = listParams(req);
   const rawCat = typeof req.query.category === 'string' ? req.query.category : '';
   const category = CATEGORIES.includes(rawCat as DishCategory) ? (rawCat as DishCategory) : undefined;
   if (category) filters['category'] = category;
 
+  const sortRaw = typeof req.query.sort === 'string' ? req.query.sort : '';
+  const sort = sortRaw in SORTS ? sortRaw : '';
+
+  const hasStaffPerm = can(req.user, 'dish:create');
+  const showDeleted = req.query.deleted === '1' && hasStaffPerm;
+
   const where: Prisma.DishWhereInput = {
-    ...(showDeleted ? { deletedAt: { not: null } } : { deletedAt: null }),
+    ...(showDeleted ? {} : visibleDish),
     ...(category ? { category } : {}),
     ...(q ? { name: { contains: q, mode: 'insensitive' } } : {}),
   };
 
-  const [total, dishes] = await Promise.all([
-    prisma.dish.count({ where }),
-    prisma.dish.findMany({
+  const orderBy = SORTS[sort] ?? [{ updatedAt: 'desc' }];
+  const total = await prisma.dish.count({ where });
+
+  const isPageSpecified = req.query.page !== undefined;
+  const isAll = req.query.all === '1' || req.query.all === 'true';
+
+  let dishes: Awaited<ReturnType<typeof prisma.dish.findMany>>;
+  let paginationInfo;
+
+  if (isPageSpecified && !isAll) {
+    dishes = await prisma.dish.findMany({
       where,
       include: { chef: true },
-      orderBy: [{ updatedAt: 'desc' }],
+      orderBy,
       skip: skipFor(page),
       take: 10,
-    }),
-  ]);
+    });
+    paginationInfo = buildPagination(page, total, filters);
+  } else {
+    dishes = await prisma.dish.findMany({
+      where,
+      include: { chef: true },
+      orderBy,
+    });
+    paginationInfo = {
+      page: 1,
+      totalPages: 1,
+      total,
+      hasPrev: false,
+      hasNext: false,
+      filters,
+    };
+  }
 
-  res.render('pages/admin/dishes/index', {
-    layout: 'admin',
-    title: 'Danh sách món ăn',
+  return sendOk(res, {
     dishes,
-    pagination: buildPagination(page, total, filters),
+    pagination: paginationInfo,
     q,
     category,
     categories: CATEGORIES.map((c) => ({ key: c, label: CATEGORY_LABELS[c] ?? c })),
-    showDeleted,
   });
 });
 
-router.get('/new', requirePermission('dish:create'), async (_req, res) => {
-  const deps = await loadFormDependencies();
-  res.render('pages/admin/dishes/form', {
-    layout: 'admin',
-    title: 'Món mới',
-    isNew: true,
-    values: { isAvailable: true, isFeatured: false, category: 'main' },
-    dishIngredients: [],
-    ...deps,
-    errors: {},
+router.get('/:idOrSlug', async (req, res) => {
+  const raw = req.params.idOrSlug;
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(raw);
+
+  const where: Prisma.DishWhereInput = isUuid
+    ? { OR: [{ id: raw }, { slug: raw }] }
+    : { slug: raw };
+
+  const dish = await prisma.dish.findFirst({
+    where,
+    include: {
+      chef: true,
+      ingredients: {
+        include: { ingredient: true },
+        orderBy: { ingredient: { name: 'asc' } },
+      },
+    },
+  });
+
+  if (!dish) throw notFound('Món ăn');
+
+  const hasStaffPerm = can(req.user, 'dish:create');
+  if (dish.deletedAt !== null && !hasStaffPerm) {
+    throw notFound('Món ăn');
+  }
+
+  const deps = await loadFormDependencies(dish.id);
+  const chef = dish.chef && dish.chef.deletedAt === null && dish.chef.isActive ? dish.chef : null;
+
+  return sendOk(res, {
+    dish,
+    chef: dish.chef ?? chef,
+    ingredients: dish.ingredients
+      .filter((di) => di.ingredient.deletedAt === null)
+      .map((di) => di.ingredient.name),
+    dishIngredients: dish.ingredients.map((di) => ({
+      ingredientId: di.ingredientId,
+      quantity: Number(di.quantity),
+      unit: di.unit ?? 'g',
+    })),
+    chefs: deps.chefs,
+    availableIngredients: deps.ingredients,
+    categories: deps.categories,
+    categoryLabel: CATEGORY_LABELS[dish.category] ?? dish.category,
   });
 });
 
@@ -212,16 +314,7 @@ router.post('/', requirePermission('dish:create'), async (req, res) => {
     const errors: FieldErrors = parsed.success ? {} : toFieldErrors(parsed.error);
     Object.assign(errors, rowErrors);
     if (imageErr) errors['image'] = imageErr;
-    const deps = await loadFormDependencies();
-    return res.status(400).render('pages/admin/dishes/form', {
-      layout: 'admin',
-      title: 'Món mới',
-      isNew: true,
-      values: req.body,
-      dishIngredients: rawRows,
-      ...deps,
-      errors,
-    });
+    throw badRequest('Thông tin món ăn không hợp lệ', 'VALIDATION_FAILED', errors);
   }
 
   const data = parsed.data;
@@ -237,8 +330,9 @@ router.post('/', requirePermission('dish:create'), async (req, res) => {
   const finalSlug = nextFreeSlug(baseSlug, existingSlugs);
 
   try {
+    let createdDish: Awaited<ReturnType<typeof prisma.dish.create>> | null = null;
     await saveWithImage({ folder: 'dishes', file }, async (imageUrl) => {
-      await prisma.dish.create({
+      createdDish = await prisma.dish.create({
         data: {
           name: data.name,
           slug: finalSlug,
@@ -260,52 +354,20 @@ router.post('/', requirePermission('dish:create'), async (req, res) => {
         },
       });
     });
+
+    return sendOk(res, { dish: createdDish, message: `Đã tạo món "${data.name}".` });
   } catch (e) {
     if (isUniqueViolation(e, 'slug')) {
-      const deps = await loadFormDependencies();
-      return res.status(400).render('pages/admin/dishes/form', {
-        layout: 'admin',
-        title: 'Món mới',
-        isNew: true,
-        values: req.body,
-        dishIngredients: ingredientRows,
-        ...deps,
-        errors: { slug: 'Slug này đã được dùng' },
-      });
+      throw conflict('Slug này đã được dùng', { slug: 'Slug này đã được dùng' });
     }
     throw e;
   }
-
-  req.flash('success', `Đã tạo món "${data.name}".`);
-  res.redirect(303, '/admin/dishes');
 });
 
-router.get('/:id/edit', requirePermission('dish:update'), async (req, res) => {
-  const id = paramId(req.params.id);
-  const deps = await loadFormDependencies(id);
-  const dish = deps.currentDish;
-  if (!dish) throw notFound('Dish');
-
-  res.render('pages/admin/dishes/form', {
-    layout: 'admin',
-      title: `Sửa món: ${dish.name}`,
-    isNew: false,
-    dish,
-    values: dish,
-    dishIngredients: dish.ingredients.map((di) => ({
-      ingredientId: di.ingredientId,
-      quantity: Number(di.quantity),
-      unit: di.unit ?? 'g',
-    })),
-    ...deps,
-    errors: {},
-  });
-});
-
-router.patch('/:id', requirePermission('dish:update'), async (req, res) => {
+async function handleUpdateDish(req: import('express').Request, res: import('express').Response) {
   const id = paramId(req.params.id);
   const existing = await prisma.dish.findUnique({ where: { id } });
-  if (!existing) throw notFound('Dish');
+  if (!existing) throw notFound('Món ăn');
 
   const file = fileFor(req.files, 'image') as UploadedFile | undefined;
   const imageErr = file ? validateImage(file) : null;
@@ -318,21 +380,10 @@ router.patch('/:id', requirePermission('dish:update'), async (req, res) => {
     const errors: FieldErrors = parsed.success ? {} : toFieldErrors(parsed.error);
     Object.assign(errors, rowErrors);
     if (imageErr) errors['image'] = imageErr;
-    const deps = await loadFormDependencies(id);
-    return res.status(400).render('pages/admin/dishes/form', {
-      layout: 'admin',
-      title: `Sửa món: ${existing.name}`,
-      isNew: false,
-      dish: existing,
-      values: req.body,
-      dishIngredients: rawRows,
-      ...deps,
-      errors,
-    });
+    throw badRequest('Thông tin món ăn không hợp lệ', 'VALIDATION_FAILED', errors);
   }
 
   const data = parsed.data;
-  // Slugs don't change automatically to prevent broken URLs, unless explicitly entered differently
   let finalSlug = existing.slug;
   if (data.slug && data.slug !== existing.slug) {
     const baseSlug = slugify(data.slug);
@@ -346,6 +397,7 @@ router.patch('/:id', requirePermission('dish:update'), async (req, res) => {
   }
 
   try {
+    let updatedDish: Awaited<ReturnType<typeof prisma.dish.update>> | null = null;
     await saveWithImage(
       {
         folder: 'dishes',
@@ -356,7 +408,7 @@ router.patch('/:id', requirePermission('dish:update'), async (req, res) => {
       async (imageUrl) => {
         await prisma.$transaction(async (tx) => {
           await tx.dishIngredient.deleteMany({ where: { dishId: existing.id } });
-          await tx.dish.update({
+          updatedDish = await tx.dish.update({
             where: { id: existing.id },
             data: {
               name: data.name,
@@ -381,67 +433,49 @@ router.patch('/:id', requirePermission('dish:update'), async (req, res) => {
         });
       },
     );
+
+    return sendOk(res, { dish: updatedDish, message: `Đã cập nhật món "${data.name}".` });
   } catch (e) {
     if (isUniqueViolation(e, 'slug')) {
-      const deps = await loadFormDependencies(id);
-      return res.status(400).render('pages/admin/dishes/form', {
-        layout: 'admin',
-        title: `Sửa món: ${existing.name}`,
-        isNew: false,
-        dish: existing,
-        values: req.body,
-        dishIngredients: ingredientRows,
-        ...deps,
-        errors: { slug: 'Slug này đã được dùng' },
-      });
+      throw conflict('Slug này đã được dùng', { slug: 'Slug này đã được dùng' });
     }
     throw e;
   }
+}
 
-  req.flash('success', `Đã cập nhật món "${data.name}".`);
-  res.redirect(303, '/admin/dishes');
-});
-
-router.get('/:id/delete', requirePermission('dish:delete'), async (req, res) => {
-  const id = paramId(req.params.id);
-  const dish = await prisma.dish.findUnique({ where: { id } });
-  if (!dish) throw notFound('Dish');
-
-  res.render('pages/admin/dishes/delete', {
-    layout: 'admin',
-    title: `Xác nhận xóa: ${dish.name}`,
-    dish,
-  });
-});
+router.patch('/:id', requirePermission('dish:update'), handleUpdateDish);
+router.put('/:id', requirePermission('dish:update'), handleUpdateDish);
 
 router.delete('/:id', requirePermission('dish:delete'), async (req, res) => {
   const id = paramId(req.params.id);
   try {
+    const existing = await prisma.dish.findUnique({ where: { id } });
+    if (!existing || existing.deletedAt !== null) throw notFound('Món ăn');
     await prisma.dish.update({
       where: { id },
       data: { deletedAt: new Date() },
     });
-    req.flash('success', 'Đã chuyển món vào danh sách đã xóa.');
+    return sendOk(res, null);
   } catch (e) {
-    if (isNotFound(e)) throw notFound('Dish');
+    if (isNotFound(e)) throw notFound('Món ăn');
     throw e;
   }
-  res.redirect(303, '/admin/dishes');
 });
 
-router.post('/:id/restore', requirePermission('dish:restore'), async (req, res) => {
+router.post('/:id/restore', requirePermission('dish:update'), async (req, res) => {
   const id = paramId(req.params.id);
   try {
-    await prisma.dish.update({
+    const existing = await prisma.dish.findUnique({ where: { id } });
+    if (!existing) throw notFound('Món ăn');
+    const dish = await prisma.dish.update({
       where: { id },
       data: { deletedAt: null },
     });
-    req.flash('success', 'Đã khôi phục món ăn.');
+    return sendOk(res, { dish, message: `Đã khôi phục món "${dish.name}".` });
   } catch (e) {
-    if (isNotFound(e)) throw notFound('Dish');
+    if (isNotFound(e)) throw notFound('Món ăn');
     throw e;
   }
-  res.redirect(303, '/admin/dishes?deleted=1');
 });
 
 export default router;

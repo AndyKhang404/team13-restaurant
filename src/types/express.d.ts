@@ -7,7 +7,6 @@ export interface FlashMessage {
 }
 
 declare global {
-  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
       /** Signed-in user's profile, or null for anonymous visitors. Set by `loadUser`. */

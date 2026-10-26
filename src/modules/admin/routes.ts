@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../../lib/prisma.js';
 import { requirePermission } from '../../auth/middleware.js';
+import { sendOk } from '../../lib/http.js';
 import dishesRouter from '../dishes/routes.js';
 import chefsRouter from '../chefs/routes.js';
 import ingredientsRouter from '../ingredients/routes.js';
@@ -8,10 +9,7 @@ import usersRouter from '../users/routes.js';
 
 const router = Router();
 
-// Every route in /admin requires admin:access (ADMIN and STAFF)
-router.use(requirePermission('admin:access'));
-
-router.get('/', async (_req, res) => {
+export const getAdminStats = async () => {
   const [dishCount, chefCount, ingredientCount, userCount, recentDishes] = await Promise.all([
     prisma.dish.count({ where: { deletedAt: null } }),
     prisma.chef.count({ where: { deletedAt: null } }),
@@ -25,9 +23,7 @@ router.get('/', async (_req, res) => {
     }),
   ]);
 
-  res.render('pages/admin/index', {
-    layout: 'admin',
-    title: 'Admin Dashboard',
+  return {
     stats: {
       dishCount,
       chefCount,
@@ -35,12 +31,41 @@ router.get('/', async (_req, res) => {
       userCount,
     },
     recentDishes,
-  });
+  };
+};
+
+export const statsRouter = Router();
+statsRouter.use(requirePermission('admin:access'));
+
+statsRouter.get('/', async (_req, res) => {
+  const data = await getAdminStats();
+  return sendOk(res, data);
 });
 
-router.use('/dishes', dishesRouter);
-router.use('/chefs', chefsRouter);
-router.use('/ingredients', ingredientsRouter);
-router.use('/users', usersRouter);
+statsRouter.get('/stats', async (_req, res) => {
+  const data = await getAdminStats();
+  return sendOk(res, data);
+});
 
-export default router;
+const adminRouter = Router();
+
+// Every route in /admin requires admin:access (ADMIN and STAFF)
+adminRouter.use(requirePermission('admin:access'));
+
+adminRouter.get('/', async (_req, res) => {
+  const data = await getAdminStats();
+  return sendOk(res, data);
+});
+
+adminRouter.get('/stats', async (_req, res) => {
+  const data = await getAdminStats();
+  return sendOk(res, data);
+});
+
+adminRouter.use('/dishes', dishesRouter);
+adminRouter.use('/chefs', chefsRouter);
+adminRouter.use('/ingredients', ingredientsRouter);
+adminRouter.use('/users', usersRouter);
+
+export default adminRouter;
+
