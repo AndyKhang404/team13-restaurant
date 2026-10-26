@@ -127,3 +127,52 @@ export const CATEGORY_LABELS: Record<string, string> = {
 export function categoryLabel(key: string): string {
   return CATEGORY_LABELS[key] ?? key;
 }
+
+export interface DishFilterOptions {
+  chefs: Array<{ id: string; name: string; specialty: string | null }>;
+  ingredients: Array<{ id: string; name: string; unit: string }>;
+  categories: Array<{ key: string; label: string }>;
+  priceRange: { min: number; max: number };
+}
+
+export interface DishQueryParams {
+  q?: string;
+  category?: string;
+  minPrice?: string;
+  maxPrice?: string;
+  chefId?: string;
+  withIngredients?: string;
+  withoutIngredients?: string;
+  available?: string;
+  featured?: string;
+  maxPrepTime?: string;
+  unassignedChef?: string;
+  deleted?: string;
+  sort?: string;
+}
+
+export interface ChefQueryParams {
+  q?: string;
+  isActive?: string;
+  specialty?: string;
+  minExperience?: string;
+  hasActiveDishes?: string;
+  sort?: string;
+}
+
+export interface IngredientQueryParams {
+  q?: string;
+  stock?: string;
+  isAvailable?: string;
+  unit?: string;
+  usage?: string;
+  sort?: string;
+}
+
+export interface UserQueryParams {
+  q?: string;
+  role?: string;
+  createdFrom?: string;
+  createdTo?: string;
+}
+

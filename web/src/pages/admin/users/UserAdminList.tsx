@@ -1,4 +1,5 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../../auth/AuthProvider';
 import { usersApi } from '../../../lib/resources';
 import { useApi } from '../../../lib/useApi';
@@ -8,17 +9,50 @@ import { PanelPager } from '../../../components/PanelPager';
 import { formatDateTime } from '../../../lib/format';
 
 const PAGE_SIZE = 10;
+const ROLES: UserRole[] = ['ADMIN', 'STAFF', 'CUSTOMER'];
+
+function splitCsv(val: string): string[] {
+  return val
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function toggleCsvItem(current: string, item: string): string {
+  const list = splitCsv(current);
+  const next = list.includes(item) ? list.filter((x) => x !== item) : [...list, item];
+  return next.join(',');
+}
 
 export default function UserAdminList() {
   const { user: currentUser } = useAuth();
-  const { data, loading, error, reload } = useApi(() => usersApi.list(), []);
-  const [q, setQ] = useState('');
-  const [appliedQ, setAppliedQ] = useState('');
+  const [params, setParams] = useSearchParams();
+  const q = params.get('q') ?? '';
+  const role = params.get('role') ?? '';
+  const createdFrom = params.get('createdFrom') ?? '';
+  const createdTo = params.get('createdTo') ?? '';
+
+  const [input, setInput] = useState(q);
   const [page, setPage] = useState(1);
   const [selectedRoles, setSelectedRoles] = useState<Record<string, UserRole>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setInput(q);
+  }, [q]);
+
+  const { data, loading, error, reload } = useApi(
+    () =>
+      usersApi.list({
+        q: q || undefined,
+        role: role || undefined,
+        createdFrom: createdFrom || undefined,
+        createdTo: createdTo || undefined,
+      }),
+    [q, role, createdFrom, createdTo],
+  );
 
   if (currentUser?.role !== 'ADMIN') {
     return (
@@ -29,25 +63,32 @@ export default function UserAdminList() {
     );
   }
 
-  function onSubmit(e: FormEvent) {
-    e.preventDefault();
-    setAppliedQ(q);
+  function setParam(key: string, value: string) {
+    const next = new URLSearchParams(params);
+    if (value) next.set(key, value);
+    else next.delete(key);
+    setParams(next);
     setPage(1);
   }
 
-  const filtered = useMemo(() => {
-    const term = appliedQ.trim().toLowerCase();
-    if (!term) return data ?? [];
-    return (data ?? []).filter(
-      (u) =>
-        u.email.toLowerCase().includes(term) ||
-        (u.displayName ?? '').toLowerCase().includes(term),
-    );
-  }, [data, appliedQ]);
+  function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    setParam('q', input.trim());
+  }
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  function reset() {
+    setInput('');
+    setParams(new URLSearchParams());
+    setPage(1);
+  }
+
+  const users = data ?? [];
+  const selectedRoleFilters = splitCsv(role);
+  const activeFilterCount = [role, createdFrom, createdTo].filter(Boolean).length;
+
+  const totalPages = Math.max(1, Math.ceil(users.length / PAGE_SIZE));
   const current = Math.min(page, totalPages);
-  const rows = filtered.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE);
+  const rows = users.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE);
 
   async function handleRoleChange(user: UserItem) {
     const newRole = selectedRoles[user.id] ?? user.role;
@@ -76,41 +117,83 @@ export default function UserAdminList() {
     <section className="panel">
       <div className="panel-head">
         <h2>Danh sách người dùng</h2>
-        <span className="count">{filtered.length} bản ghi</span>
+        <span className="count">{users.length} bản ghi</span>
         <div className="panel-tools">
           <form className="search" onSubmit={onSubmit}>
             <input
               type="search"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Tìm theo email hoặc tên"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Tìm theo email hoặc tên hiển thị…"
             />
             <button type="submit">Tìm</button>
           </form>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              setPage(1);
-            }}
-            style={{ display: 'flex', gap: 10, alignItems: 'center' }}
-          >
-            {appliedQ ? (
-              <a
-                className="link-quiet"
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setQ('');
-                  setAppliedQ('');
-                  setPage(1);
-                }}
-              >
-                Xóa lọc
-              </a>
-            ) : null}
-          </form>
         </div>
       </div>
+
+      <details className="filter-details" open={activeFilterCount > 0 || undefined}>
+        <summary className="filter-summary">
+          <span>Bộ lọc người dùng</span>
+          {activeFilterCount > 0 ? (
+            <span className="filter-count-badge">{activeFilterCount}</span>
+          ) : null}
+          {q || activeFilterCount > 0 ? (
+            <button
+              type="button"
+              className="filter-clear-btn"
+              onClick={(e) => {
+                e.preventDefault();
+                reset();
+              }}
+            >
+              Xóa lọc
+            </button>
+          ) : null}
+        </summary>
+        <div className="filter-panel-body">
+          <div className="filter-grid">
+            <div className="filter-group">
+              <span className="filter-group-label">Vai trò (chọn nhiều)</span>
+              <div className="filter-chips">
+                {ROLES.map((r) => {
+                  const active = selectedRoleFilters.includes(r);
+                  return (
+                    <button
+                      key={r}
+                      type="button"
+                      className={`filter-chip${active ? ' active' : ''}`}
+                      onClick={() => setParam('role', toggleCsvItem(role, r))}
+                    >
+                      {r}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="filter-group">
+              <span className="filter-group-label">Ngày đăng ký (Từ – Đến)</span>
+              <div className="filter-range-row">
+                <input
+                  type="date"
+                  className="filter-input"
+                  value={createdFrom}
+                  onChange={(e) => setParam('createdFrom', e.target.value)}
+                  aria-label="Từ ngày"
+                />
+                <span className="filter-range-sep">–</span>
+                <input
+                  type="date"
+                  className="filter-input"
+                  value={createdTo}
+                  onChange={(e) => setParam('createdTo', e.target.value)}
+                  aria-label="Đến ngày"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </details>
 
       {actionSuccess ? (
         <div className="alert" style={{ margin: '14px 20px 0' }}>
@@ -210,10 +293,10 @@ export default function UserAdminList() {
           </tbody>
         </table>
 
-        {!loading && !error && filtered.length === 0 ? (
+        {!loading && !error && users.length === 0 ? (
           <div className="empty">
             <b>Không tìm thấy người dùng</b>
-            Thử từ khóa khác.
+            Thử từ khóa hoặc bộ lọc khác.
           </div>
         ) : null}
 
@@ -224,7 +307,7 @@ export default function UserAdminList() {
         Bạn không thể tự đổi vai trò của mình; hệ thống chặn trường hợp hạ ADMIN cuối cùng.
       </div>
 
-      <PanelPager page={current} totalPages={totalPages} total={filtered.length} onPage={setPage} />
+      <PanelPager page={current} totalPages={totalPages} total={users.length} onPage={setPage} />
     </section>
   );
 }

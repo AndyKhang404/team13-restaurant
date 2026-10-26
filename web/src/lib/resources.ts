@@ -3,20 +3,20 @@ import type {
   AuthUser,
   Chef,
   ChefInput,
+  ChefQueryParams,
   Dish,
   DishChef,
+  DishFilterOptions,
   DishIngredientLine,
   DishInput,
+  DishQueryParams,
   Ingredient,
   IngredientInput,
+  IngredientQueryParams,
   UserItem,
+  UserQueryParams,
   UserRole,
 } from './types';
-
-function qs(q?: string): string {
-  const term = q?.trim();
-  return term ? `?q=${encodeURIComponent(term)}` : '';
-}
 
 function buildQuery(params: Record<string, string | undefined>): string {
   const sp = new URLSearchParams();
@@ -28,11 +28,19 @@ function buildQuery(params: Record<string, string | undefined>): string {
   return s ? `?${s}` : '';
 }
 
+function toParamsRecord(
+  input?: string | Record<string, string | undefined>,
+): Record<string, string | undefined> {
+  if (!input) return {};
+  if (typeof input === 'string') return { q: input };
+  return input;
+}
+
 /** Follows `pagination` and collects every page (admin lists render 10/page server-side). */
-async function fetchAllPages<T>(
+async function fetchAllPagesWithMeta<T>(
   path: string,
   key: string,
-): Promise<T[]> {
+): Promise<{ items: T[]; firstPage: Record<string, unknown> }> {
   const first = await apiFetch<Record<string, unknown> & { pagination?: { totalPages?: number } }>(
     path,
   );
@@ -47,6 +55,11 @@ async function fetchAllPages<T>(
     );
     for (const page of rest) items.push(...((page[key] as T[] | undefined) ?? []));
   }
+  return { items, firstPage: first };
+}
+
+async function fetchAllPages<T>(path: string, key: string): Promise<T[]> {
+  const { items } = await fetchAllPagesWithMeta<T>(path, key);
   return items;
 }
 
@@ -104,11 +117,23 @@ function toFormData(
 
 export const dishesApi = {
   /** Public menu / dishes (visible dishes only). */
-  listPublic: async (q?: string, category?: string, sort?: string) => {
-    const query = buildQuery({ q, category, sort });
+  listPublic: async (
+    qOrParams?: string | DishQueryParams,
+    category?: string,
+    sort?: string,
+  ) => {
+    const params: Record<string, string | undefined> =
+      typeof qOrParams === 'object' && qOrParams !== null
+        ? { ...qOrParams }
+        : { q: qOrParams, category, sort };
+    const query = buildQuery(params);
     const data = await apiFetch<RawDish[] | { dishes: RawDish[] }>(`/dishes${query}`);
     const list = Array.isArray(data) ? data : data.dishes;
     return list.map(normalizeDish);
+  },
+  /** Public filter options (chefs, ingredients, categories, priceRange). */
+  filterOptions: async (): Promise<DishFilterOptions> => {
+    return apiFetch<DishFilterOptions>('/dishes/filter-options');
   },
   /** Featured dishes for the home page. */
   featured: async () => {
@@ -127,8 +152,9 @@ export const dishesApi = {
   },
 
   /** Admin list (paginated, 10/page server-side). */
-  list: async (q?: string) => {
-    const dishes = await fetchAllPages<RawDish>(`/dishes${qs(q)}`, 'dishes');
+  list: async (qOrParams?: string | DishQueryParams) => {
+    const query = buildQuery(toParamsRecord(qOrParams as Record<string, string | undefined>));
+    const dishes = await fetchAllPages<RawDish>(`/dishes${query}`, 'dishes');
     return dishes.map(normalizeDish);
   },
   get: async (id: string) => {
@@ -155,9 +181,18 @@ export const dishesApi = {
 };
 
 export const chefsApi = {
-  list: async (q?: string) => {
-    const chefs = await fetchAllPages<Chef>(`/chefs${qs(q)}`, 'chefs');
+  list: async (qOrParams?: string | ChefQueryParams) => {
+    const query = buildQuery(toParamsRecord(qOrParams as Record<string, string | undefined>));
+    const chefs = await fetchAllPages<Chef>(`/chefs${query}`, 'chefs');
     return chefs;
+  },
+  listWithMeta: async (params?: ChefQueryParams) => {
+    const query = buildQuery(toParamsRecord(params as Record<string, string | undefined>));
+    const { items, firstPage } = await fetchAllPagesWithMeta<Chef>(`/chefs${query}`, 'chefs');
+    const specialties = Array.isArray(firstPage['specialties'])
+      ? (firstPage['specialties'] as string[])
+      : [];
+    return { chefs: items, specialties };
   },
   get: async (id: string) => {
     const data = await apiFetch<{ chef: Chef }>(`/chefs/${id}`);
@@ -183,12 +218,22 @@ export const chefsApi = {
 };
 
 export const ingredientsApi = {
-  list: async (q?: string) => {
+  list: async (qOrParams?: string | IngredientQueryParams) => {
+    const query = buildQuery(toParamsRecord(qOrParams as Record<string, string | undefined>));
     const ingredients = await fetchAllPages<Ingredient>(
-      `/ingredients${qs(q)}`,
+      `/ingredients${query}`,
       'ingredients',
     );
     return ingredients;
+  },
+  listWithMeta: async (params?: IngredientQueryParams) => {
+    const query = buildQuery(toParamsRecord(params as Record<string, string | undefined>));
+    const { items, firstPage } = await fetchAllPagesWithMeta<Ingredient>(
+      `/ingredients${query}`,
+      'ingredients',
+    );
+    const units = Array.isArray(firstPage['units']) ? (firstPage['units'] as string[]) : [];
+    return { ingredients: items, units };
   },
   get: async (id: string) => {
     const data = await apiFetch<{ ingredient: Ingredient }>(`/ingredients/${id}`);
@@ -285,7 +330,10 @@ export const statsApi = {
 };
 
 export const usersApi = {
-  list: (q?: string) => fetchAllPages<UserItem>(`/users${qs(q)}`, 'users'),
+  list: (qOrParams?: string | UserQueryParams) => {
+    const query = buildQuery(toParamsRecord(qOrParams as Record<string, string | undefined>));
+    return fetchAllPages<UserItem>(`/users${query}`, 'users');
+  },
   updateRole: (id: string, role: UserRole) =>
     apiFetch<{ user: UserItem; message: string }>(`/users/${id}/role`, {
       method: 'PATCH',

@@ -1,10 +1,17 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import type { Prisma } from '../../generated/prisma/client.js';
 import { prisma } from '../../lib/prisma.js';
 import { badRequest, conflict, notFound, sendOk } from '../../lib/http.js';
 import { buildPagination, skipFor } from '../../lib/pagination.js';
-import { listParams, isNotFound, isUniqueViolation, paramId } from '../../lib/admin.js';
+import { isNotFound, isUniqueViolation, paramId } from '../../lib/admin.js';
+import {
+  parseIngredientListQuery,
+  buildIngredientWhere,
+  buildIngredientOrderBy,
+  searchIngredientsFts,
+  orderIdsByFtsRank,
+  sortEntitiesByIds,
+} from '../../lib/search.js';
 import { requiredText, decimal, checkbox, toFieldErrors } from '../../lib/validation.js';
 import { fileFor, validateImage, saveWithImage, type UploadedFile } from '../../lib/storage.js';
 import { requirePermission } from '../../auth/middleware.js';
@@ -33,26 +40,58 @@ async function findNameClash(name: string, excludeId?: string) {
 }
 
 router.get('/', requirePermission('ingredient:create'), async (req, res) => {
-  const { page, q, filters } = listParams(req);
-  const where: Prisma.IngredientWhereInput = {
-    deletedAt: null,
-    ...(q ? { name: { contains: q, mode: 'insensitive' } } : {}),
-  };
+  const parsed = parseIngredientListQuery(req.query as Record<string, unknown>);
+  const ftsHits = parsed.q ? await searchIngredientsFts(parsed.q) : undefined;
+  const ftsIds = ftsHits ? ftsHits.map((h) => h.id) : undefined;
 
-  const [total, ingredients] = await Promise.all([
-    prisma.ingredient.count({ where }),
-    prisma.ingredient.findMany({
-      where,
-      orderBy: [{ name: 'asc' }],
-      skip: skipFor(page),
-      take: 10,
-    }),
-  ]);
+  const where = buildIngredientWhere(parsed, { ftsIds });
+  const orderBy = buildIngredientOrderBy(parsed.effectiveSort);
+
+  const distinctUnitsPromise = prisma.ingredient.findMany({
+    where: { deletedAt: null },
+    select: { unit: true },
+    distinct: ['unit'],
+    orderBy: { unit: 'asc' },
+  });
+
+  let total: number;
+  let ingredients: Awaited<ReturnType<typeof prisma.ingredient.findMany>>;
+
+  if (parsed.effectiveSort === 'relevance' && ftsHits) {
+    const matchingRows = await prisma.ingredient.findMany({ where, select: { id: true } });
+    const orderedIds = orderIdsByFtsRank(
+      matchingRows.map((r) => r.id),
+      ftsHits,
+    );
+    total = orderedIds.length;
+    const pageIds = orderedIds.slice(skipFor(parsed.page), skipFor(parsed.page) + 10);
+    const rawIngredients = pageIds.length
+      ? await prisma.ingredient.findMany({ where: { id: { in: pageIds } } })
+      : [];
+    ingredients = sortEntitiesByIds(rawIngredients, pageIds);
+  } else {
+    [total, ingredients] = await Promise.all([
+      prisma.ingredient.count({ where }),
+      prisma.ingredient.findMany({
+        where,
+        orderBy,
+        skip: skipFor(parsed.page),
+        take: 10,
+      }),
+    ]);
+  }
+
+  const distinctUnits = await distinctUnitsPromise;
+  const units = distinctUnits
+    .map((r) => r.unit?.trim())
+    .filter((u): u is string => Boolean(u));
 
   return sendOk(res, {
     ingredients,
-    pagination: buildPagination(page, total, filters),
-    q,
+    units,
+    pagination: buildPagination(parsed.page, total, parsed.filters),
+    q: parsed.q,
+    sort: parsed.sort,
   });
 });
 

@@ -2,8 +2,16 @@ import { Router } from 'express';
 import { DishCategory } from '../../generated/prisma/enums.js';
 import type { Prisma } from '../../generated/prisma/client.js';
 import { prisma } from '../../lib/prisma.js';
-import { notFound, sendOk } from '../../lib/http.js';
+import { sendOk } from '../../lib/http.js';
 import { CATEGORY_LABELS } from '../../lib/format.js';
+import {
+  parseDishListQuery,
+  buildDishWhere,
+  buildDishOrderBy,
+  searchDishesFts,
+  orderIdsByFtsRank,
+  sortEntitiesByIds,
+} from '../../lib/search.js';
 
 const router = Router();
 
@@ -30,35 +38,39 @@ router.get('/home', async (_req, res) => {
   return sendOk(res, { featured });
 });
 
-const SORTS: Record<string, Prisma.DishOrderByWithRelationInput[]> = {
-  '': [{ name: 'asc' }],
-  'name-asc': [{ name: 'asc' }],
-  'name-desc': [{ name: 'desc' }],
-  'price-asc': [{ price: 'asc' }],
-  'price-desc': [{ price: 'desc' }],
-  newest: [{ updatedAt: 'desc' }],
-};
-
 router.get('/menu', async (req, res) => {
-  const raw = typeof req.query.category === 'string' ? req.query.category : '';
-  const category = CATEGORIES.includes(raw as DishCategory) ? (raw as DishCategory) : undefined;
-  const q = typeof req.query.q === 'string' ? req.query.q.trim().slice(0, 80) : '';
-  const sortRaw = typeof req.query.sort === 'string' ? req.query.sort : '';
-  const sort = sortRaw in SORTS ? sortRaw : '';
-  const flat = Boolean(q) || sort !== '';
+  const parsed = parseDishListQuery(req.query as Record<string, unknown>);
+  const ftsHits = parsed.q ? await searchDishesFts(parsed.q) : undefined;
+  const ftsIds = ftsHits ? ftsHits.map((h) => h.id) : undefined;
 
-  const dishes = await prisma.dish.findMany({
-    where: {
-      ...visibleDish,
-      ...(category ? { category } : {}),
-      ...(q ? { name: { contains: q, mode: 'insensitive' } } : {}),
-    },
-    orderBy: SORTS[sort],
-  });
+  const where = buildDishWhere(parsed, { hasStaffPerm: false, ftsIds });
+  const orderBy = buildDishOrderBy(parsed.effectiveSort);
+
+  let dishes: Awaited<ReturnType<typeof prisma.dish.findMany>>;
+  if (parsed.effectiveSort === 'relevance' && ftsHits) {
+    const matchingRows = await prisma.dish.findMany({ where, select: { id: true } });
+    const orderedIds = orderIdsByFtsRank(
+      matchingRows.map((r) => r.id),
+      ftsHits,
+    );
+    const rawDishes = orderedIds.length
+      ? await prisma.dish.findMany({ where: { id: { in: orderedIds } }, include: { chef: true } })
+      : [];
+    dishes = sortEntitiesByIds(rawDishes, orderedIds);
+  } else {
+    dishes = await prisma.dish.findMany({
+      where,
+      include: { chef: true },
+      orderBy,
+    });
+  }
+
+  const flat = Boolean(parsed.q) || parsed.sort !== '';
+  const selectedCats = parsed.categories;
 
   const groups = flat
     ? []
-    : CATEGORIES.filter((c) => !category || c === category)
+    : CATEGORIES.filter((c) => !selectedCats || selectedCats.includes(c))
         .map((c) => ({
           key: c,
           label: CATEGORY_LABELS[c] ?? c,
@@ -66,12 +78,15 @@ router.get('/menu', async (req, res) => {
         }))
         .filter((g) => g.dishes.length > 0);
 
+  const category =
+    selectedCats && selectedCats.length === 1 ? selectedCats[0] : selectedCats?.join(',');
+
   return sendOk(res, {
     groups,
     flat,
     dishes,
-    q,
-    sort,
+    q: parsed.q,
+    sort: parsed.sort,
     resultCount: dishes.length,
     category,
     categories: CATEGORIES.map((c) => ({ key: c, label: CATEGORY_LABELS[c] ?? c })),

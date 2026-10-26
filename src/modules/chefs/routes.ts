@@ -1,10 +1,17 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import type { Prisma } from '../../generated/prisma/client.js';
 import { prisma } from '../../lib/prisma.js';
 import { badRequest, notFound, sendOk } from '../../lib/http.js';
 import { buildPagination, skipFor } from '../../lib/pagination.js';
-import { listParams, isNotFound, paramId } from '../../lib/admin.js';
+import { isNotFound, paramId } from '../../lib/admin.js';
+import {
+  parseChefListQuery,
+  buildChefWhere,
+  buildChefOrderBy,
+  searchChefsFts,
+  orderIdsByFtsRank,
+  sortEntitiesByIds,
+} from '../../lib/search.js';
 import { requiredText, optionalText, optionalInt, optionalPhone, checkbox, toFieldErrors } from '../../lib/validation.js';
 import { fileFor, validateImage, saveWithImage, type UploadedFile } from '../../lib/storage.js';
 import { requirePermission } from '../../auth/middleware.js';
@@ -22,33 +29,58 @@ export const ChefSchema = z.object({
 });
 
 router.get('/', requirePermission('chef:create'), async (req, res) => {
-  const { page, q, filters } = listParams(req);
-  const where: Prisma.ChefWhereInput = {
-    deletedAt: null,
-    ...(q
-      ? {
-          OR: [
-            { name: { contains: q, mode: 'insensitive' } },
-            { specialty: { contains: q, mode: 'insensitive' } },
-          ],
-        }
-      : {}),
-  };
+  const parsed = parseChefListQuery(req.query as Record<string, unknown>);
+  const ftsHits = parsed.q ? await searchChefsFts(parsed.q) : undefined;
+  const ftsIds = ftsHits ? ftsHits.map((h) => h.id) : undefined;
 
-  const [total, chefs] = await Promise.all([
-    prisma.chef.count({ where }),
-    prisma.chef.findMany({
-      where,
-      orderBy: [{ updatedAt: 'desc' }],
-      skip: skipFor(page),
-      take: 10,
-    }),
-  ]);
+  const where = buildChefWhere(parsed, { ftsIds });
+  const orderBy = buildChefOrderBy(parsed.effectiveSort);
+
+  const distinctRowsPromise = prisma.chef.findMany({
+    where: { deletedAt: null, specialty: { not: null } },
+    select: { specialty: true },
+    distinct: ['specialty'],
+    orderBy: { specialty: 'asc' },
+  });
+
+  let total: number;
+  let chefs: Awaited<ReturnType<typeof prisma.chef.findMany>>;
+
+  if (parsed.effectiveSort === 'relevance' && ftsHits) {
+    const matchingRows = await prisma.chef.findMany({ where, select: { id: true } });
+    const orderedIds = orderIdsByFtsRank(
+      matchingRows.map((r) => r.id),
+      ftsHits,
+    );
+    total = orderedIds.length;
+    const pageIds = orderedIds.slice(skipFor(parsed.page), skipFor(parsed.page) + 10);
+    const rawChefs = pageIds.length
+      ? await prisma.chef.findMany({ where: { id: { in: pageIds } } })
+      : [];
+    chefs = sortEntitiesByIds(rawChefs, pageIds);
+  } else {
+    [total, chefs] = await Promise.all([
+      prisma.chef.count({ where }),
+      prisma.chef.findMany({
+        where,
+        orderBy,
+        skip: skipFor(parsed.page),
+        take: 10,
+      }),
+    ]);
+  }
+
+  const distinctRows = await distinctRowsPromise;
+  const specialties = distinctRows
+    .map((r) => r.specialty?.trim())
+    .filter((s): s is string => Boolean(s));
 
   return sendOk(res, {
     chefs,
-    pagination: buildPagination(page, total, filters),
-    q,
+    specialties,
+    pagination: buildPagination(parsed.page, total, parsed.filters),
+    q: parsed.q,
+    sort: parsed.sort,
   });
 });
 

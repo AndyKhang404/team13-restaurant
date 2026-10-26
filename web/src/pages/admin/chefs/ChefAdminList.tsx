@@ -1,5 +1,5 @@
-import { useMemo, useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useState, type FormEvent } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { chefsApi } from '../../../lib/resources';
 import { useApi } from '../../../lib/useApi';
 import { Avatar } from '../../../components/Avatar';
@@ -8,74 +8,205 @@ import { PanelPager } from '../../../components/PanelPager';
 
 const PAGE_SIZE = 10;
 
+const SORTS = [
+  { value: '', label: 'Mới cập nhật' },
+  { value: 'relevance', label: 'Độ phù hợp' },
+  { value: 'experience-desc', label: 'Kinh nghiệm cao → thấp' },
+  { value: 'experience-asc', label: 'Kinh nghiệm thấp → cao' },
+  { value: 'dishes-desc', label: 'Nhiều món phụ trách nhất' },
+  { value: 'name-asc', label: 'Tên A → Z' },
+  { value: 'newest', label: 'Mới tạo' },
+];
+
+function splitCsv(val: string): string[] {
+  return val
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function toggleCsvItem(current: string, item: string): string {
+  const list = splitCsv(current);
+  const next = list.includes(item) ? list.filter((x) => x !== item) : [...list, item];
+  return next.join(',');
+}
+
 export default function ChefAdminList() {
-  const { data, loading, error, reload } = useApi(() => chefsApi.list(), []);
-  const [q, setQ] = useState('');
-  const [appliedQ, setAppliedQ] = useState('');
+  const [params, setParams] = useSearchParams();
+  const q = params.get('q') ?? '';
+  const isActive = params.get('isActive') ?? '';
+  const specialty = params.get('specialty') ?? '';
+  const minExperience = params.get('minExperience') ?? '';
+  const hasActiveDishes = params.get('hasActiveDishes') ?? '';
+  const sort = params.get('sort') ?? '';
+
+  const [input, setInput] = useState(q);
   const [page, setPage] = useState(1);
 
-  function onSubmit(e: FormEvent) {
-    e.preventDefault();
-    setAppliedQ(q);
+  useEffect(() => {
+    setInput(q);
+  }, [q]);
+
+  const { data, loading, error, reload } = useApi(
+    () =>
+      chefsApi.listWithMeta({
+        q: q || undefined,
+        isActive: isActive || undefined,
+        specialty: specialty || undefined,
+        minExperience: minExperience || undefined,
+        hasActiveDishes: hasActiveDishes || undefined,
+        sort: sort || undefined,
+      }),
+    [q, isActive, specialty, minExperience, hasActiveDishes, sort],
+  );
+
+  function setParam(key: string, value: string) {
+    const next = new URLSearchParams(params);
+    if (value) next.set(key, value);
+    else next.delete(key);
+    setParams(next);
     setPage(1);
   }
 
-  const filtered = useMemo(() => {
-    const term = appliedQ.trim().toLowerCase();
-    if (!term) return data ?? [];
-    return (data ?? []).filter(
-      (c) =>
-        c.name.toLowerCase().includes(term) ||
-        (c.specialty ?? '').toLowerCase().includes(term),
-    );
-  }, [data, appliedQ]);
+  function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    setParam('q', input.trim());
+  }
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  function reset() {
+    setInput('');
+    setParams(new URLSearchParams());
+    setPage(1);
+  }
+
+  const chefs = data?.chefs ?? [];
+  const specialties = data?.specialties ?? [];
+  const selectedSpecialties = splitCsv(specialty);
+
+  const activeFilterCount = [isActive, specialty, minExperience, hasActiveDishes].filter(
+    Boolean,
+  ).length;
+
+  const totalPages = Math.max(1, Math.ceil(chefs.length / PAGE_SIZE));
   const current = Math.min(page, totalPages);
-  const rows = filtered.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE);
+  const rows = chefs.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE);
 
   return (
     <section className="panel">
       <div className="panel-head">
         <h2>Danh sách đầu bếp</h2>
-        <span className="count">{filtered.length} bản ghi</span>
+        <span className="count">{chefs.length} bản ghi</span>
         <div className="panel-tools">
           <form className="search" onSubmit={onSubmit}>
             <input
               type="search"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Tìm theo tên hoặc chuyên môn"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Tìm tên, chuyên môn, tiểu sử…"
             />
             <button type="submit">Tìm</button>
           </form>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              setPage(1);
-            }}
-            style={{ display: 'flex', gap: 10, alignItems: 'center' }}
+          <select
+            className="tools-select"
+            value={sort}
+            onChange={(e) => setParam('sort', e.target.value)}
+            aria-label="Sắp xếp"
           >
-            {appliedQ ? (
-              <a
-                className="link-quiet"
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setQ('');
-                  setAppliedQ('');
-                  setPage(1);
-                }}
-              >
-                Xóa lọc
-              </a>
-            ) : null}
-          </form>
+            {SORTS.map((s) => (
+              <option key={s.value} value={s.value}>
+                {s.label}
+              </option>
+            ))}
+          </select>
           <Link className="btn btn-primary" to="/admin/chefs/new">
             Thêm đầu bếp
           </Link>
         </div>
       </div>
+
+      <details className="filter-details" open={activeFilterCount > 0 || undefined}>
+        <summary className="filter-summary">
+          <span>Bộ lọc đầu bếp</span>
+          {activeFilterCount > 0 ? (
+            <span className="filter-count-badge">{activeFilterCount}</span>
+          ) : null}
+          {q || sort || activeFilterCount > 0 ? (
+            <button
+              type="button"
+              className="filter-clear-btn"
+              onClick={(e) => {
+                e.preventDefault();
+                reset();
+              }}
+            >
+              Xóa lọc
+            </button>
+          ) : null}
+        </summary>
+        <div className="filter-panel-body">
+          <div className="filter-grid">
+            <div className="filter-group">
+              <span className="filter-group-label">Trạng thái làm việc</span>
+              <select
+                className="filter-select"
+                value={isActive}
+                onChange={(e) => setParam('isActive', e.target.value)}
+              >
+                <option value="">Tất cả</option>
+                <option value="true">Đang làm việc</option>
+                <option value="false">Đang nghỉ</option>
+              </select>
+            </div>
+
+            <div className="filter-group">
+              <span className="filter-group-label">Kinh nghiệm tối thiểu (năm)</span>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                className="filter-input"
+                placeholder="VD: 5"
+                value={minExperience}
+                onChange={(e) => setParam('minExperience', e.target.value)}
+              />
+            </div>
+
+            <div className="filter-group">
+              <span className="filter-group-label">Có món đang bán trên thực đơn</span>
+              <select
+                className="filter-select"
+                value={hasActiveDishes}
+                onChange={(e) => setParam('hasActiveDishes', e.target.value)}
+              >
+                <option value="">Tất cả</option>
+                <option value="true">Có món đang bán</option>
+                <option value="false">Chưa có món đang bán</option>
+              </select>
+            </div>
+
+            {specialties.length > 0 ? (
+              <div className="filter-group full-span">
+                <span className="filter-group-label">Chuyên môn (chọn nhiều)</span>
+                <div className="filter-chips">
+                  {specialties.map((spec) => {
+                    const active = selectedSpecialties.includes(spec);
+                    return (
+                      <button
+                        key={spec}
+                        type="button"
+                        className={`filter-chip${active ? ' active' : ''}`}
+                        onClick={() => setParam('specialty', toggleCsvItem(specialty, spec))}
+                      >
+                        {spec}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </details>
 
       <div className="table-wrap">
         <table>
@@ -139,7 +270,7 @@ export default function ChefAdminList() {
           </tbody>
         </table>
 
-        {!loading && !error && filtered.length === 0 ? (
+        {!loading && !error && chefs.length === 0 ? (
           <div className="empty">
             <b>Không có đầu bếp nào</b>
             Thử đổi từ khóa bộ lọc, hoặc thêm đầu bếp mới.
@@ -149,7 +280,7 @@ export default function ChefAdminList() {
         {loading ? <SkeletonRows rows={3} /> : null}
       </div>
 
-      <PanelPager page={current} totalPages={totalPages} total={filtered.length} onPage={setPage} />
+      <PanelPager page={current} totalPages={totalPages} total={chefs.length} onPage={setPage} />
     </section>
   );
 }

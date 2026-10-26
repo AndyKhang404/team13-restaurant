@@ -1,11 +1,17 @@
 import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 import { Role } from '../../generated/prisma/enums.js';
-import type { Prisma } from '../../generated/prisma/client.js';
 import { prisma } from '../../lib/prisma.js';
 import { badRequest, notFound, sendOk } from '../../lib/http.js';
 import { buildPagination, skipFor } from '../../lib/pagination.js';
-import { listParams, paramId } from '../../lib/admin.js';
+import { paramId } from '../../lib/admin.js';
+import {
+  parseProfileListQuery,
+  buildProfileWhere,
+  searchProfilesFts,
+  orderIdsByFtsRank,
+  sortEntitiesByIds,
+} from '../../lib/search.js';
 import { requirePermission } from '../../auth/middleware.js';
 
 const router = Router();
@@ -17,31 +23,44 @@ const UpdateRoleSchema = z.object({
 const ROLES = Object.values(Role);
 
 router.get('/', requirePermission('user:manage'), async (req, res) => {
-  const { page, q, filters } = listParams(req);
-  const where: Prisma.ProfileWhereInput = q
-    ? {
-        OR: [
-          { email: { contains: q, mode: 'insensitive' } },
-          { displayName: { contains: q, mode: 'insensitive' } },
-        ],
-      }
-    : {};
+  const parsed = parseProfileListQuery(req.query as Record<string, unknown>);
+  const ftsHits = parsed.q ? await searchProfilesFts(parsed.q) : undefined;
+  const ftsIds = ftsHits ? ftsHits.map((h) => h.id) : undefined;
 
-  const [total, users] = await Promise.all([
-    prisma.profile.count({ where }),
-    prisma.profile.findMany({
-      where,
-      orderBy: [{ createdAt: 'desc' }],
-      skip: skipFor(page),
-      take: 10,
-    }),
-  ]);
+  const where = buildProfileWhere(parsed, { ftsIds });
+
+  let total: number;
+  let users: Awaited<ReturnType<typeof prisma.profile.findMany>>;
+
+  if (ftsHits) {
+    const matchingRows = await prisma.profile.findMany({ where, select: { id: true } });
+    const orderedIds = orderIdsByFtsRank(
+      matchingRows.map((r) => r.id),
+      ftsHits,
+    );
+    total = orderedIds.length;
+    const pageIds = orderedIds.slice(skipFor(parsed.page), skipFor(parsed.page) + 10);
+    const rawUsers = pageIds.length
+      ? await prisma.profile.findMany({ where: { id: { in: pageIds } } })
+      : [];
+    users = sortEntitiesByIds(rawUsers, pageIds);
+  } else {
+    [total, users] = await Promise.all([
+      prisma.profile.count({ where }),
+      prisma.profile.findMany({
+        where,
+        orderBy: [{ createdAt: 'desc' }],
+        skip: skipFor(parsed.page),
+        take: 10,
+      }),
+    ]);
+  }
 
   return sendOk(res, {
     users,
     roles: ROLES,
-    pagination: buildPagination(page, total, filters),
-    q,
+    pagination: buildPagination(parsed.page, total, parsed.filters),
+    q: parsed.q,
   });
 });
 
