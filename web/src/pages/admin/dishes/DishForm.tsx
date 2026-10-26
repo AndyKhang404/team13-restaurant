@@ -1,17 +1,34 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { dishesApi } from '../../../lib/resources';
+import { chefsApi, dishesApi, ingredientsApi } from '../../../lib/resources';
 import { useApi } from '../../../lib/useApi';
 import { ApiError, HttpError, type ApiFieldErrors } from '../../../lib/api';
 import { ErrorState, Loading, NotFoundState } from '../../../components/StateViews';
 import { FieldError, FormError } from '../../../components/FieldError';
+import {
+  SearchableSelect,
+  type SearchableSelectOption,
+  type SearchableSelectPageParams,
+} from '../../../components/SearchableSelect';
 import { CATEGORIES, categoryLabel } from '../../../lib/types';
 import type { Chef, DishInput, Ingredient } from '../../../lib/types';
 
 interface RowForm {
+  key: string;
   ingredientId: string;
   quantity: string;
   unit: string;
+}
+
+let rowSeed = 0;
+
+function nextRowKey(): string {
+  rowSeed += 1;
+  return `ingredient-row-${rowSeed}`;
+}
+
+function emptyRow(): RowForm {
+  return { key: nextRowKey(), ingredientId: '', quantity: '', unit: 'g' };
 }
 
 const EMPTY = {
@@ -26,13 +43,37 @@ const EMPTY = {
   isFeatured: false,
 };
 
+const OPTION_PAGE_SIZE = 20;
+
+const fetchChefOptions = (params: SearchableSelectPageParams) =>
+  chefsApi.listPaged({ ...params, sort: 'name-asc' });
+
+const fetchIngredientOptions = (params: SearchableSelectPageParams) =>
+  ingredientsApi.listPaged({ ...params, sort: 'name-asc' });
+
+function chefOption(chef: Pick<Chef, 'id' | 'name' | 'specialty'>): SearchableSelectOption {
+  return {
+    value: chef.id,
+    label: chef.specialty ? `${chef.name} · ${chef.specialty}` : chef.name,
+  };
+}
+
+function ingredientOption(
+  ingredient: Pick<Ingredient, 'id' | 'name' | 'unit'>,
+): SearchableSelectOption {
+  return {
+    value: ingredient.id,
+    label: `${ingredient.name} (${ingredient.unit})`,
+  };
+}
+
 export default function DishForm({ mode }: { mode: 'new' | 'edit' }) {
   const { id } = useParams<{ id: string }>();
   const editing = mode === 'edit';
   const navigate = useNavigate();
 
-  const deps = useApi(
-    () => dishesApi.formDeps(editing ? (id ?? '') : undefined),
+  const dishState = useApi(
+    () => (editing ? dishesApi.get(id ?? '') : Promise.resolve(null)),
     [editing, id],
   );
 
@@ -43,40 +84,53 @@ export default function DishForm({ mode }: { mode: 'new' | 'edit' }) {
   const [saving, setSaving] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [removeImage, setRemoveImage] = useState(false);
-  const currentDish = deps.data?.currentDish ?? null;
-  const currentImageUrl = currentDish?.imageUrl ?? null;
+  const currentImageUrl = dishState.data?.imageUrl ?? null;
 
-  const chefs: Chef[] = deps.data?.chefs ?? [];
-  const ingredients: Ingredient[] = deps.data?.ingredients ?? [];
+  const selectedChef =
+    dishState.data?.chef && dishState.data.chef.id === form.chefId
+      ? chefOption(dishState.data.chef)
+      : null;
+
+  function selectedIngredientOption(row: RowForm): SearchableSelectOption | null {
+    if (!row.ingredientId) return null;
+    const line = dishState.data?.ingredients.find((item) => item.ingredientId === row.ingredientId);
+    if (!line || !line.name) return null;
+    return {
+      value: row.ingredientId,
+      label: line.unit ? `${line.name} (${line.unit})` : line.name,
+    };
+  }
 
   useEffect(() => {
-    if (!currentDish) return;
+    const dish = dishState.data;
+    if (!dish) return;
     setForm({
-      name: currentDish.name,
-      slug: currentDish.slug,
-      description: currentDish.description ?? '',
-      price: String(currentDish.price),
-      category: currentDish.category,
-      prepTimeMinutes: currentDish.prepTimeMinutes != null ? String(currentDish.prepTimeMinutes) : '',
-      chefId: currentDish.chefId ?? '',
-      isAvailable: currentDish.isAvailable,
-      isFeatured: currentDish.isFeatured,
+      name: dish.name,
+      slug: dish.slug,
+      description: dish.description ?? '',
+      price: String(dish.price),
+      category: dish.category,
+      prepTimeMinutes: dish.prepTimeMinutes != null ? String(dish.prepTimeMinutes) : '',
+      chefId: dish.chefId ?? '',
+      isAvailable: dish.isAvailable,
+      isFeatured: dish.isFeatured,
     });
     setRows(
-      currentDish.ingredients.map((line) => ({
+      dish.ingredients.map((line) => ({
+        key: nextRowKey(),
         ingredientId: line.ingredientId,
         quantity: String(line.quantity),
         unit: line.unit ?? 'g',
       })),
     );
-  }, [currentDish]);
+  }, [dishState.data]);
 
   function set<K extends keyof typeof EMPTY>(key: K, value: (typeof EMPTY)[K]) {
     setForm((f) => ({ ...f, [key]: value }));
   }
 
   function addRow() {
-    setRows((r) => [...r, { ingredientId: '', quantity: '', unit: 'g' }]);
+    setRows((r) => [...r, emptyRow()]);
   }
 
   function updateRow(index: number, patch: Partial<RowForm>) {
@@ -94,6 +148,12 @@ export default function DishForm({ mode }: { mode: 'new' | 'edit' }) {
     setErrors({});
     setFormError(null);
 
+    if (rows.some((row) => !row.ingredientId && row.quantity.trim() !== '')) {
+      setErrors({ ingredients: 'Vui lòng chọn nguyên liệu cho dòng đã nhập số lượng.' });
+      setSaving(false);
+      return;
+    }
+
     const payload: DishInput = {
       name: form.name,
       slug: form.slug.trim() || undefined,
@@ -102,7 +162,8 @@ export default function DishForm({ mode }: { mode: 'new' | 'edit' }) {
       category: form.category,
       isAvailable: form.isAvailable,
       isFeatured: form.isFeatured,
-      prepTimeMinutes: form.prepTimeMinutes.trim() === '' ? undefined : Number(form.prepTimeMinutes),
+      prepTimeMinutes:
+        form.prepTimeMinutes.trim() === '' ? undefined : Number(form.prepTimeMinutes),
       chefId: form.chefId || undefined,
       ingredients: rows
         .filter((r) => r.ingredientId && Number(r.quantity) > 0)
@@ -133,9 +194,9 @@ export default function DishForm({ mode }: { mode: 'new' | 'edit' }) {
     }
   }
 
-  if (deps.loading) return <Loading />;
-  if (deps.error) {
-    if (editing && deps.error instanceof ApiError && deps.error.code === 'NOT_FOUND') {
+  if (editing && dishState.loading) return <Loading />;
+  if (editing && dishState.error) {
+    if (dishState.error instanceof ApiError && dishState.error.code === 'NOT_FOUND') {
       return (
         <NotFoundState title="Không tìm thấy món" message="Món ăn này không tồn tại.">
           <Link className="btn btn-solid" to="/admin/dishes">
@@ -144,7 +205,7 @@ export default function DishForm({ mode }: { mode: 'new' | 'edit' }) {
         </NotFoundState>
       );
     }
-    return <ErrorState error={deps.error} onRetry={deps.reload} />;
+    return <ErrorState error={dishState.error} onRetry={dishState.reload} />;
   }
 
   return (
@@ -262,19 +323,20 @@ export default function DishForm({ mode }: { mode: 'new' | 'edit' }) {
 
           <div className="field">
             <label htmlFor="chefId">Đầu bếp phụ trách</label>
-            <select
+            <SearchableSelect
               id="chefId"
               value={form.chefId}
-              onChange={(e) => set('chefId', e.target.value)}
-            >
-              <option value="">Chưa phân công</option>
-              {chefs.map((chef) => (
-                <option key={chef.id} value={chef.id}>
-                  {chef.name}
-                  {chef.specialty ? ` · ${chef.specialty}` : ''}
-                </option>
-              ))}
-            </select>
+              onChange={(value) => set('chefId', value)}
+              fetchPage={fetchChefOptions}
+              mapOption={chefOption}
+              selectedOption={selectedChef}
+              placeholder="Chưa phân công"
+              searchPlaceholder="Tìm đầu bếp theo tên hoặc chuyên môn…"
+              emptyOptionLabel="Chưa phân công"
+              allowEmpty
+              pageSize={OPTION_PAGE_SIZE}
+              ariaLabel="Đầu bếp phụ trách"
+            />
             <FieldError message={errors['chefId']} />
           </div>
 
@@ -344,20 +406,20 @@ export default function DishForm({ mode }: { mode: 'new' | 'edit' }) {
             <FieldError message={errors['ingredients']} />
             <div className="ing-rows">
               {rows.map((row, index) => (
-                <div className="ing-row" key={index}>
-                  <select
+                <div className="ing-row" key={row.key}>
+                  <SearchableSelect
                     className="ing-sel"
                     value={row.ingredientId}
-                    onChange={(e) => updateRow(index, { ingredientId: e.target.value })}
+                    onChange={(value) => updateRow(index, { ingredientId: value })}
+                    fetchPage={fetchIngredientOptions}
+                    mapOption={ingredientOption}
+                    selectedOption={selectedIngredientOption(row)}
+                    placeholder="Chọn nguyên liệu"
+                    searchPlaceholder="Tìm nguyên liệu theo tên hoặc đơn vị…"
+                    pageSize={OPTION_PAGE_SIZE}
                     required
-                  >
-                    <option value="">Chọn nguyên liệu</option>
-                    {ingredients.map((ing) => (
-                      <option key={ing.id} value={ing.id}>
-                        {ing.name} ({ing.unit})
-                      </option>
-                    ))}
-                  </select>
+                    ariaLabel={`Nguyên liệu dòng ${index + 1}`}
+                  />
                   <input
                     className="ing-qty"
                     type="number"

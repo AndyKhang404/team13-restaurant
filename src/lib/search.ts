@@ -246,6 +246,7 @@ function parseIsoDate(
 
 export interface DishListQuery {
   q: string;
+  fuzzy?: boolean;
   page: number;
   pageSize: number;
   isPageSpecified: boolean;
@@ -271,6 +272,7 @@ export function parseDishListQuery(rawQuery: Record<string, unknown>): DishListQ
 
   const qRaw = rawString(rawQuery['q']);
   const q = qRaw ? qRaw.slice(0, 100) : '';
+  const fuzzy = parseTriBoolean(rawQuery['fuzzy'], 'fuzzy', 'Tìm kiếm mờ', errors);
   const page = parsePageParam(rawQuery['page'], errors);
   const pageSize = parsePageSizeParam(rawQuery['pageSize'], errors);
   const isPageSpecified = rawString(rawQuery['page']) !== undefined;
@@ -347,6 +349,7 @@ export function parseDishListQuery(rawQuery: Record<string, unknown>): DishListQ
 
   const filters: Record<string, string | undefined> = {
     q: q || undefined,
+    fuzzy: fuzzy !== undefined ? String(fuzzy) : undefined,
     category: categories?.join(','),
     minPrice: minPrice !== undefined ? String(minPrice) : undefined,
     maxPrice: maxPrice !== undefined ? String(maxPrice) : undefined,
@@ -364,6 +367,7 @@ export function parseDishListQuery(rawQuery: Record<string, unknown>): DishListQ
 
   return {
     q,
+    fuzzy,
     page,
     pageSize,
     isPageSpecified,
@@ -511,6 +515,7 @@ export function buildDishOrderBy(sort: DishSort): Prisma.DishOrderByWithRelation
 
 export interface ChefListQuery {
   q: string;
+  fuzzy?: boolean;
   page: number;
   pageSize: number;
   isActive?: boolean;
@@ -527,6 +532,7 @@ export function parseChefListQuery(rawQuery: Record<string, unknown>): ChefListQ
 
   const qRaw = rawString(rawQuery['q']);
   const q = qRaw ? qRaw.slice(0, 100) : '';
+  const fuzzy = parseTriBoolean(rawQuery['fuzzy'], 'fuzzy', 'Tìm kiếm mờ', errors);
   const page = parsePageParam(rawQuery['page'], errors);
   const pageSize = parsePageSizeParam(rawQuery['pageSize'], errors);
   const isActive = parseTriBoolean(
@@ -576,6 +582,7 @@ export function parseChefListQuery(rawQuery: Record<string, unknown>): ChefListQ
 
   const filters: Record<string, string | undefined> = {
     q: q || undefined,
+    fuzzy: fuzzy !== undefined ? String(fuzzy) : undefined,
     isActive: isActive !== undefined ? String(isActive) : undefined,
     specialty: specialties?.join(','),
     minExperience: minExperience !== undefined ? String(minExperience) : undefined,
@@ -586,6 +593,7 @@ export function parseChefListQuery(rawQuery: Record<string, unknown>): ChefListQ
 
   return {
     q,
+    fuzzy,
     page,
     pageSize,
     isActive,
@@ -667,6 +675,7 @@ export function buildChefOrderBy(sort: ChefSort): Prisma.ChefOrderByWithRelation
 
 export interface IngredientListQuery {
   q: string;
+  fuzzy?: boolean;
   page: number;
   pageSize: number;
   stock?: StockFilter;
@@ -683,6 +692,7 @@ export function parseIngredientListQuery(rawQuery: Record<string, unknown>): Ing
 
   const qRaw = rawString(rawQuery['q']);
   const q = qRaw ? qRaw.slice(0, 100) : '';
+  const fuzzy = parseTriBoolean(rawQuery['fuzzy'], 'fuzzy', 'Tìm kiếm mờ', errors);
   const page = parsePageParam(rawQuery['page'], errors);
   const pageSize = parsePageSizeParam(rawQuery['pageSize'], errors);
 
@@ -743,6 +753,7 @@ export function parseIngredientListQuery(rawQuery: Record<string, unknown>): Ing
 
   const filters: Record<string, string | undefined> = {
     q: q || undefined,
+    fuzzy: fuzzy !== undefined ? String(fuzzy) : undefined,
     stock,
     isAvailable: isAvailable !== undefined ? String(isAvailable) : undefined,
     unit: units?.join(','),
@@ -753,6 +764,7 @@ export function parseIngredientListQuery(rawQuery: Record<string, unknown>): Ing
 
   return {
     q,
+    fuzzy,
     page,
     pageSize,
     stock,
@@ -840,6 +852,7 @@ export function buildIngredientOrderBy(
 
 export interface ProfileListQuery {
   q: string;
+  fuzzy?: boolean;
   page: number;
   pageSize: number;
   roles?: Role[];
@@ -853,6 +866,7 @@ export function parseProfileListQuery(rawQuery: Record<string, unknown>): Profil
 
   const qRaw = rawString(rawQuery['q']);
   const q = qRaw ? qRaw.slice(0, 100) : '';
+  const fuzzy = parseTriBoolean(rawQuery['fuzzy'], 'fuzzy', 'Tìm kiếm mờ', errors);
   const page = parsePageParam(rawQuery['page'], errors);
   const pageSize = parsePageSizeParam(rawQuery['pageSize'], errors);
 
@@ -885,6 +899,7 @@ export function parseProfileListQuery(rawQuery: Record<string, unknown>): Profil
 
   const filters: Record<string, string | undefined> = {
     q: q || undefined,
+    fuzzy: fuzzy !== undefined ? String(fuzzy) : undefined,
     role: roles?.join(','),
     createdFrom: rawString(rawQuery['createdFrom']),
     createdTo: rawString(rawQuery['createdTo']),
@@ -893,6 +908,7 @@ export function parseProfileListQuery(rawQuery: Record<string, unknown>): Profil
 
   return {
     q,
+    fuzzy,
     page,
     pageSize,
     roles,
@@ -939,6 +955,10 @@ export function buildProfileWhere(
 export interface FtsHit {
   id: string;
   rank: number;
+}
+
+export interface SearchOptions {
+  fuzzy?: boolean;
 }
 
 /**
