@@ -24,6 +24,7 @@ const SORTS = [
 
 const FILTER_KEYS = [
   'q',
+  'fuzzy',
   'category',
   'minPrice',
   'maxPrice',
@@ -67,6 +68,7 @@ export default function DishAdminList() {
     clearFilters,
   } = useListParams('pages');
 
+  const fuzzy = getFilter('fuzzy');
   const minPrice = getFilter('minPrice');
   const maxPrice = getFilter('maxPrice');
   const chefId = getFilter('chefId');
@@ -89,6 +91,7 @@ export default function DishAdminList() {
 
   const filtersKey = [
     q,
+    fuzzy,
     category,
     minPrice,
     maxPrice,
@@ -108,6 +111,7 @@ export default function DishAdminList() {
     loadPage: (targetPage) =>
       dishesApi.listPaged({
         q: q || undefined,
+        fuzzy: fuzzy || undefined,
         category: category || undefined,
         minPrice: minPrice || undefined,
         maxPrice: maxPrice || undefined,
@@ -320,6 +324,18 @@ export default function DishAdminList() {
               >
                 <option value="">Ẩn món đã xóa</option>
                 <option value="1">Hiển thị cả món đã xóa</option>
+              </select>
+            </div>
+
+            <div className="filter-group">
+              <span className="filter-group-label">Chế độ tìm kiếm</span>
+              <select
+                className="filter-select"
+                value={fuzzy}
+                onChange={(event) => setFilter('fuzzy', event.target.value)}
+              >
+                <option value="">Gần đúng (Fuzzy - mặc định)</option>
+                <option value="false">Khớp chính xác (FTS)</option>
               </select>
             </div>
 

@@ -24,7 +24,9 @@ const ROLES = Object.values(Role);
 
 router.get('/', requirePermission('user:manage'), async (req, res) => {
   const parsed = parseProfileListQuery(req.query as Record<string, unknown>);
-  const ftsHits = parsed.q ? await searchProfilesFts(parsed.q) : undefined;
+  const ftsHits = parsed.q
+    ? await searchProfilesFts(parsed.q, { fuzzy: parsed.fuzzy })
+    : undefined;
   const ftsIds = ftsHits ? ftsHits.map((h) => h.id) : undefined;
 
   const where = buildProfileWhere(parsed, { ftsIds });

@@ -155,6 +155,7 @@ export interface DishFilterOptions {
 
 export interface DishQueryParams {
   q?: string;
+  fuzzy?: string;
   category?: string;
   page?: number;
   pageSize?: number;
@@ -173,6 +174,7 @@ export interface DishQueryParams {
 
 export interface ChefQueryParams {
   q?: string;
+  fuzzy?: string;
   page?: number;
   pageSize?: number;
   isActive?: string;
@@ -184,6 +186,7 @@ export interface ChefQueryParams {
 
 export interface IngredientQueryParams {
   q?: string;
+  fuzzy?: string;
   page?: number;
   pageSize?: number;
   stock?: string;
@@ -195,6 +198,7 @@ export interface IngredientQueryParams {
 
 export interface UserQueryParams {
   q?: string;
+  fuzzy?: string;
   page?: number;
   pageSize?: number;
   role?: string;

@@ -25,6 +25,7 @@ const SORTS = [
 
 const FILTER_KEYS = [
   'q',
+  'fuzzy',
   'category',
   'minPrice',
   'maxPrice',
@@ -67,6 +68,7 @@ export default function DishList() {
     clearFilters,
   } = useListParams('infinite');
 
+  const fuzzy = getFilter('fuzzy');
   const minPrice = getFilter('minPrice');
   const maxPrice = getFilter('maxPrice');
   const chefId = getFilter('chefId');
@@ -87,6 +89,7 @@ export default function DishList() {
 
   const filtersKey = [
     q,
+    fuzzy,
     category,
     minPrice,
     maxPrice,
@@ -104,6 +107,7 @@ export default function DishList() {
     loadPage: (targetPage) =>
       dishesApi.listPublic({
         q: q || undefined,
+        fuzzy: fuzzy || undefined,
         category: category || undefined,
         minPrice: minPrice || undefined,
         maxPrice: maxPrice || undefined,
@@ -154,6 +158,7 @@ export default function DishList() {
     available,
     featured,
     maxPrepTime,
+    fuzzy === 'false' ? 'fuzzy' : '',
   ].filter(Boolean).length;
 
   const hasAnyFilterOrSearch = Boolean(q || sort || activeFilterCount > 0);
@@ -301,6 +306,19 @@ export default function DishList() {
                     onChange={(event) => setFilter('featured', event.target.checked ? 'true' : '')}
                   />
                   Chỉ món đặc sắc
+                </label>
+                <label
+                  className="filter-check-label"
+                  title="Tìm kiếm gần đúng cho phép tìm thấy món ăn ngay cả khi gõ sai chính tả hoặc không dấu"
+                >
+                  <input
+                    type="checkbox"
+                    checked={fuzzy !== 'false'}
+                    onChange={(event) =>
+                      setFilter('fuzzy', event.target.checked ? '' : 'false')
+                    }
+                  />
+                  Tìm gần đúng (Fuzzy)
                 </label>
               </div>
             </div>

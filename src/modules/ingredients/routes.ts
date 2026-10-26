@@ -42,7 +42,9 @@ async function findNameClash(name: string, excludeId?: string) {
 
 router.get('/', requirePermission('ingredient:create'), async (req, res) => {
   const parsed = parseIngredientListQuery(req.query as Record<string, unknown>);
-  const ftsHits = parsed.q ? await searchIngredientsFts(parsed.q) : undefined;
+  const ftsHits = parsed.q
+    ? await searchIngredientsFts(parsed.q, { fuzzy: parsed.fuzzy })
+    : undefined;
   const ftsIds = ftsHits ? ftsHits.map((h) => h.id) : undefined;
 
   const where = buildIngredientWhere(parsed, { ftsIds });
@@ -56,7 +58,8 @@ router.get('/', requirePermission('ingredient:create'), async (req, res) => {
   });
 
   const countFromCounter = !Object.entries(parsed.filters).some(
-    ([key, value]) => key !== 'sort' && key !== 'pageSize' && Boolean(value),
+    ([key, value]) =>
+      key !== 'sort' && key !== 'pageSize' && key !== 'fuzzy' && Boolean(value),
   );
   const offset = skipFor(parsed.page, parsed.pageSize);
 

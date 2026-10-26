@@ -16,19 +16,27 @@ export const loadUser: RequestHandler = async (req, res, next) => {
   if (token) {
     try {
       const supabase = createSupabaseForRequest(req, res);
-      const { data, error } = await supabase.auth.getUser(token);
-      let userId = data?.user?.id;
-      let email = data?.user?.email;
-      let displayName = data?.user?.user_metadata?.display_name as string | undefined;
+      let userId: string | undefined;
+      let email: string | undefined;
+      let displayName: string | undefined;
 
-      // Fallback to getClaims if getUser failed (e.g. offline/symmetric token decode)
-      if (error || !userId) {
-        const claimsRes = await supabase.auth.getClaims(token);
-        if (!claimsRes.error && claimsRes.data?.claims?.sub) {
-          userId = claimsRes.data.claims.sub;
-          email = typeof claimsRes.data.claims.email === 'string' ? claimsRes.data.claims.email : undefined;
-          const meta = (claimsRes.data.claims.user_metadata ?? {}) as Record<string, unknown>;
-          displayName = typeof meta.display_name === 'string' ? meta.display_name : undefined;
+      // Fast path: verify JWT claims without an extra /auth/v1/user network round-trip
+      const claimsRes = await supabase.auth.getClaims(token);
+      if (!claimsRes.error && claimsRes.data?.claims?.sub) {
+        userId = claimsRes.data.claims.sub;
+        email =
+          typeof claimsRes.data.claims.email === 'string'
+            ? claimsRes.data.claims.email
+            : undefined;
+        const meta = (claimsRes.data.claims.user_metadata ?? {}) as Record<string, unknown>;
+        displayName = typeof meta.display_name === 'string' ? meta.display_name : undefined;
+      } else {
+        // Fallback to remote getUser(token) if getClaims could not verify
+        const { data, error } = await supabase.auth.getUser(token);
+        if (!error && data?.user?.id) {
+          userId = data.user.id;
+          email = data.user.email;
+          displayName = data.user.user_metadata?.display_name as string | undefined;
         }
       }
 

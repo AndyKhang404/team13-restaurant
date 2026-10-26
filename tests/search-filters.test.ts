@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { HttpError } from '../src/lib/http.js';
 import {
   stripAccents,
+  cleanSearchQuery,
   buildTsQuery,
   splitCommaList,
   parseDishListQuery,
@@ -17,6 +18,8 @@ import {
   buildProfileWhere,
   orderIdsByFtsRank,
   sortEntitiesByIds,
+  searchDishesFts,
+  searchDishesFuzzy,
 } from '../src/lib/search.js';
 
 const UUID_1 = '11111111-1111-4111-8111-111111111111';
@@ -40,6 +43,12 @@ describe('stripAccents and buildTsQuery', () => {
   it('folds Vietnamese diacritics and đ/Đ into plain ASCII tokens with prefix matching', () => {
     expect(stripAccents('Phở Bò Đặc Biệt')).toBe('Pho Bo Dac Biet');
     expect(buildTsQuery('Phở Bò Đặc Biệt!')).toBe('pho:* & bo:* & dac:* & biet:*');
+  });
+
+  it('normalizes search query for trigram fuzzy search with cleanSearchQuery', () => {
+    expect(cleanSearchQuery('  Phở   Bò   Đặc Biệt!  ')).toBe('pho bo dac biet');
+    expect(cleanSearchQuery('ĐỒ UỐNG')).toBe('do uong');
+    expect(cleanSearchQuery('   ... !!!   ')).toBe('');
   });
 
   it('deduplicates repeated tokens and returns null for empty/punctuation-only input', () => {
@@ -296,5 +305,41 @@ describe('FTS rank ordering helpers', () => {
 
     const items = [{ id: 'a' }, { id: 'b' }, { id: 'c' }];
     expect(sortEntitiesByIds(items, orderedIds)).toEqual([{ id: 'c' }, { id: 'a' }, { id: 'b' }]);
+  });
+});
+
+describe('Fuzzy text search query parsing & aliases', () => {
+  it('parses fuzzy flag across dish, chef, ingredient, and profile query parsers', () => {
+    const dish = parseDishListQuery({ q: 'phở', fuzzy: 'false' });
+    expect(dish.fuzzy).toBe(false);
+    expect(dish.filters['fuzzy']).toBe('false');
+
+    const chef = parseChefListQuery({ q: 'Gordon', fuzzy: 'true' });
+    expect(chef.fuzzy).toBe(true);
+    expect(chef.filters['fuzzy']).toBe('true');
+
+    const ing = parseIngredientListQuery({ q: 'bò', fuzzy: 'false' });
+    expect(ing.fuzzy).toBe(false);
+    expect(ing.filters['fuzzy']).toBe('false');
+
+    const profile = parseProfileListQuery({ q: 'admin', fuzzy: 'true' });
+    expect(profile.fuzzy).toBe(true);
+    expect(profile.filters['fuzzy']).toBe('true');
+  });
+
+  it('rejects invalid fuzzy values with 400 VALIDATION_FAILED', () => {
+    expectValidationError(() => parseDishListQuery({ fuzzy: 'not-bool' }), 'fuzzy');
+    expectValidationError(() => parseChefListQuery({ fuzzy: 'yes' }), 'fuzzy');
+    expectValidationError(() => parseIngredientListQuery({ fuzzy: '1' }), 'fuzzy');
+    expectValidationError(() => parseProfileListQuery({ fuzzy: '0' }), 'fuzzy');
+  });
+
+  it('exports fuzzy search aliases matching FTS functions', () => {
+    expect(searchDishesFuzzy).toBe(searchDishesFts);
+  });
+
+  it('returns empty array when search query has no searchable characters', async () => {
+    const hits = await searchDishesFts('   ... !!!   ');
+    expect(hits).toEqual([]);
   });
 });

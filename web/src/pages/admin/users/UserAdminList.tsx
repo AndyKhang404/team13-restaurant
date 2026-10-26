@@ -9,7 +9,7 @@ import { PaginationFooter, PaginationToolbar } from '../../../components/Paginat
 import { formatDateTime } from '../../../lib/format';
 
 const ROLES: UserRole[] = ['ADMIN', 'STAFF', 'CUSTOMER'];
-const FILTER_KEYS = ['q', 'role', 'createdFrom', 'createdTo'];
+const FILTER_KEYS = ['q', 'fuzzy', 'role', 'createdFrom', 'createdTo'];
 
 function splitCsv(val: string): string[] {
   return val
@@ -39,6 +39,7 @@ export default function UserAdminList() {
     clearFilters,
   } = useListParams('pages');
 
+  const fuzzy = getFilter('fuzzy');
   const role = getFilter('role');
   const createdFrom = getFilter('createdFrom');
   const createdTo = getFilter('createdTo');
@@ -53,12 +54,13 @@ export default function UserAdminList() {
     setInput(q);
   }, [q]);
 
-  const filtersKey = [q, role, createdFrom, createdTo, pageSize].join('|');
+  const filtersKey = [q, fuzzy, role, createdFrom, createdTo, pageSize].join('|');
 
   const list = usePagedList<UserItem>({
     loadPage: (targetPage) =>
       usersApi.listPaged({
         q: q || undefined,
+        fuzzy: fuzzy || undefined,
         role: role || undefined,
         createdFrom: createdFrom || undefined,
         createdTo: createdTo || undefined,

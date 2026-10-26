@@ -19,7 +19,7 @@ const SORTS = [
   { value: 'newest', label: 'Mới tạo' },
 ];
 
-const FILTER_KEYS = ['q', 'isActive', 'specialty', 'minExperience', 'hasActiveDishes', 'sort'];
+const FILTER_KEYS = ['q', 'fuzzy', 'isActive', 'specialty', 'minExperience', 'hasActiveDishes', 'sort'];
 
 function splitCsv(val: string): string[] {
   return val
@@ -49,6 +49,7 @@ export default function ChefAdminList() {
     clearFilters,
   } = useListParams('pages');
 
+  const fuzzy = getFilter('fuzzy');
   const isActive = getFilter('isActive');
   const specialty = getFilter('specialty');
   const minExperience = getFilter('minExperience');
@@ -62,7 +63,7 @@ export default function ChefAdminList() {
 
   const { data: filterOpts } = useApi(() => chefsApi.filterOptions(), []);
 
-  const filtersKey = [q, isActive, specialty, minExperience, hasActiveDishes, sort, pageSize].join(
+  const filtersKey = [q, fuzzy, isActive, specialty, minExperience, hasActiveDishes, sort, pageSize].join(
     '|',
   );
 
@@ -70,6 +71,7 @@ export default function ChefAdminList() {
     loadPage: (targetPage) =>
       chefsApi.listPaged({
         q: q || undefined,
+        fuzzy: fuzzy || undefined,
         isActive: isActive || undefined,
         specialty: specialty || undefined,
         minExperience: minExperience || undefined,

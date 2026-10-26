@@ -40,7 +40,7 @@ router.get('/home', async (_req, res) => {
 
 router.get('/menu', async (req, res) => {
   const parsed = parseDishListQuery(req.query as Record<string, unknown>);
-  const ftsHits = parsed.q ? await searchDishesFts(parsed.q) : undefined;
+  const ftsHits = parsed.q ? await searchDishesFts(parsed.q, { fuzzy: parsed.fuzzy }) : undefined;
   const ftsIds = ftsHits ? ftsHits.map((h) => h.id) : undefined;
 
   const where = buildDishWhere(parsed, { hasStaffPerm: false, ftsIds });

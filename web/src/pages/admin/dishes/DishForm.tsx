@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { chefsApi, dishesApi, ingredientsApi } from '../../../lib/resources';
+import { dishesApi } from '../../../lib/resources';
 import { useApi } from '../../../lib/useApi';
 import { ApiError, HttpError, type ApiFieldErrors } from '../../../lib/api';
 import { ErrorState, Loading, NotFoundState } from '../../../components/StateViews';
@@ -32,11 +32,7 @@ export default function DishForm({ mode }: { mode: 'new' | 'edit' }) {
   const navigate = useNavigate();
 
   const deps = useApi(
-    () => Promise.all([chefsApi.options(), ingredientsApi.options()]),
-    [],
-  );
-  const dishState = useApi(
-    () => (editing ? dishesApi.get(id ?? '') : Promise.resolve(null)),
+    () => dishesApi.formDeps(editing ? (id ?? '') : undefined),
     [editing, id],
   );
 
@@ -47,33 +43,33 @@ export default function DishForm({ mode }: { mode: 'new' | 'edit' }) {
   const [saving, setSaving] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [removeImage, setRemoveImage] = useState(false);
-  const currentImageUrl = dishState.data?.imageUrl ?? null;
+  const currentDish = deps.data?.currentDish ?? null;
+  const currentImageUrl = currentDish?.imageUrl ?? null;
 
-  const chefs: Chef[] = deps.data?.[0] ?? [];
-  const ingredients: Ingredient[] = deps.data?.[1] ?? [];
+  const chefs: Chef[] = deps.data?.chefs ?? [];
+  const ingredients: Ingredient[] = deps.data?.ingredients ?? [];
 
   useEffect(() => {
-    const dish = dishState.data;
-    if (!dish) return;
+    if (!currentDish) return;
     setForm({
-      name: dish.name,
-      slug: dish.slug,
-      description: dish.description ?? '',
-      price: String(dish.price),
-      category: dish.category,
-      prepTimeMinutes: dish.prepTimeMinutes != null ? String(dish.prepTimeMinutes) : '',
-      chefId: dish.chefId ?? '',
-      isAvailable: dish.isAvailable,
-      isFeatured: dish.isFeatured,
+      name: currentDish.name,
+      slug: currentDish.slug,
+      description: currentDish.description ?? '',
+      price: String(currentDish.price),
+      category: currentDish.category,
+      prepTimeMinutes: currentDish.prepTimeMinutes != null ? String(currentDish.prepTimeMinutes) : '',
+      chefId: currentDish.chefId ?? '',
+      isAvailable: currentDish.isAvailable,
+      isFeatured: currentDish.isFeatured,
     });
     setRows(
-      dish.ingredients.map((line) => ({
+      currentDish.ingredients.map((line) => ({
         ingredientId: line.ingredientId,
         quantity: String(line.quantity),
         unit: line.unit ?? 'g',
       })),
     );
-  }, [dishState.data]);
+  }, [currentDish]);
 
   function set<K extends keyof typeof EMPTY>(key: K, value: (typeof EMPTY)[K]) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -137,10 +133,9 @@ export default function DishForm({ mode }: { mode: 'new' | 'edit' }) {
     }
   }
 
-  if (deps.loading || (editing && dishState.loading)) return <Loading />;
-  if (deps.error) return <ErrorState error={deps.error} onRetry={deps.reload} />;
-  if (editing && dishState.error) {
-    if (dishState.error instanceof ApiError && dishState.error.code === 'NOT_FOUND') {
+  if (deps.loading) return <Loading />;
+  if (deps.error) {
+    if (editing && deps.error instanceof ApiError && deps.error.code === 'NOT_FOUND') {
       return (
         <NotFoundState title="Không tìm thấy món" message="Món ăn này không tồn tại.">
           <Link className="btn btn-solid" to="/admin/dishes">
@@ -149,7 +144,7 @@ export default function DishForm({ mode }: { mode: 'new' | 'edit' }) {
         </NotFoundState>
       );
     }
-    return <ErrorState error={dishState.error} onRetry={dishState.reload} />;
+    return <ErrorState error={deps.error} onRetry={deps.reload} />;
   }
 
   return (

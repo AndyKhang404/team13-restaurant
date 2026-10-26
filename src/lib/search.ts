@@ -64,6 +64,17 @@ export function stripAccents(input: string): string {
 }
 
 /**
+ * Normalize free-text search string for trigram fuzzy matching:
+ * strip Vietnamese diacritics, convert to lowercase, extract alphanumeric tokens.
+ */
+export function cleanSearchQuery(raw: string): string {
+  const normalized = stripAccents(raw).toLowerCase();
+  const tokens = normalized.match(/[a-z0-9]+/g);
+  if (!tokens || tokens.length === 0) return '';
+  return tokens.join(' ');
+}
+
+/**
  * Convert a free-text search string into a PostgreSQL prefix tsquery string.
  * Example: "Phở Bò Đặc Biệt!" -> "pho:* & bo:* & dac:* & biet:*"
  * Returns null if the input contains no searchable word tokens.
@@ -931,109 +942,362 @@ export interface FtsHit {
 }
 
 /**
- * Search dishes via Postgres FTS:
+ * Search dishes via Postgres FTS & fuzzy trigram similarity:
  * - dish name (A) + description (B) via `dishes.search_vector`
  * - linked chef name (weight B)
  * - linked ingredient names (via `ingredients.search_vector`, weight C)
+ * - trigram similarity and word_similarity for typo tolerance
  */
-export async function searchDishesFts(q: string): Promise<FtsHit[]> {
+export async function searchDishesFts(
+  q: string,
+  options: SearchOptions = {},
+): Promise<FtsHit[]> {
   const tsQuery = buildTsQuery(q);
-  if (!tsQuery) return [];
+  const cleanQ = cleanSearchQuery(q);
+  const enableFuzzy = options.fuzzy !== false && cleanQ.length > 0;
+
+  if (!tsQuery && !enableFuzzy) return [];
+
+  if (!enableFuzzy) {
+    if (!tsQuery) return [];
+    const rows = await prisma.$queryRaw<Array<{ id: string; rank: number }>>`
+      WITH q AS (SELECT to_tsquery('simple', ${tsQuery}) AS query)
+      SELECT
+        d.id,
+        (
+          ts_rank(d.search_vector, q.query) +
+          COALESCE((
+            SELECT ts_rank(setweight(to_tsvector('simple', public.f_unaccent(coalesce(c.name, ''))), 'B'), q.query)
+            FROM chefs c
+            WHERE c.id = d.chef_id AND c.deleted_at IS NULL
+          ), 0) +
+          COALESCE((
+            SELECT MAX(ts_rank(setweight(i.search_vector, 'C'), q.query))
+            FROM dish_ingredients di
+            JOIN ingredients i ON i.id = di.ingredient_id
+            WHERE di.dish_id = d.id AND i.deleted_at IS NULL
+          ), 0)
+        )::float8 AS rank
+      FROM dishes d, q
+      WHERE
+        d.search_vector @@ q.query
+        OR EXISTS (
+          SELECT 1 FROM chefs c
+          WHERE c.id = d.chef_id
+            AND c.deleted_at IS NULL
+            AND to_tsvector('simple', public.f_unaccent(coalesce(c.name, ''))) @@ q.query
+        )
+        OR EXISTS (
+          SELECT 1 FROM dish_ingredients di
+          JOIN ingredients i ON i.id = di.ingredient_id
+          WHERE di.dish_id = d.id
+            AND i.deleted_at IS NULL
+            AND i.search_vector @@ q.query
+        )
+      ORDER BY rank DESC, d.name ASC
+    `;
+    return rows;
+  }
 
   const rows = await prisma.$queryRaw<Array<{ id: string; rank: number }>>`
-    WITH q AS (SELECT to_tsquery('simple', ${tsQuery}) AS query)
+    WITH q_params AS (
+      SELECT
+        CASE WHEN ${tsQuery}::text IS NOT NULL THEN to_tsquery('simple', ${tsQuery}::text) ELSE NULL END AS fts_query,
+        ${cleanQ}::text AS cq
+    )
     SELECT
       d.id,
       (
-        ts_rank(d.search_vector, q.query) +
-        COALESCE((
-          SELECT ts_rank(setweight(to_tsvector('simple', public.f_unaccent(coalesce(c.name, ''))), 'B'), q.query)
-          FROM chefs c
+        COALESCE(
+          CASE WHEN q_params.fts_query IS NOT NULL THEN (
+            ts_rank(d.search_vector, q_params.fts_query) * 2.0 +
+            COALESCE((
+              SELECT ts_rank(setweight(to_tsvector('simple', public.f_unaccent(coalesce(c.name, ''))), 'B'), q_params.fts_query)
+              FROM chefs c
+              WHERE c.id = d.chef_id AND c.deleted_at IS NULL
+            ), 0) * 2.0 +
+            COALESCE((
+              SELECT MAX(ts_rank(setweight(i.search_vector, 'C'), q_params.fts_query))
+              FROM dish_ingredients di
+              JOIN ingredients i ON i.id = di.ingredient_id
+              WHERE di.dish_id = d.id AND i.deleted_at IS NULL
+            ), 0) * 2.0
+          ) ELSE 0 END,
+          0
+        ) +
+        (
+          COALESCE(similarity(public.f_unaccent(d.name), q_params.cq) * 2.0, 0) +
+          COALESCE(word_similarity(q_params.cq, public.f_unaccent(d.name)) * 1.5, 0) +
+          COALESCE(similarity(public.f_unaccent(coalesce(d.description, '')), q_params.cq) * 0.8, 0) +
+          COALESCE((
+            SELECT MAX(GREATEST(
+              similarity(public.f_unaccent(coalesce(c.name, '')), q_params.cq),
+              word_similarity(q_params.cq, public.f_unaccent(coalesce(c.name, '')))
+            ))
+            FROM chefs c
+            WHERE c.id = d.chef_id AND c.deleted_at IS NULL
+          ), 0) * 1.2 +
+          COALESCE((
+            SELECT MAX(GREATEST(
+              similarity(public.f_unaccent(i.name), q_params.cq),
+              word_similarity(q_params.cq, public.f_unaccent(i.name))
+            ))
+            FROM dish_ingredients di
+            JOIN ingredients i ON i.id = di.ingredient_id
+            WHERE di.dish_id = d.id AND i.deleted_at IS NULL
+          ), 0)
+        )
+      )::float8 AS rank
+    FROM dishes d, q_params
+    WHERE
+      (
+        q_params.fts_query IS NOT NULL AND (
+          d.search_vector @@ q_params.fts_query
+          OR EXISTS (
+            SELECT 1 FROM chefs c
+            WHERE c.id = d.chef_id
+              AND c.deleted_at IS NULL
+              AND to_tsvector('simple', public.f_unaccent(coalesce(c.name, ''))) @@ q_params.fts_query
+          )
+          OR EXISTS (
+            SELECT 1 FROM dish_ingredients di
+            JOIN ingredients i ON i.id = di.ingredient_id
+            WHERE di.dish_id = d.id
+              AND i.deleted_at IS NULL
+              AND i.search_vector @@ q_params.fts_query
+          )
+        )
+      )
+      OR (
+        public.f_unaccent(d.name) % q_params.cq
+        OR q_params.cq <% public.f_unaccent(d.name)
+        OR public.f_unaccent(coalesce(d.description, '')) % q_params.cq
+        OR EXISTS (
+          SELECT 1 FROM chefs c
           WHERE c.id = d.chef_id AND c.deleted_at IS NULL
-        ), 0) +
-        COALESCE((
-          SELECT MAX(ts_rank(setweight(i.search_vector, 'C'), q.query))
-          FROM dish_ingredients di
+            AND (
+              public.f_unaccent(c.name) % q_params.cq
+              OR q_params.cq <% public.f_unaccent(c.name)
+            )
+        )
+        OR EXISTS (
+          SELECT 1 FROM dish_ingredients di
           JOIN ingredients i ON i.id = di.ingredient_id
           WHERE di.dish_id = d.id AND i.deleted_at IS NULL
-        ), 0)
-      )::float8 AS rank
-    FROM dishes d, q
-    WHERE
-      d.search_vector @@ q.query
-      OR EXISTS (
-        SELECT 1 FROM chefs c
-        WHERE c.id = d.chef_id
-          AND c.deleted_at IS NULL
-          AND to_tsvector('simple', public.f_unaccent(coalesce(c.name, ''))) @@ q.query
-      )
-      OR EXISTS (
-        SELECT 1 FROM dish_ingredients di
-        JOIN ingredients i ON i.id = di.ingredient_id
-        WHERE di.dish_id = d.id
-          AND i.deleted_at IS NULL
-          AND i.search_vector @@ q.query
+            AND (
+              public.f_unaccent(i.name) % q_params.cq
+              OR q_params.cq <% public.f_unaccent(i.name)
+            )
+        )
+        OR (
+          length(q_params.cq) < 3 AND (
+            public.f_unaccent(d.name) ILIKE ('%' || q_params.cq || '%')
+            OR public.f_unaccent(coalesce(d.description, '')) ILIKE ('%' || q_params.cq || '%')
+          )
+        )
       )
     ORDER BY rank DESC, d.name ASC
   `;
   return rows;
 }
 
-/** Search chefs via Postgres FTS: name (A), specialty (B), bio (C). */
-export async function searchChefsFts(q: string): Promise<FtsHit[]> {
+/** Search chefs via Postgres FTS & fuzzy trigram similarity: name (A), specialty (B), bio (C). */
+export async function searchChefsFts(
+  q: string,
+  options: SearchOptions = {},
+): Promise<FtsHit[]> {
   const tsQuery = buildTsQuery(q);
-  if (!tsQuery) return [];
+  const cleanQ = cleanSearchQuery(q);
+  const enableFuzzy = options.fuzzy !== false && cleanQ.length > 0;
+
+  if (!tsQuery && !enableFuzzy) return [];
+
+  if (!enableFuzzy) {
+    if (!tsQuery) return [];
+    const rows = await prisma.$queryRaw<Array<{ id: string; rank: number }>>`
+      WITH q AS (SELECT to_tsquery('simple', ${tsQuery}) AS query)
+      SELECT
+        c.id,
+        ts_rank(c.search_vector, q.query)::float8 AS rank
+      FROM chefs c, q
+      WHERE c.search_vector @@ q.query
+      ORDER BY rank DESC, c.name ASC
+    `;
+    return rows;
+  }
 
   const rows = await prisma.$queryRaw<Array<{ id: string; rank: number }>>`
-    WITH q AS (SELECT to_tsquery('simple', ${tsQuery}) AS query)
+    WITH q_params AS (
+      SELECT
+        CASE WHEN ${tsQuery}::text IS NOT NULL THEN to_tsquery('simple', ${tsQuery}::text) ELSE NULL END AS fts_query,
+        ${cleanQ}::text AS cq
+    )
     SELECT
       c.id,
-      ts_rank(c.search_vector, q.query)::float8 AS rank
-    FROM chefs c, q
-    WHERE c.search_vector @@ q.query
+      (
+        COALESCE(
+          CASE WHEN q_params.fts_query IS NOT NULL THEN ts_rank(c.search_vector, q_params.fts_query) * 2.0 ELSE 0 END,
+          0
+        ) +
+        (
+          COALESCE(similarity(public.f_unaccent(c.name), q_params.cq) * 2.0, 0) +
+          COALESCE(word_similarity(q_params.cq, public.f_unaccent(c.name)) * 1.5, 0) +
+          COALESCE(similarity(public.f_unaccent(coalesce(c.specialty, '')), q_params.cq) * 1.0, 0) +
+          COALESCE(similarity(public.f_unaccent(coalesce(c.bio, '')), q_params.cq) * 0.5, 0)
+        )
+      )::float8 AS rank
+    FROM chefs c, q_params
+    WHERE
+      (q_params.fts_query IS NOT NULL AND c.search_vector @@ q_params.fts_query)
+      OR public.f_unaccent(c.name) % q_params.cq
+      OR q_params.cq <% public.f_unaccent(c.name)
+      OR public.f_unaccent(coalesce(c.specialty, '')) % q_params.cq
+      OR (
+        length(q_params.cq) < 3 AND (
+          public.f_unaccent(c.name) ILIKE ('%' || q_params.cq || '%')
+          OR public.f_unaccent(coalesce(c.specialty, '')) ILIKE ('%' || q_params.cq || '%')
+        )
+      )
     ORDER BY rank DESC, c.name ASC
   `;
   return rows;
 }
 
-/** Search ingredients via Postgres FTS: name (A), unit (D). */
-export async function searchIngredientsFts(q: string): Promise<FtsHit[]> {
+/** Search ingredients via Postgres FTS & fuzzy trigram similarity: name (A), unit (D). */
+export async function searchIngredientsFts(
+  q: string,
+  options: SearchOptions = {},
+): Promise<FtsHit[]> {
   const tsQuery = buildTsQuery(q);
-  if (!tsQuery) return [];
+  const cleanQ = cleanSearchQuery(q);
+  const enableFuzzy = options.fuzzy !== false && cleanQ.length > 0;
+
+  if (!tsQuery && !enableFuzzy) return [];
+
+  if (!enableFuzzy) {
+    if (!tsQuery) return [];
+    const rows = await prisma.$queryRaw<Array<{ id: string; rank: number }>>`
+      WITH q AS (SELECT to_tsquery('simple', ${tsQuery}) AS query)
+      SELECT
+        i.id,
+        ts_rank(i.search_vector, q.query)::float8 AS rank
+      FROM ingredients i, q
+      WHERE i.search_vector @@ q.query
+      ORDER BY rank DESC, i.name ASC
+    `;
+    return rows;
+  }
 
   const rows = await prisma.$queryRaw<Array<{ id: string; rank: number }>>`
-    WITH q AS (SELECT to_tsquery('simple', ${tsQuery}) AS query)
+    WITH q_params AS (
+      SELECT
+        CASE WHEN ${tsQuery}::text IS NOT NULL THEN to_tsquery('simple', ${tsQuery}::text) ELSE NULL END AS fts_query,
+        ${cleanQ}::text AS cq
+    )
     SELECT
       i.id,
-      ts_rank(i.search_vector, q.query)::float8 AS rank
-    FROM ingredients i, q
-    WHERE i.search_vector @@ q.query
+      (
+        COALESCE(
+          CASE WHEN q_params.fts_query IS NOT NULL THEN ts_rank(i.search_vector, q_params.fts_query) * 2.0 ELSE 0 END,
+          0
+        ) +
+        (
+          COALESCE(similarity(public.f_unaccent(i.name), q_params.cq) * 2.0, 0) +
+          COALESCE(word_similarity(q_params.cq, public.f_unaccent(i.name)) * 1.5, 0) +
+          COALESCE(similarity(public.f_unaccent(coalesce(i.unit, '')), q_params.cq) * 0.5, 0)
+        )
+      )::float8 AS rank
+    FROM ingredients i, q_params
+    WHERE
+      (q_params.fts_query IS NOT NULL AND i.search_vector @@ q_params.fts_query)
+      OR public.f_unaccent(i.name) % q_params.cq
+      OR q_params.cq <% public.f_unaccent(i.name)
+      OR (
+        length(q_params.cq) < 3 AND public.f_unaccent(i.name) ILIKE ('%' || q_params.cq || '%')
+      )
     ORDER BY rank DESC, i.name ASC
   `;
   return rows;
 }
 
-/** Search profiles via Postgres FTS: email (A), display_name (B), plus tokenized email segments. */
-export async function searchProfilesFts(q: string): Promise<FtsHit[]> {
+/** Search profiles via Postgres FTS & fuzzy trigram similarity: email (A), display_name (B). */
+export async function searchProfilesFts(
+  q: string,
+  options: SearchOptions = {},
+): Promise<FtsHit[]> {
   const tsQuery = buildTsQuery(q);
-  if (!tsQuery) return [];
+  const cleanQ = cleanSearchQuery(q);
+  const enableFuzzy = options.fuzzy !== false && cleanQ.length > 0;
+
+  if (!tsQuery && !enableFuzzy) return [];
+
+  if (!enableFuzzy) {
+    if (!tsQuery) return [];
+    const rows = await prisma.$queryRaw<Array<{ id: string; rank: number }>>`
+      WITH q AS (SELECT to_tsquery('simple', ${tsQuery}) AS query)
+      SELECT
+        p.id,
+        ts_rank(
+          p.search_vector || setweight(to_tsvector('simple', translate(public.f_unaccent(coalesce(p.email, '')), '@._-', '    ')), 'A'),
+          q.query
+        )::float8 AS rank
+      FROM profiles p, q
+      WHERE (
+        p.search_vector || setweight(to_tsvector('simple', translate(public.f_unaccent(coalesce(p.email, '')), '@._-', '    ')), 'A')
+      ) @@ q.query
+      ORDER BY rank DESC, p.created_at DESC
+    `;
+    return rows;
+  }
 
   const rows = await prisma.$queryRaw<Array<{ id: string; rank: number }>>`
-    WITH q AS (SELECT to_tsquery('simple', ${tsQuery}) AS query)
+    WITH q_params AS (
+      SELECT
+        CASE WHEN ${tsQuery}::text IS NOT NULL THEN to_tsquery('simple', ${tsQuery}::text) ELSE NULL END AS fts_query,
+        ${cleanQ}::text AS cq
+    )
     SELECT
       p.id,
-      ts_rank(
-        p.search_vector || setweight(to_tsvector('simple', translate(public.f_unaccent(coalesce(p.email, '')), '@._-', '    ')), 'A'),
-        q.query
+      (
+        COALESCE(
+          CASE WHEN q_params.fts_query IS NOT NULL THEN
+            ts_rank(p.search_vector || setweight(to_tsvector('simple', translate(public.f_unaccent(coalesce(p.email, '')), '@._-', '    ')), 'A'), q_params.fts_query) * 2.0
+          ELSE 0 END,
+          0
+        ) +
+        (
+          COALESCE(similarity(public.f_unaccent(coalesce(p.display_name, '')), q_params.cq) * 2.0, 0) +
+          COALESCE(word_similarity(q_params.cq, public.f_unaccent(coalesce(p.display_name, ''))) * 1.5, 0) +
+          COALESCE(similarity(lower(p.email), q_params.cq) * 1.5, 0) +
+          COALESCE(word_similarity(q_params.cq, lower(p.email)) * 1.0, 0)
+        )
       )::float8 AS rank
-    FROM profiles p, q
-    WHERE (
-      p.search_vector || setweight(to_tsvector('simple', translate(public.f_unaccent(coalesce(p.email, '')), '@._-', '    ')), 'A')
-    ) @@ q.query
+    FROM profiles p, q_params
+    WHERE
+      (
+        q_params.fts_query IS NOT NULL AND (
+          p.search_vector || setweight(to_tsvector('simple', translate(public.f_unaccent(coalesce(p.email, '')), '@._-', '    ')), 'A')
+        ) @@ q_params.fts_query
+      )
+      OR public.f_unaccent(coalesce(p.display_name, '')) % q_params.cq
+      OR q_params.cq <% public.f_unaccent(coalesce(p.display_name, ''))
+      OR lower(p.email) % q_params.cq
+      OR q_params.cq <% lower(p.email)
+      OR (
+        length(q_params.cq) < 3 AND (
+          public.f_unaccent(coalesce(p.display_name, '')) ILIKE ('%' || q_params.cq || '%')
+          OR lower(p.email) ILIKE ('%' || q_params.cq || '%')
+        )
+      )
     ORDER BY rank DESC, p.created_at DESC
   `;
   return rows;
 }
+
+export const searchDishesFuzzy = searchDishesFts;
+export const searchChefsFuzzy = searchChefsFts;
+export const searchIngredientsFuzzy = searchIngredientsFts;
+export const searchProfilesFuzzy = searchProfilesFts;
 
 /**
  * Sort an array of IDs according to the rank order from `ftsHits`.

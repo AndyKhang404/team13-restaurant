@@ -139,6 +139,19 @@ export const dishesApi = {
 
   /** Admin list (server-paginated). */
   listPaged: (params: DishQueryParams = {}) => fetchDishesPage(params),
+  /** Preload active chefs, ingredients, and optional current dish in a single request. */
+  formDeps: async (dishId?: string) => {
+    const data = await apiFetch<{
+      chefs: Chef[];
+      ingredients: Ingredient[];
+      currentDish: RawDish | null;
+    }>(`/dishes/form-deps${buildQuery({ dishId })}`);
+    return {
+      chefs: data.chefs,
+      ingredients: data.ingredients,
+      currentDish: data.currentDish ? normalizeDish(data.currentDish) : null,
+    };
+  },
   get: async (id: string) => {
     const data = await apiFetch<{ dish: RawDish }>(`/dishes/${id}`);
     return normalizeDish(data.dish);

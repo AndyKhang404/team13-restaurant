@@ -38,7 +38,7 @@ export const ChefSchema = z.object({
 
 router.get('/', requirePermission('chef:create'), async (req, res) => {
   const parsed = parseChefListQuery(req.query as Record<string, unknown>);
-  const ftsHits = parsed.q ? await searchChefsFts(parsed.q) : undefined;
+  const ftsHits = parsed.q ? await searchChefsFts(parsed.q, { fuzzy: parsed.fuzzy }) : undefined;
   const ftsIds = ftsHits ? ftsHits.map((h) => h.id) : undefined;
 
   const where = buildChefWhere(parsed, { ftsIds });
@@ -52,7 +52,8 @@ router.get('/', requirePermission('chef:create'), async (req, res) => {
   });
 
   const countFromCounter = !Object.entries(parsed.filters).some(
-    ([key, value]) => key !== 'sort' && key !== 'pageSize' && Boolean(value),
+    ([key, value]) =>
+      key !== 'sort' && key !== 'pageSize' && key !== 'fuzzy' && Boolean(value),
   );
   const offset = skipFor(parsed.page, parsed.pageSize);
 

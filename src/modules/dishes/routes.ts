@@ -149,7 +149,11 @@ export function validateIngredientRows(
 }
 
 /** Preload options for dropdowns in dish form (chefs & ingredients). */
-async function loadFormDependencies(currentDishId?: string) {
+async function loadFormDependencies(
+  currentDishId?: string,
+  options: { includeCurrentDish?: boolean } = {},
+) {
+  const includeCurrentDish = options.includeCurrentDish ?? true;
   const linkedDish = currentDishId ? { some: { id: currentDishId } } : undefined;
   const linkedDishIngredient = currentDishId ? { some: { dishId: currentDishId } } : undefined;
   const [chefs, ingredients, currentDish] = await Promise.all([
@@ -157,18 +161,38 @@ async function loadFormDependencies(currentDishId?: string) {
       where: currentDishId
         ? { OR: [{ deletedAt: null }, { dishes: linkedDish }] }
         : { deletedAt: null },
+      select: {
+        id: true,
+        name: true,
+        specialty: true,
+        isActive: true,
+        deletedAt: true,
+      },
       orderBy: { name: 'asc' },
     }),
     prisma.ingredient.findMany({
       where: currentDishId
         ? { OR: [{ deletedAt: null }, { dishes: linkedDishIngredient }] }
         : { deletedAt: null },
+      select: {
+        id: true,
+        name: true,
+        unit: true,
+        isAvailable: true,
+        deletedAt: true,
+      },
       orderBy: { name: 'asc' },
     }),
-    currentDishId
+    currentDishId && includeCurrentDish
       ? prisma.dish.findUnique({
           where: { id: currentDishId },
-          include: { ingredients: { include: { ingredient: true } } },
+          include: {
+            chef: true,
+            ingredients: {
+              include: { ingredient: { select: { id: true, name: true, unit: true } } },
+              orderBy: { ingredient: { name: 'asc' } },
+            },
+          },
         })
       : null,
   ]);
@@ -188,8 +212,10 @@ async function loadFormDependencies(currentDishId?: string) {
 }
 
 router.get('/form-deps', requirePermission('dish:create'), async (req, res) => {
-  const dishId = typeof req.query.dishId === 'string' ? req.query.dishId : undefined;
+  const rawDishId = typeof req.query.dishId === 'string' ? req.query.dishId.trim() : '';
+  const dishId = rawDishId ? paramId(rawDishId) : undefined;
   const deps = await loadFormDependencies(dishId);
+  if (dishId && !deps.currentDish) throw notFound('Món ăn');
   return sendOk(res, deps);
 });
 
@@ -227,14 +253,15 @@ router.get('/', async (req, res) => {
   const parsed = parseDishListQuery(req.query as Record<string, unknown>);
   const hasStaffPerm = can(req.user, 'dish:create');
 
-  const ftsHits = parsed.q ? await searchDishesFts(parsed.q) : undefined;
+  const ftsHits = parsed.q ? await searchDishesFts(parsed.q, { fuzzy: parsed.fuzzy }) : undefined;
   const ftsIds = ftsHits ? ftsHits.map((h) => h.id) : undefined;
 
   const where = buildDishWhere(parsed, { hasStaffPerm, ftsIds });
   const orderBy = buildDishOrderBy(parsed.effectiveSort);
 
   const countFromCounter = !Object.entries(parsed.filters).some(
-    ([key, value]) => key !== 'sort' && key !== 'pageSize' && Boolean(value),
+    ([key, value]) =>
+      key !== 'sort' && key !== 'pageSize' && key !== 'fuzzy' && Boolean(value),
   );
   const offset = skipFor(parsed.page, parsed.pageSize);
 
@@ -316,7 +343,9 @@ router.get('/:idOrSlug', async (req, res) => {
     throw notFound('Món ăn');
   }
 
-  const deps = await loadFormDependencies(dish.id);
+  const deps = hasStaffPerm
+    ? await loadFormDependencies(dish.id, { includeCurrentDish: false })
+    : null;
   const chef = dish.chef && dish.chef.deletedAt === null && dish.chef.isActive ? dish.chef : null;
 
   return sendOk(res, {
@@ -330,9 +359,10 @@ router.get('/:idOrSlug', async (req, res) => {
       quantity: Number(di.quantity),
       unit: di.unit ?? 'g',
     })),
-    chefs: deps.chefs,
-    availableIngredients: deps.ingredients,
-    categories: deps.categories,
+    chefs: deps?.chefs ?? [],
+    availableIngredients: deps?.ingredients ?? [],
+    categories:
+      deps?.categories ?? CATEGORIES.map((cat) => ({ key: cat, label: CATEGORY_LABELS[cat] ?? cat })),
     categoryLabel: CATEGORY_LABELS[dish.category] ?? dish.category,
   });
 });

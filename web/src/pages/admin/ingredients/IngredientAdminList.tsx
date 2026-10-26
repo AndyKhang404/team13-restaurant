@@ -20,7 +20,7 @@ const SORTS = [
   { value: 'updated', label: 'Mới cập nhật' },
 ];
 
-const FILTER_KEYS = ['q', 'stock', 'isAvailable', 'unit', 'usage', 'sort'];
+const FILTER_KEYS = ['q', 'fuzzy', 'stock', 'isAvailable', 'unit', 'usage', 'sort'];
 
 function splitCsv(val: string): string[] {
   return val
@@ -50,6 +50,7 @@ export default function IngredientAdminList() {
     clearFilters,
   } = useListParams('pages');
 
+  const fuzzy = getFilter('fuzzy');
   const stock = getFilter('stock');
   const isAvailable = getFilter('isAvailable');
   const unit = getFilter('unit');
@@ -63,12 +64,13 @@ export default function IngredientAdminList() {
 
   const { data: filterOpts } = useApi(() => ingredientsApi.filterOptions(), []);
 
-  const filtersKey = [q, stock, isAvailable, unit, usage, sort, pageSize].join('|');
+  const filtersKey = [q, fuzzy, stock, isAvailable, unit, usage, sort, pageSize].join('|');
 
   const list = usePagedList<Ingredient>({
     loadPage: (targetPage) =>
       ingredientsApi.listPaged({
         q: q || undefined,
+        fuzzy: fuzzy || undefined,
         stock: stock || undefined,
         isAvailable: isAvailable || undefined,
         unit: unit || undefined,
