@@ -10,7 +10,7 @@ A modern client-side rendered (CSR) web application for restaurant meal manageme
 
 - **Homepage (`/`)**: Hero carousel, chef-highlighted dishes (`isFeatured`), and brand ticker.
 - **Menu & Dish Catalog (`/dishes`)**:
-  - **Accent-insensitive full-text search** via PostgreSQL `unaccent`, generated `tsvector` columns, and `GIN` indexes (supports Vietnamese diacritics including `đ`/`Đ`, and prefix-style queries such as `pho` → `Phở Bò`).
+  - **Hybrid full-text & fuzzy search** via PostgreSQL `unaccent`, generated `tsvector` columns, `pg_trgm` trigram similarity (`similarity` / `word_similarity`), and `GIN` indexes (supports Vietnamese diacritics including `đ`/`Đ`, prefix queries such as `pho` → `Phở Bò`, and typo-tolerant matching with an interactive **Fuzzy search** toggle).
   - **Rich filtering & sorting**: multi-select category pills (`appetizer`, `main`, `dessert`, `drink`, `combo`), collapsible filter panel (chef, included/excluded ingredients, featured, availability, price range, prep-time ceiling), and sorting by relevance, name, price, recency, prep time, or ingredient count.
   - **Server-side pagination** with `page` and `pageSize` (default 20, max 100) and switchable **infinite scroll / load more / numbered pages** modes. All paging, filter, and sort state is URL-backed; real-time **"Sold out"** badges remain.
 - **Dish Detail (`/dishes/:id` & `/dishes/:slug`)**: High-resolution dish imagery, formatted pricing in VND, preparation time, ingredient breakdown (names only, protecting internal inventory costs), and creator Chef spotlight. Supports direct lookup by both UUID `id` and SEO `slug`.
@@ -22,12 +22,12 @@ A modern client-side rendered (CSR) web application for restaurant meal manageme
   - Full create, read, update, soft-delete, and restore lifecycle.
   - Inline confirmation modal (`<ConfirmDeleteModal />`) for zero-redirect deletion.
   - Image upload to Supabase Storage with live preview and removal toggle.
-  - Recipe proportioning: dynamic multi-row ingredient selector with auto-filled units and quantities.
+  - **Paginated searchable selectors (`<SearchableSelect />`)**: Chef assignment and dynamic multi-row recipe ingredient selectors use debounced server-side search and pagination (`/api/chefs` & `/api/ingredients`) with keyboard navigation, scaling smoothly to thousands of records.
   - Automatic Vietnamese diacritic-stripped SEO slugs (`Phở Bò` → `pho-bo`), collision-safe (`pho-bo-2`).
-  - Full-text search plus multi-filter/sort toolbar (categories, chefs, included/excluded ingredients, featured, availability, price range, prep time, assigned chef, deleted records) with server pagination.
-- **Chefs Management (`/admin/chefs`)**: Manage chef profiles, culinary specialties, biographies, and portrait uploads, with full-text search, multi-select specialty filters, active/has-dishes filters, sorting, and server pagination.
-- **Ingredients Inventory (`/admin/ingredients`)**: Track inventory quantities, units (`g`, `kg`, `ml`), unit wholesale prices, and availability status, with full-text search, unit/stock/availability/usage filters, sorting, and server pagination.
-- **User Role Management (`/admin/users`)**: Exclusively available to `ADMIN`. Full-text search, multi-select role filters, registration date range, server pagination, and role alteration with safety locks preventing self-demotion and ensuring the last remaining `ADMIN` cannot be demoted.
+  - Hybrid full-text + fuzzy search (`fuzzy` toggle) plus multi-filter/sort toolbar (categories, chefs, included/excluded ingredients, featured, availability, price range, prep time, assigned chef, deleted records) with server pagination.
+- **Chefs Management (`/admin/chefs`)**: Manage chef profiles, culinary specialties, biographies, and portrait uploads, with hybrid full-text/fuzzy search, multi-select specialty filters, active/has-dishes filters, sorting, and server pagination.
+- **Ingredients Inventory (`/admin/ingredients`)**: Track inventory quantities, units (`g`, `kg`, `ml`), unit wholesale prices, and availability status, with hybrid full-text/fuzzy search, unit/stock/availability/usage filters, sorting, and server pagination.
+- **User Role Management (`/admin/users`)**: Exclusively available to `ADMIN`. Hybrid full-text/fuzzy search, multi-select role filters, registration date range, server pagination, and role alteration with safety locks preventing self-demotion and ensuring the last remaining `ADMIN` cannot be demoted.
 
 ### 3. Role-Based Access Control (RBAC)
 
@@ -58,7 +58,7 @@ A modern client-side rendered (CSR) web application for restaurant meal manageme
 
 - **Runtime**: [Express 5](https://expressjs.com/) on Node.js (TypeScript, ES modules)
 - **Database / ORM**: PostgreSQL via Supabase + [Prisma ORM 7](https://www.prisma.io/) with `@prisma/adapter-pg`
-- **Full-Text Search**: PostgreSQL `unaccent` with an immutable `public.f_unaccent(text)` wrapper (including Vietnamese `đ`/`Đ` folding), weighted generated `search_vector` (`tsvector`) columns, and `GIN` indexes on dishes, chefs, ingredients, and profiles.
+- **Full-Text & Fuzzy Search**: PostgreSQL `unaccent` and `pg_trgm` extensions with an immutable `public.f_unaccent(text)` wrapper (including Vietnamese `đ`/`Đ` folding), weighted generated `search_vector` (`tsvector`) columns, and both `tsvector` and `gin_trgm_ops` `GIN` indexes on dishes, chefs, ingredients, and profiles.
 - **Authentication**: Supabase Auth supporting `Authorization: Bearer <token>` header (primary for SPA / REST clients) and HTTP-only session cookies (`@supabase/ssr` fallback) + lazy `Profile` sync
 - **Object Storage**: Supabase Storage (`images` bucket for meals, chefs, and ingredients)
 - **Security**:
@@ -210,6 +210,13 @@ Populate initial admin user, chefs, ingredients, and dishes with recipe associat
 npm run db:seed
 ```
 
+To optionally generate and populate the large-scale **1,000-dish** dataset (with curated dish imagery and chef assignments) for stress-testing server pagination, filtering, and search:
+
+```bash
+npx tsx scripts/seed1000/gen-and-insert.ts
+npx tsx scripts/seed1000/add-chefs-reassign.ts
+```
+
 ### 5. Start Development
 
 Run the Express API and Vite dev server concurrently:
@@ -232,7 +239,7 @@ npm run dev:server  # Express API server on port 3000 (tsx watch)
 
 ## 🧪 Testing & Code Quality
 
-Run Vitest unit test suite (13 test suites, 89 test cases covering HTTP envelopes, Bearer token auth, CSRF bypass, business/technical error contracts, CORS, validation, rate limiting, RBAC, full-text search/filter builders, and server pagination):
+Run Vitest unit test suite (13 test suites, 94 test cases covering HTTP envelopes, Bearer token auth, CSRF bypass, business/technical error contracts, CORS, validation, rate limiting, RBAC, hybrid full-text/fuzzy search & filter builders, and server pagination):
 
 ```bash
 npm test
