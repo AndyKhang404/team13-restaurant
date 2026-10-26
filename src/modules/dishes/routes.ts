@@ -6,7 +6,15 @@ import { prisma } from '../../lib/prisma.js';
 import { badRequest, conflict, notFound, sendOk } from '../../lib/http.js';
 import { buildPagination, skipFor } from '../../lib/pagination.js';
 import { bumpVisibleRecordCount, getVisibleRecordCount } from '../../lib/record-counters.js';
-import { listParams, isNotFound, isUniqueViolation, paramId } from '../../lib/admin.js';
+import { isNotFound, isUniqueViolation, paramId } from '../../lib/admin.js';
+import {
+  parseDishListQuery,
+  buildDishWhere,
+  buildDishOrderBy,
+  searchDishesFts,
+  orderIdsByFtsRank,
+  sortEntitiesByIds,
+} from '../../lib/search.js';
 import { slugify, nextFreeSlug } from '../../lib/slug.js';
 import {
   requiredText,
@@ -53,7 +61,9 @@ const DishSchema = z.object({
  * - JSON string: `body.ingredients = '[{...}]'`
  * - Multi-field form: `ingredient_id[]`, `quantity[]`, `unit[]`
  */
-function parseIngredientRows(body: Record<string, unknown>): Array<{ ingredientId: string; quantity: number; unit: string }> {
+function parseIngredientRows(
+  body: Record<string, unknown>,
+): Array<{ ingredientId: string; quantity: number; unit: string }> {
   if (Array.isArray(body['ingredients'])) {
     return (body['ingredients'] as Array<Record<string, unknown>>)
       .map((item) => ({
@@ -124,8 +134,7 @@ export function validateIngredientRows(
     const parsed = DishIngredientItemSchema.safeParse(row);
     if (!parsed.success) {
       const first = parsed.error.issues[0];
-      errors['ingredients'] =
-        `Dòng nguyên liệu #${line}: ${first?.message ?? 'không hợp lệ'}`;
+      errors['ingredients'] = `Dòng nguyên liệu #${line}: ${first?.message ?? 'không hợp lệ'}`;
       return;
     }
     if (seen.has(parsed.data.ingredientId)) {
@@ -178,63 +187,105 @@ async function loadFormDependencies(currentDishId?: string) {
   };
 }
 
-const visibleDish: Prisma.DishWhereInput = { deletedAt: null };
-
-const SORTS: Record<string, Prisma.DishOrderByWithRelationInput[]> = {
-  '': [{ name: 'asc' }],
-  'name-asc': [{ name: 'asc' }],
-  'name-desc': [{ name: 'desc' }],
-  'price-asc': [{ price: 'asc' }],
-  'price-desc': [{ price: 'desc' }],
-  newest: [{ updatedAt: 'desc' }],
-};
-
 router.get('/form-deps', requirePermission('dish:create'), async (req, res) => {
   const dishId = typeof req.query.dishId === 'string' ? req.query.dishId : undefined;
   const deps = await loadFormDependencies(dishId);
   return sendOk(res, deps);
 });
 
+router.get('/filter-options', async (_req, res) => {
+  const [chefs, ingredients, priceAgg] = await Promise.all([
+    prisma.chef.findMany({
+      where: { deletedAt: null, isActive: true },
+      select: { id: true, name: true, specialty: true },
+      orderBy: { name: 'asc' },
+    }),
+    prisma.ingredient.findMany({
+      where: { deletedAt: null },
+      select: { id: true, name: true, unit: true },
+      orderBy: { name: 'asc' },
+    }),
+    prisma.dish.aggregate({
+      where: { deletedAt: null },
+      _min: { price: true },
+      _max: { price: true },
+    }),
+  ]);
+
+  return sendOk(res, {
+    chefs,
+    ingredients,
+    categories: CATEGORIES.map((cat) => ({ key: cat, label: CATEGORY_LABELS[cat] ?? cat })),
+    priceRange: {
+      min: Number(priceAgg._min.price ?? 0),
+      max: Number(priceAgg._max.price ?? 0),
+    },
+  });
+});
+
 router.get('/', async (req, res) => {
-  const { page, pageSize, q, filters } = listParams(req);
-  const rawCat = typeof req.query.category === 'string' ? req.query.category : '';
-  const category = CATEGORIES.includes(rawCat as DishCategory) ? (rawCat as DishCategory) : undefined;
-  if (category) filters['category'] = category;
-
-  const sortRaw = typeof req.query.sort === 'string' ? req.query.sort : '';
-  const sort = sortRaw in SORTS ? sortRaw : '';
-  if (sort) filters['sort'] = sort;
-
+  const parsed = parseDishListQuery(req.query as Record<string, unknown>);
   const hasStaffPerm = can(req.user, 'dish:create');
-  const showDeleted = req.query.deleted === '1' && hasStaffPerm;
 
-  const where: Prisma.DishWhereInput = {
-    ...(showDeleted ? {} : visibleDish),
-    ...(category ? { category } : {}),
-    ...(q ? { name: { contains: q, mode: 'insensitive' } } : {}),
-  };
+  const ftsHits = parsed.q ? await searchDishesFts(parsed.q) : undefined;
+  const ftsIds = ftsHits ? ftsHits.map((h) => h.id) : undefined;
 
-  const orderBy = SORTS[sort] ?? [{ updatedAt: 'desc' }];
-  const total =
-    !showDeleted && !q && !category
+  const where = buildDishWhere(parsed, { hasStaffPerm, ftsIds });
+  const orderBy = buildDishOrderBy(parsed.effectiveSort);
+
+  const countFromCounter = !Object.entries(parsed.filters).some(
+    ([key, value]) => key !== 'sort' && key !== 'pageSize' && Boolean(value),
+  );
+  const offset = skipFor(parsed.page, parsed.pageSize);
+
+  let dishes: Awaited<ReturnType<typeof prisma.dish.findMany>>;
+  let total: number;
+
+  if (parsed.effectiveSort === 'relevance' && ftsHits) {
+    const matchingRows = await prisma.dish.findMany({
+      where,
+      select: { id: true },
+    });
+    const orderedIds = orderIdsByFtsRank(
+      matchingRows.map((r) => r.id),
+      ftsHits,
+    );
+    total = orderedIds.length;
+    const targetIds = orderedIds.slice(offset, offset + parsed.pageSize);
+
+    const rawDishes = targetIds.length
+      ? await prisma.dish.findMany({
+          where: { id: { in: targetIds } },
+          include: { chef: true },
+        })
+      : [];
+    dishes = sortEntitiesByIds(rawDishes, targetIds);
+  } else {
+    total = countFromCounter
       ? await getVisibleRecordCount('dish')
       : await prisma.dish.count({ where });
-  const paginationInfo = buildPagination(page, total, filters, pageSize);
+    dishes = await prisma.dish.findMany({
+      where,
+      include: { chef: true },
+      orderBy,
+      skip: offset,
+      take: parsed.pageSize,
+    });
+  }
 
-  const dishes = await prisma.dish.findMany({
-    where,
-    include: { chef: true },
-    orderBy,
-    skip: skipFor(page, pageSize),
-    take: pageSize,
-  });
+  const paginationInfo = buildPagination(parsed.page, total, parsed.filters, parsed.pageSize);
+
+  const category =
+    parsed.categories && parsed.categories.length === 1
+      ? parsed.categories[0]
+      : parsed.categories?.join(',');
 
   return sendOk(res, {
     dishes,
     pagination: paginationInfo,
-    q,
+    q: parsed.q,
+    sort: parsed.sort,
     category,
-    sort,
     categories: CATEGORIES.map((c) => ({ key: c, label: CATEGORY_LABELS[c] ?? c })),
   });
 });

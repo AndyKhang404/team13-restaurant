@@ -1,12 +1,26 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import type { Prisma } from '../../generated/prisma/client.js';
 import { prisma } from '../../lib/prisma.js';
 import { badRequest, notFound, sendOk } from '../../lib/http.js';
 import { buildPagination, skipFor } from '../../lib/pagination.js';
 import { bumpVisibleRecordCount, getVisibleRecordCount } from '../../lib/record-counters.js';
-import { listParams, isNotFound, paramId } from '../../lib/admin.js';
-import { requiredText, optionalText, optionalInt, optionalPhone, checkbox, toFieldErrors } from '../../lib/validation.js';
+import { isNotFound, paramId } from '../../lib/admin.js';
+import {
+  parseChefListQuery,
+  buildChefWhere,
+  buildChefOrderBy,
+  searchChefsFts,
+  orderIdsByFtsRank,
+  sortEntitiesByIds,
+} from '../../lib/search.js';
+import {
+  requiredText,
+  optionalText,
+  optionalInt,
+  optionalPhone,
+  checkbox,
+  toFieldErrors,
+} from '../../lib/validation.js';
 import { fileFor, validateImage, saveWithImage, type UploadedFile } from '../../lib/storage.js';
 import { requirePermission } from '../../auth/middleware.js';
 
@@ -23,34 +37,77 @@ export const ChefSchema = z.object({
 });
 
 router.get('/', requirePermission('chef:create'), async (req, res) => {
-  const { page, pageSize, q, filters } = listParams(req);
-  const where: Prisma.ChefWhereInput = {
-    deletedAt: null,
-    ...(q
-      ? {
-          OR: [
-            { name: { contains: q, mode: 'insensitive' } },
-            { specialty: { contains: q, mode: 'insensitive' } },
-          ],
-        }
-      : {}),
-  };
+  const parsed = parseChefListQuery(req.query as Record<string, unknown>);
+  const ftsHits = parsed.q ? await searchChefsFts(parsed.q) : undefined;
+  const ftsIds = ftsHits ? ftsHits.map((h) => h.id) : undefined;
 
-  const total = q ? await prisma.chef.count({ where }) : await getVisibleRecordCount('chef');
-  const pagination = buildPagination(page, total, filters, pageSize);
+  const where = buildChefWhere(parsed, { ftsIds });
+  const orderBy = buildChefOrderBy(parsed.effectiveSort);
 
-  const chefs = await prisma.chef.findMany({
-    where,
-    orderBy: [{ updatedAt: 'desc' }],
-    skip: skipFor(page, pageSize),
-    take: pageSize,
+  const distinctRowsPromise = prisma.chef.findMany({
+    where: { deletedAt: null, specialty: { not: null } },
+    select: { specialty: true },
+    distinct: ['specialty'],
+    orderBy: { specialty: 'asc' },
   });
+
+  const countFromCounter = !Object.entries(parsed.filters).some(
+    ([key, value]) => key !== 'sort' && key !== 'pageSize' && Boolean(value),
+  );
+  const offset = skipFor(parsed.page, parsed.pageSize);
+
+  let total: number;
+  let chefs: Awaited<ReturnType<typeof prisma.chef.findMany>>;
+
+  if (parsed.effectiveSort === 'relevance' && ftsHits) {
+    const matchingRows = await prisma.chef.findMany({ where, select: { id: true } });
+    const orderedIds = orderIdsByFtsRank(
+      matchingRows.map((r) => r.id),
+      ftsHits,
+    );
+    total = orderedIds.length;
+    const pageIds = orderedIds.slice(offset, offset + parsed.pageSize);
+    const rawChefs = pageIds.length
+      ? await prisma.chef.findMany({ where: { id: { in: pageIds } } })
+      : [];
+    chefs = sortEntitiesByIds(rawChefs, pageIds);
+  } else {
+    [total, chefs] = await Promise.all([
+      countFromCounter ? getVisibleRecordCount('chef') : prisma.chef.count({ where }),
+      prisma.chef.findMany({
+        where,
+        orderBy,
+        skip: offset,
+        take: parsed.pageSize,
+      }),
+    ]);
+  }
+
+  const distinctRows = await distinctRowsPromise;
+  const specialties = distinctRows
+    .map((r) => r.specialty?.trim())
+    .filter((s): s is string => Boolean(s));
 
   return sendOk(res, {
     chefs,
-    pagination,
-    q,
+    specialties,
+    pagination: buildPagination(parsed.page, total, parsed.filters, parsed.pageSize),
+    q: parsed.q,
+    sort: parsed.sort,
   });
+});
+
+router.get('/filter-options', requirePermission('chef:create'), async (_req, res) => {
+  const rows = await prisma.chef.findMany({
+    where: { deletedAt: null, specialty: { not: null } },
+    select: { specialty: true },
+    distinct: ['specialty'],
+    orderBy: { specialty: 'asc' },
+  });
+  const specialties = rows
+    .map((row) => row.specialty?.trim())
+    .filter((value): value is string => Boolean(value));
+  return sendOk(res, { specialties });
 });
 
 router.get('/:id', requirePermission('chef:update'), async (req, res) => {
@@ -73,22 +130,19 @@ router.post('/', requirePermission('chef:create'), async (req, res) => {
 
   const data = parsed.data;
   let createdChef: Awaited<ReturnType<typeof prisma.chef.create>> | null = null;
-  await saveWithImage(
-    { folder: 'chefs', file },
-    async (avatarUrl) => {
-      createdChef = await prisma.chef.create({
-        data: {
-          name: data.name,
-          specialty: data.specialty ?? null,
-          bio: data.bio ?? null,
-          experienceYears: data.experienceYears ?? 0,
-          phone: data.phone ?? null,
-          isActive: data.isActive,
-          avatarUrl: avatarUrl ?? null,
-        },
-      });
-    },
-  );
+  await saveWithImage({ folder: 'chefs', file }, async (avatarUrl) => {
+    createdChef = await prisma.chef.create({
+      data: {
+        name: data.name,
+        specialty: data.specialty ?? null,
+        bio: data.bio ?? null,
+        experienceYears: data.experienceYears ?? 0,
+        phone: data.phone ?? null,
+        isActive: data.isActive,
+        avatarUrl: avatarUrl ?? null,
+      },
+    });
+  });
   bumpVisibleRecordCount('chef', 1);
 
   return sendOk(res, { chef: createdChef, message: `Đã tạo đầu bếp "${data.name}".` });

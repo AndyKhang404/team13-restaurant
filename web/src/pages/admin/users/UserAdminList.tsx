@@ -8,25 +8,66 @@ import { ErrorState, NotFoundState, SkeletonRows } from '../../../components/Sta
 import { PaginationFooter, PaginationToolbar } from '../../../components/Pagination';
 import { formatDateTime } from '../../../lib/format';
 
+const ROLES: UserRole[] = ['ADMIN', 'STAFF', 'CUSTOMER'];
+const FILTER_KEYS = ['q', 'role', 'createdFrom', 'createdTo'];
+
+function splitCsv(val: string): string[] {
+  return val
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function toggleCsvItem(current: string, item: string): string {
+  const list = splitCsv(current);
+  const next = list.includes(item) ? list.filter((x) => x !== item) : [...list, item];
+  return next.join(',');
+}
+
 export default function UserAdminList() {
   const { user: currentUser } = useAuth();
-  const { q, page, pageSize, mode, setFilter, setPage, setPageSize, setMode, clearFilters } =
-    useListParams('pages');
-  const [qInput, setQInput] = useState(q);
+  const {
+    q,
+    page,
+    pageSize,
+    mode,
+    getFilter,
+    setFilter,
+    setPage,
+    setPageSize,
+    setMode,
+    clearFilters,
+  } = useListParams('pages');
+
+  const role = getFilter('role');
+  const createdFrom = getFilter('createdFrom');
+  const createdTo = getFilter('createdTo');
+
+  const [input, setInput] = useState(q);
   const [selectedRoles, setSelectedRoles] = useState<Record<string, UserRole>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
-    setQInput(q);
+    setInput(q);
   }, [q]);
 
+  const filtersKey = [q, role, createdFrom, createdTo, pageSize].join('|');
+
   const list = usePagedList<UserItem>({
-    loadPage: (targetPage) => usersApi.listPaged({ q, page: targetPage, pageSize }),
+    loadPage: (targetPage) =>
+      usersApi.listPaged({
+        q: q || undefined,
+        role: role || undefined,
+        createdFrom: createdFrom || undefined,
+        createdTo: createdTo || undefined,
+        page: targetPage,
+        pageSize,
+      }),
     page,
     mode,
-    filtersKey: `${q}|${pageSize}`,
+    filtersKey,
     onPageChange: setPage,
   });
 
@@ -41,12 +82,12 @@ export default function UserAdminList() {
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
-    setFilter('q', qInput.trim());
+    setFilter('q', input.trim());
   }
 
   function reset() {
-    setQInput('');
-    clearFilters(['q']);
+    setInput('');
+    clearFilters(FILTER_KEYS);
   }
 
   async function handleRoleChange(user: UserItem) {
@@ -63,6 +104,11 @@ export default function UserAdminList() {
     try {
       const result = await usersApi.updateRole(user.id, newRole);
       setActionSuccess(result.message || `Đã đổi vai trò của ${user.email} thành ${newRole}.`);
+      setSelectedRoles((prev) => {
+        const next = { ...prev };
+        delete next[user.id];
+        return next;
+      });
       list.reload();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Không thể đổi vai trò.';
@@ -72,6 +118,8 @@ export default function UserAdminList() {
     }
   }
 
+  const selectedRoleFilters = splitCsv(role);
+  const activeFilterCount = [role, createdFrom, createdTo].filter(Boolean).length;
   const rows = list.items;
   const total = list.pagination?.total ?? 0;
 
@@ -84,34 +132,78 @@ export default function UserAdminList() {
           <form className="search" onSubmit={onSubmit}>
             <input
               type="search"
-              value={qInput}
-              onChange={(event) => setQInput(event.target.value)}
-              placeholder="Tìm theo email hoặc tên"
+              value={input}
+              onChange={(event) => setInput(event.target.value)}
+              placeholder="Tìm theo email hoặc tên hiển thị…"
             />
             <button type="submit">Tìm</button>
           </form>
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              setPage(1);
-            }}
-            style={{ display: 'flex', gap: 10, alignItems: 'center' }}
-          >
-            {q ? (
-              <a
-                className="link-quiet"
-                href="#"
-                onClick={(event) => {
-                  event.preventDefault();
-                  reset();
-                }}
-              >
-                Xóa lọc
-              </a>
-            ) : null}
-          </form>
         </div>
       </div>
+
+      <details className="filter-details" open={activeFilterCount > 0 || undefined}>
+        <summary className="filter-summary">
+          <span>Bộ lọc người dùng</span>
+          {activeFilterCount > 0 ? (
+            <span className="filter-count-badge">{activeFilterCount}</span>
+          ) : null}
+          {q || activeFilterCount > 0 ? (
+            <button
+              type="button"
+              className="filter-clear-btn"
+              onClick={(event) => {
+                event.preventDefault();
+                reset();
+              }}
+            >
+              Xóa lọc
+            </button>
+          ) : null}
+        </summary>
+        <div className="filter-panel-body">
+          <div className="filter-grid">
+            <div className="filter-group">
+              <span className="filter-group-label">Vai trò (chọn nhiều)</span>
+              <div className="filter-chips">
+                {ROLES.map((item) => {
+                  const active = selectedRoleFilters.includes(item);
+                  return (
+                    <button
+                      key={item}
+                      type="button"
+                      className={`filter-chip${active ? ' active' : ''}`}
+                      onClick={() => setFilter('role', toggleCsvItem(role, item))}
+                    >
+                      {item}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="filter-group">
+              <span className="filter-group-label">Ngày đăng ký (Từ – Đến)</span>
+              <div className="filter-range-row">
+                <input
+                  type="date"
+                  className="filter-input"
+                  value={createdFrom}
+                  onChange={(event) => setFilter('createdFrom', event.target.value)}
+                  aria-label="Từ ngày"
+                />
+                <span className="filter-range-sep">–</span>
+                <input
+                  type="date"
+                  className="filter-input"
+                  value={createdTo}
+                  onChange={(event) => setFilter('createdTo', event.target.value)}
+                  aria-label="Đến ngày"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </details>
 
       <PaginationToolbar
         mode={mode}
@@ -191,8 +283,8 @@ export default function UserAdminList() {
                               className="role-select"
                               value={effectiveRole}
                               onChange={(event) =>
-                                setSelectedRoles((previous) => ({
-                                  ...previous,
+                                setSelectedRoles((prev) => ({
+                                  ...prev,
                                   [user.id]: event.target.value as UserRole,
                                 }))
                               }
@@ -224,15 +316,11 @@ export default function UserAdminList() {
         {!list.loading && !list.error && total === 0 ? (
           <div className="empty">
             <b>Không tìm thấy người dùng</b>
-            Thử từ khóa khác.
+            Thử từ khóa hoặc bộ lọc khác.
           </div>
         ) : null}
 
         {(list.loading || list.loadingMore) && rows.length === 0 ? <SkeletonRows rows={3} /> : null}
-      </div>
-
-      <div className="panel-foot">
-        Bạn không thể tự đổi vai trò của mình; hệ thống chặn trường hợp hạ ADMIN cuối cùng.
       </div>
 
       <div className="panel-foot">
@@ -249,6 +337,9 @@ export default function UserAdminList() {
           onLoadMore={list.loadNext}
           unit="bản ghi"
         />
+        <p className="muted small">
+          Bạn không thể tự đổi vai trò của mình; hệ thống chặn trường hợp hạ ADMIN cuối cùng.
+        </p>
       </div>
     </section>
   );

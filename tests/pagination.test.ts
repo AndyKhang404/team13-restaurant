@@ -64,7 +64,7 @@ describe('GET /api/dishes server-side pagination', () => {
     vi.spyOn(prisma.dish, 'count').mockResolvedValue(45);
     const findMany = vi.spyOn(prisma.dish, 'findMany').mockResolvedValue([]);
 
-    const res = await request(app).get('/api/dishes?page=2&q=pho');
+    const res = await request(app).get('/api/dishes?page=2&category=main');
 
     expect(res.status).toBe(200);
     expect(findMany).toHaveBeenCalledWith(expect.objectContaining({ skip: 20, take: 20 }));

@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { dishesApi } from '../../../lib/resources';
+import { useApi } from '../../../lib/useApi';
 import { useListParams } from '../../../lib/useListParams';
 import { usePagedList } from '../../../lib/usePagedList';
 import { ErrorState, SkeletonRows } from '../../../components/StateViews';
@@ -8,43 +9,154 @@ import { PaginationFooter, PaginationToolbar } from '../../../components/Paginat
 import { formatVnd } from '../../../lib/format';
 import { CATEGORIES, categoryLabel, type Dish } from '../../../lib/types';
 
+const SORTS = [
+  { value: 'updated', label: 'Mới cập nhật' },
+  { value: 'newest', label: 'Mới tạo' },
+  { value: 'relevance', label: 'Độ phù hợp' },
+  { value: 'name-asc', label: 'Tên A → Z' },
+  { value: 'name-desc', label: 'Tên Z → A' },
+  { value: 'price-asc', label: 'Giá thấp → cao' },
+  { value: 'price-desc', label: 'Giá cao → thấp' },
+  { value: 'prep-asc', label: 'Chuẩn bị nhanh nhất' },
+  { value: 'ingredients-asc', label: 'Ít nguyên liệu nhất' },
+  { value: 'ingredients-desc', label: 'Nhiều nguyên liệu nhất' },
+];
+
+const FILTER_KEYS = [
+  'q',
+  'category',
+  'minPrice',
+  'maxPrice',
+  'chefId',
+  'withIngredients',
+  'withoutIngredients',
+  'available',
+  'featured',
+  'maxPrepTime',
+  'unassignedChef',
+  'deleted',
+  'sort',
+];
+
+function splitCsv(val: string): string[] {
+  return val
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function toggleCsvItem(current: string, item: string): string {
+  const list = splitCsv(current);
+  const next = list.includes(item) ? list.filter((x) => x !== item) : [...list, item];
+  return next.join(',');
+}
+
 export default function DishAdminList() {
   const {
     q,
     category,
+    sort,
     page,
     pageSize,
     mode,
+    getFilter,
     setFilter,
     setPage,
     setPageSize,
     setMode,
     clearFilters,
   } = useListParams('pages');
-  const [qInput, setQInput] = useState(q);
+
+  const minPrice = getFilter('minPrice');
+  const maxPrice = getFilter('maxPrice');
+  const chefId = getFilter('chefId');
+  const withIngredients = getFilter('withIngredients');
+  const withoutIngredients = getFilter('withoutIngredients');
+  const available = getFilter('available');
+  const featured = getFilter('featured');
+  const maxPrepTime = getFilter('maxPrepTime');
+  const unassignedChef = getFilter('unassignedChef');
+  const deleted = getFilter('deleted');
+
+  const effectiveSort = sort || (q ? 'relevance' : 'updated');
+  const [input, setInput] = useState(q);
 
   useEffect(() => {
-    setQInput(q);
+    setInput(q);
   }, [q]);
+
+  const { data: filterOpts } = useApi(() => dishesApi.filterOptions(), []);
+
+  const filtersKey = [
+    q,
+    category,
+    minPrice,
+    maxPrice,
+    chefId,
+    withIngredients,
+    withoutIngredients,
+    available,
+    featured,
+    maxPrepTime,
+    unassignedChef,
+    deleted,
+    effectiveSort,
+    pageSize,
+  ].join('|');
 
   const list = usePagedList<Dish>({
     loadPage: (targetPage) =>
-      dishesApi.listPaged({ q, category, page: targetPage, pageSize }),
+      dishesApi.listPaged({
+        q: q || undefined,
+        category: category || undefined,
+        minPrice: minPrice || undefined,
+        maxPrice: maxPrice || undefined,
+        chefId: chefId || undefined,
+        withIngredients: withIngredients || undefined,
+        withoutIngredients: withoutIngredients || undefined,
+        available: available || undefined,
+        featured: featured || undefined,
+        maxPrepTime: maxPrepTime || undefined,
+        unassignedChef: unassignedChef || undefined,
+        deleted: deleted || undefined,
+        sort: effectiveSort,
+        page: targetPage,
+        pageSize,
+      }),
     page,
     mode,
-    filtersKey: `${q}|${category}|${pageSize}`,
+    filtersKey,
     onPageChange: setPage,
   });
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
-    setFilter('q', qInput.trim());
+    setFilter('q', input.trim());
   }
 
   function reset() {
-    setQInput('');
-    clearFilters(['q', 'category']);
+    setInput('');
+    clearFilters(FILTER_KEYS);
   }
+
+  const selectedCats = splitCsv(category);
+  const selectedChefs = splitCsv(chefId);
+  const selectedWithIng = splitCsv(withIngredients);
+  const selectedWithoutIng = splitCsv(withoutIngredients);
+
+  const activeFilterCount = [
+    category,
+    minPrice,
+    maxPrice,
+    chefId,
+    withIngredients,
+    withoutIngredients,
+    available,
+    featured,
+    maxPrepTime,
+    unassignedChef,
+    deleted,
+  ].filter(Boolean).length;
 
   const rows = list.items;
   const total = list.pagination?.total ?? 0;
@@ -58,49 +170,234 @@ export default function DishAdminList() {
           <form className="search" onSubmit={onSubmit}>
             <input
               type="search"
-              value={qInput}
-              onChange={(event) => setQInput(event.target.value)}
-              placeholder="Tìm theo tên món"
+              value={input}
+              onChange={(event) => setInput(event.target.value)}
+              placeholder="Tìm tên, mô tả, bếp, nguyên liệu…"
             />
             <button type="submit">Tìm</button>
           </form>
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              setPage(1);
-            }}
-            style={{ display: 'flex', gap: 10, alignItems: 'center' }}
+          <select
+            className="tools-select"
+            value={effectiveSort}
+            onChange={(event) => setFilter('sort', event.target.value)}
+            aria-label="Sắp xếp"
           >
-            <select
-              className="tools-select"
-              value={category}
-              onChange={(event) => setFilter('category', event.target.value)}
-            >
-              <option value="">Tất cả danh mục</option>
-              {CATEGORIES.map((key) => (
-                <option key={key} value={key}>
-                  {categoryLabel(key)}
-                </option>
-              ))}
-            </select>
-            {q || category ? (
-              <a
-                className="link-quiet"
-                href="#"
-                onClick={(event) => {
-                  event.preventDefault();
-                  reset();
-                }}
-              >
-                Xóa lọc
-              </a>
-            ) : null}
-          </form>
+            {SORTS.map((item) => (
+              <option key={item.value} value={item.value}>
+                {item.label}
+              </option>
+            ))}
+          </select>
           <Link className="btn btn-primary" to="/admin/dishes/new">
             Thêm món
           </Link>
         </div>
       </div>
+
+      <details className="filter-details" open={activeFilterCount > 0 || undefined}>
+        <summary className="filter-summary">
+          <span>Bộ lọc món ăn</span>
+          {activeFilterCount > 0 ? (
+            <span className="filter-count-badge">{activeFilterCount}</span>
+          ) : null}
+          {q || activeFilterCount > 0 ? (
+            <button
+              type="button"
+              className="filter-clear-btn"
+              onClick={(event) => {
+                event.preventDefault();
+                reset();
+              }}
+            >
+              Xóa lọc
+            </button>
+          ) : null}
+        </summary>
+        <div className="filter-panel-body">
+          <div className="filter-grid">
+            <div className="filter-group full-span">
+              <span className="filter-group-label">Danh mục (chọn nhiều)</span>
+              <div className="filter-chips">
+                {CATEGORIES.map((key) => {
+                  const active = selectedCats.includes(key);
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      className={`filter-chip${active ? ' active' : ''}`}
+                      onClick={() => setFilter('category', toggleCsvItem(category, key))}
+                    >
+                      {categoryLabel(key)}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="filter-group">
+              <span className="filter-group-label">Khoảng giá (VND)</span>
+              <div className="filter-range-row">
+                <input
+                  type="number"
+                  min={0}
+                  step={1000}
+                  className="filter-input"
+                  placeholder="Từ"
+                  value={minPrice}
+                  onChange={(event) => setFilter('minPrice', event.target.value)}
+                />
+                <span className="filter-range-sep">–</span>
+                <input
+                  type="number"
+                  min={0}
+                  step={1000}
+                  className="filter-input"
+                  placeholder="Đến"
+                  value={maxPrice}
+                  onChange={(event) => setFilter('maxPrice', event.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="filter-group">
+              <span className="filter-group-label">Thời gian chuẩn bị tối đa (phút)</span>
+              <input
+                type="number"
+                min={1}
+                max={1440}
+                className="filter-input"
+                placeholder="VD: 30"
+                value={maxPrepTime}
+                onChange={(event) => setFilter('maxPrepTime', event.target.value)}
+              />
+            </div>
+
+            <div className="filter-group">
+              <span className="filter-group-label">Trạng thái bán</span>
+              <select
+                className="filter-select"
+                value={available}
+                onChange={(event) => setFilter('available', event.target.value)}
+              >
+                <option value="">Tất cả</option>
+                <option value="true">Đang bán</option>
+                <option value="false">Ngừng bán</option>
+              </select>
+            </div>
+
+            <div className="filter-group">
+              <span className="filter-group-label">Món đặc sắc (Featured)</span>
+              <select
+                className="filter-select"
+                value={featured}
+                onChange={(event) => setFilter('featured', event.target.value)}
+              >
+                <option value="">Tất cả</option>
+                <option value="true">Đặc sắc</option>
+                <option value="false">Món thường</option>
+              </select>
+            </div>
+
+            <div className="filter-group">
+              <span className="filter-group-label">Gán đầu bếp</span>
+              <select
+                className="filter-select"
+                value={unassignedChef}
+                onChange={(event) => setFilter('unassignedChef', event.target.value)}
+              >
+                <option value="">Tất cả</option>
+                <option value="true">Chưa gán đầu bếp</option>
+                <option value="false">Đã có đầu bếp</option>
+              </select>
+            </div>
+
+            <div className="filter-group">
+              <span className="filter-group-label">Bản ghi đã xóa</span>
+              <select
+                className="filter-select"
+                value={deleted}
+                onChange={(event) => setFilter('deleted', event.target.value)}
+              >
+                <option value="">Ẩn món đã xóa</option>
+                <option value="1">Hiển thị cả món đã xóa</option>
+              </select>
+            </div>
+
+            {filterOpts?.chefs && filterOpts.chefs.length > 0 ? (
+              <div className="filter-group full-span">
+                <span className="filter-group-label">Đầu bếp phụ trách</span>
+                <div className="filter-chips">
+                  {filterOpts.chefs.map((chef) => {
+                    const active = selectedChefs.includes(chef.id);
+                    return (
+                      <button
+                        key={chef.id}
+                        type="button"
+                        className={`filter-chip${active ? ' active' : ''}`}
+                        onClick={() => setFilter('chefId', toggleCsvItem(chefId, chef.id))}
+                      >
+                        {chef.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+
+            {filterOpts?.ingredients && filterOpts.ingredients.length > 0 ? (
+              <>
+                <div className="filter-group full-span">
+                  <span className="filter-group-label">Bao gồm nguyên liệu</span>
+                  <div className="filter-chips">
+                    {filterOpts.ingredients.map((ingredient) => {
+                      const active = selectedWithIng.includes(ingredient.id);
+                      return (
+                        <button
+                          key={ingredient.id}
+                          type="button"
+                          className={`filter-chip${active ? ' active' : ''}`}
+                          onClick={() =>
+                            setFilter(
+                              'withIngredients',
+                              toggleCsvItem(withIngredients, ingredient.id),
+                            )
+                          }
+                        >
+                          + {ingredient.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="filter-group full-span">
+                  <span className="filter-group-label">Loại trừ nguyên liệu</span>
+                  <div className="filter-chips">
+                    {filterOpts.ingredients.map((ingredient) => {
+                      const active = selectedWithoutIng.includes(ingredient.id);
+                      return (
+                        <button
+                          key={ingredient.id}
+                          type="button"
+                          className={`filter-chip exclude${active ? ' active' : ''}`}
+                          onClick={() =>
+                            setFilter(
+                              'withoutIngredients',
+                              toggleCsvItem(withoutIngredients, ingredient.id),
+                            )
+                          }
+                        >
+                          ✕ {ingredient.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            ) : null}
+          </div>
+        </div>
+      </details>
 
       <PaginationToolbar
         mode={mode}
@@ -167,7 +464,10 @@ export default function DishAdminList() {
                       <Link className="btn btn-sm btn-quiet" to={`/admin/dishes/${dish.id}/edit`}>
                         Sửa
                       </Link>
-                      <Link className="btn btn-sm btn-danger" to={`/admin/dishes/${dish.id}/delete`}>
+                      <Link
+                        className="btn btn-sm btn-danger"
+                        to={`/admin/dishes/${dish.id}/delete`}
+                      >
                         Xóa
                       </Link>
                     </div>

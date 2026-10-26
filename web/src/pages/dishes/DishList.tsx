@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { dishesApi } from '../../lib/resources';
+import { useApi } from '../../lib/useApi';
 import { useListParams } from '../../lib/useListParams';
 import { usePagedList } from '../../lib/usePagedList';
 import { DishCard } from '../../components/DishCard';
@@ -9,12 +10,45 @@ import { PaginationFooter, PaginationToolbar } from '../../components/Pagination
 import { CATEGORIES, categoryLabel, type Dish } from '../../lib/types';
 
 const SORTS = [
-  { value: '', label: 'Tên A → Z' },
+  { value: '', label: 'Mặc định (Đang bán & Tên)' },
+  { value: 'relevance', label: 'Độ phù hợp' },
+  { value: 'name-asc', label: 'Tên A → Z' },
   { value: 'name-desc', label: 'Tên Z → A' },
   { value: 'price-asc', label: 'Giá thấp → cao' },
   { value: 'price-desc', label: 'Giá cao → thấp' },
-  { value: 'newest', label: 'Mới cập nhật' },
+  { value: 'newest', label: 'Mới thêm' },
+  { value: 'updated', label: 'Mới cập nhật' },
+  { value: 'prep-asc', label: 'Chuẩn bị nhanh nhất' },
+  { value: 'ingredients-asc', label: 'Ít nguyên liệu nhất' },
+  { value: 'ingredients-desc', label: 'Nhiều nguyên liệu nhất' },
 ];
+
+const FILTER_KEYS = [
+  'q',
+  'category',
+  'minPrice',
+  'maxPrice',
+  'chefId',
+  'withIngredients',
+  'withoutIngredients',
+  'available',
+  'featured',
+  'maxPrepTime',
+  'sort',
+];
+
+function splitCsv(val: string): string[] {
+  return val
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function toggleCsvItem(current: string, item: string): string {
+  const list = splitCsv(current);
+  const next = list.includes(item) ? list.filter((x) => x !== item) : [...list, item];
+  return next.join(',');
+}
 
 export default function DishList() {
   const {
@@ -24,12 +58,24 @@ export default function DishList() {
     page,
     pageSize,
     mode,
+    getFilter,
     setFilter,
     setPage,
     setPageSize,
     setMode,
     buildFilterUrl,
+    clearFilters,
   } = useListParams('infinite');
+
+  const minPrice = getFilter('minPrice');
+  const maxPrice = getFilter('maxPrice');
+  const chefId = getFilter('chefId');
+  const withIngredients = getFilter('withIngredients');
+  const withoutIngredients = getFilter('withoutIngredients');
+  const available = getFilter('available');
+  const featured = getFilter('featured');
+  const maxPrepTime = getFilter('maxPrepTime');
+
   const [input, setInput] = useState(q);
   const resultsRef = useRef<HTMLDivElement>(null);
 
@@ -37,12 +83,43 @@ export default function DishList() {
     setInput(q);
   }, [q]);
 
+  const { data: filterOpts } = useApi(() => dishesApi.filterOptions(), []);
+
+  const filtersKey = [
+    q,
+    category,
+    minPrice,
+    maxPrice,
+    chefId,
+    withIngredients,
+    withoutIngredients,
+    available,
+    featured,
+    maxPrepTime,
+    sort,
+    pageSize,
+  ].join('|');
+
   const list = usePagedList<Dish>({
     loadPage: (targetPage) =>
-      dishesApi.listPublic({ q, category, sort, page: targetPage, pageSize }),
+      dishesApi.listPublic({
+        q: q || undefined,
+        category: category || undefined,
+        minPrice: minPrice || undefined,
+        maxPrice: maxPrice || undefined,
+        chefId: chefId || undefined,
+        withIngredients: withIngredients || undefined,
+        withoutIngredients: withoutIngredients || undefined,
+        available: available || undefined,
+        featured: featured || undefined,
+        maxPrepTime: maxPrepTime || undefined,
+        sort: sort || undefined,
+        page: targetPage,
+        pageSize,
+      }),
     page,
     mode,
-    filtersKey: `${q}|${category}|${sort}|${pageSize}`,
+    filtersKey,
     onPageChange: setPage,
   });
 
@@ -50,13 +127,36 @@ export default function DishList() {
     if (mode === 'pages' && page > 1) {
       resultsRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
     }
-  }, [mode, page, pageSize]);
+  }, [mode, page]);
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
     setFilter('q', input.trim());
   }
 
+  function reset() {
+    setInput('');
+    clearFilters(FILTER_KEYS);
+  }
+
+  const selectedCats = splitCsv(category);
+  const selectedChefs = splitCsv(chefId);
+  const selectedWithIng = splitCsv(withIngredients);
+  const selectedWithoutIng = splitCsv(withoutIngredients);
+
+  const activeFilterCount = [
+    category,
+    minPrice,
+    maxPrice,
+    chefId,
+    withIngredients,
+    withoutIngredients,
+    available,
+    featured,
+    maxPrepTime,
+  ].filter(Boolean).length;
+
+  const hasAnyFilterOrSearch = Boolean(q || sort || activeFilterCount > 0);
   const results = list.items;
   const total = list.pagination?.total ?? 0;
 
@@ -65,23 +165,32 @@ export default function DishList() {
       <section className="hero" style={{ paddingBottom: 0 }}>
         <div className="eyebrow">Thực đơn theo mùa — giá đã bao gồm VAT</div>
         <h1>Thực đơn nhà hàng</h1>
-        <p>Tìm món theo tên, lọc theo danh mục, sắp xếp theo giá hoặc tên — chọn và thưởng thức.</p>
+        <p>
+          Tìm kiếm toàn văn theo món ăn, nguyên liệu hoặc đầu bếp; lọc theo giá, thời gian chuẩn bị,
+          dị ứng nguyên liệu và sắp xếp linh hoạt.
+        </p>
       </section>
 
-      <div className="toolbar">
+      <div className="toolbar" style={{ marginBottom: 14 }}>
         <div className="filters">
-          <Link to={`/dishes${buildFilterUrl({ category: '' })}`} className={category ? undefined : 'active'}>
+          <Link
+            to={`/dishes${buildFilterUrl({ category: '' })}`}
+            className={selectedCats.length === 0 ? 'active' : undefined}
+          >
             Tất cả
           </Link>
-          {CATEGORIES.map((key) => (
-            <Link
-              key={key}
-              to={`/dishes${buildFilterUrl({ category: key })}`}
-              className={category === key ? 'active' : undefined}
-            >
-              {categoryLabel(key)}
-            </Link>
-          ))}
+          {CATEGORIES.map((key) => {
+            const isActive = selectedCats.includes(key);
+            return (
+              <Link
+                key={key}
+                to={`/dishes${buildFilterUrl({ category: toggleCsvItem(category, key) })}`}
+                className={isActive ? 'active' : undefined}
+              >
+                {categoryLabel(key)}
+              </Link>
+            );
+          })}
         </div>
         <form className="menu-tools" onSubmit={onSubmit} role="search">
           <input
@@ -89,8 +198,8 @@ export default function DishList() {
             type="search"
             value={input}
             onChange={(event) => setInput(event.target.value)}
-            placeholder="Tìm món theo tên…"
-            aria-label="Tìm món theo tên"
+            placeholder="Tìm món, nguyên liệu, đầu bếp…"
+            aria-label="Tìm món, nguyên liệu, đầu bếp"
           />
           <select
             className="menu-sort"
@@ -110,13 +219,176 @@ export default function DishList() {
         </form>
       </div>
 
-      {(list.loading || list.loadingMore) && results.length === 0 ? (
+      <details className="filter-details" open={activeFilterCount > 0 || undefined}>
+        <summary className="filter-summary">
+          <span>Bộ lọc nâng cao</span>
+          {activeFilterCount > 0 ? (
+            <span className="filter-count-badge">{activeFilterCount}</span>
+          ) : null}
+          {hasAnyFilterOrSearch ? (
+            <button
+              type="button"
+              className="filter-clear-btn"
+              onClick={(event) => {
+                event.preventDefault();
+                reset();
+              }}
+            >
+              Xóa tất cả lọc
+            </button>
+          ) : null}
+        </summary>
+        <div className="filter-panel-body">
+          <div className="filter-grid">
+            <div className="filter-group">
+              <span className="filter-group-label">
+                Khoảng giá (VND)
+                {filterOpts?.priceRange?.max
+                  ? ` (${filterOpts.priceRange.min.toLocaleString('vi-VN')} – ${filterOpts.priceRange.max.toLocaleString('vi-VN')})`
+                  : ''}
+              </span>
+              <div className="filter-range-row">
+                <input
+                  type="number"
+                  min={0}
+                  step={1000}
+                  className="filter-input"
+                  placeholder="Từ"
+                  value={minPrice}
+                  onChange={(event) => setFilter('minPrice', event.target.value)}
+                />
+                <span className="filter-range-sep">–</span>
+                <input
+                  type="number"
+                  min={0}
+                  step={1000}
+                  className="filter-input"
+                  placeholder="Đến"
+                  value={maxPrice}
+                  onChange={(event) => setFilter('maxPrice', event.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="filter-group">
+              <span className="filter-group-label">Thời gian chuẩn bị tối đa (phút)</span>
+              <input
+                type="number"
+                min={1}
+                max={1440}
+                className="filter-input"
+                placeholder="VD: 20"
+                value={maxPrepTime}
+                onChange={(event) => setFilter('maxPrepTime', event.target.value)}
+              />
+            </div>
+
+            <div className="filter-group">
+              <span className="filter-group-label">Tùy chọn nhanh</span>
+              <div className="filter-checks-row">
+                <label className="filter-check-label">
+                  <input
+                    type="checkbox"
+                    checked={available === 'true'}
+                    onChange={(event) => setFilter('available', event.target.checked ? 'true' : '')}
+                  />
+                  Chỉ món đang bán
+                </label>
+                <label className="filter-check-label">
+                  <input
+                    type="checkbox"
+                    checked={featured === 'true'}
+                    onChange={(event) => setFilter('featured', event.target.checked ? 'true' : '')}
+                  />
+                  Chỉ món đặc sắc
+                </label>
+              </div>
+            </div>
+
+            {filterOpts?.chefs && filterOpts.chefs.length > 0 ? (
+              <div className="filter-group full-span">
+                <span className="filter-group-label">Đầu bếp phụ trách</span>
+                <div className="filter-chips">
+                  {filterOpts.chefs.map((chef) => {
+                    const active = selectedChefs.includes(chef.id);
+                    return (
+                      <button
+                        key={chef.id}
+                        type="button"
+                        className={`filter-chip${active ? ' active' : ''}`}
+                        onClick={() => setFilter('chefId', toggleCsvItem(chefId, chef.id))}
+                      >
+                        {chef.name}
+                        {chef.specialty ? ` (${chef.specialty})` : ''}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+
+            {filterOpts?.ingredients && filterOpts.ingredients.length > 0 ? (
+              <>
+                <div className="filter-group full-span">
+                  <span className="filter-group-label">Có nguyên liệu (chọn nhiều)</span>
+                  <div className="filter-chips">
+                    {filterOpts.ingredients.map((ingredient) => {
+                      const active = selectedWithIng.includes(ingredient.id);
+                      return (
+                        <button
+                          key={ingredient.id}
+                          type="button"
+                          className={`filter-chip${active ? ' active' : ''}`}
+                          onClick={() =>
+                            setFilter(
+                              'withIngredients',
+                              toggleCsvItem(withIngredients, ingredient.id),
+                            )
+                          }
+                        >
+                          + {ingredient.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="filter-group full-span">
+                  <span className="filter-group-label">Loại trừ nguyên liệu / dị ứng</span>
+                  <div className="filter-chips">
+                    {filterOpts.ingredients.map((ingredient) => {
+                      const active = selectedWithoutIng.includes(ingredient.id);
+                      return (
+                        <button
+                          key={ingredient.id}
+                          type="button"
+                          className={`filter-chip exclude${active ? ' active' : ''}`}
+                          onClick={() =>
+                            setFilter(
+                              'withoutIngredients',
+                              toggleCsvItem(withoutIngredients, ingredient.id),
+                            )
+                          }
+                        >
+                          ✕ {ingredient.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            ) : null}
+          </div>
+        </div>
+      </details>
+
+      {list.loading && results.length === 0 ? (
         <SkeletonGrid />
       ) : list.error && results.length === 0 ? (
         <ErrorState error={list.error} onRetry={list.reload} />
       ) : (
         <div className="menu-skel" ref={resultsRef}>
-          <div className="eyebrow" style={{ marginTop: 38 }}>
+          <div className="eyebrow" style={{ marginTop: 28 }}>
             Kết quả{q ? ` cho “${q}”` : ''}{' '}
             <span style={{ color: 'var(--ink-2)' }}>— {total} món</span>
           </div>
@@ -140,16 +412,17 @@ export default function DishList() {
           ) : list.outOfRange ? (
             <div className="empty" style={{ marginTop: 36 }}>
               <b>Trang {page} vượt quá phạm vi</b>
-              Kết quả hiện có {list.pagination?.totalPages ?? 0} trang. Dùng nút bên dưới để quay lại.
+              Kết quả hiện có {list.pagination?.totalPages ?? 0} trang. Dùng nút bên dưới để quay
+              lại.
             </div>
           ) : (
             <div className="empty" style={{ marginTop: 36 }}>
               <b>Không tìm thấy món nào</b>
               Thử từ khóa khác, bỏ bớt bộ lọc, hoặc xem toàn bộ thực đơn.
               <div className="actions-row" style={{ justifyContent: 'center', marginTop: 20 }}>
-                <Link className="btn btn-solid" to="/dishes">
+                <button className="btn btn-solid" type="button" onClick={reset}>
                   Xem tất cả
-                </Link>
+                </button>
               </div>
             </div>
           )}

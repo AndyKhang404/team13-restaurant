@@ -32,6 +32,10 @@ export function useListParams(defaultMode: PagingMode) {
   const page = parsePage(searchParams.get('page'));
   const pageSize = parsePageSize(searchParams.get('pageSize'));
   const mode = parseMode(searchParams.get('mode'), defaultMode);
+  const getFilter = useCallback(
+    (key: string, fallback = '') => searchParams.get(key) ?? fallback,
+    [searchParams],
+  );
 
   const update = useCallback(
     (mutate: (next: URLSearchParams) => void, options?: NavigateOptions) => {
@@ -71,10 +75,13 @@ export function useListParams(defaultMode: PagingMode) {
 
   const setMode = useCallback(
     (nextMode: PagingMode) => {
-      update((next) => {
-        if (nextMode === defaultMode) next.delete('mode');
-        else next.set('mode', nextMode);
-      }, { replace: true });
+      update(
+        (next) => {
+          if (nextMode === defaultMode) next.delete('mode');
+          else next.set('mode', nextMode);
+        },
+        { replace: true },
+      );
     },
     [defaultMode, update],
   );
@@ -121,6 +128,7 @@ export function useListParams(defaultMode: PagingMode) {
     page,
     pageSize,
     mode,
+    getFilter,
     setFilter,
     setPage,
     setPageSize,

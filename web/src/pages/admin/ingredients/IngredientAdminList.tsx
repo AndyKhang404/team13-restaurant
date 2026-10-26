@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { ingredientsApi } from '../../../lib/resources';
+import { useApi } from '../../../lib/useApi';
 import { useListParams } from '../../../lib/useListParams';
 import { usePagedList } from '../../../lib/usePagedList';
 import { ErrorState, SkeletonRows } from '../../../components/StateViews';
@@ -8,33 +9,93 @@ import { PaginationFooter, PaginationToolbar } from '../../../components/Paginat
 import { formatVnd } from '../../../lib/format';
 import type { Ingredient } from '../../../lib/types';
 
+const SORTS = [
+  { value: '', label: 'Tên A → Z' },
+  { value: 'relevance', label: 'Độ phù hợp' },
+  { value: 'stock-asc', label: 'Tồn kho thấp → cao' },
+  { value: 'stock-desc', label: 'Tồn kho cao → thấp' },
+  { value: 'price-asc', label: 'Đơn giá thấp → cao' },
+  { value: 'price-desc', label: 'Đơn giá cao → thấp' },
+  { value: 'usage-desc', label: 'Dùng trong nhiều món nhất' },
+  { value: 'updated', label: 'Mới cập nhật' },
+];
+
+const FILTER_KEYS = ['q', 'stock', 'isAvailable', 'unit', 'usage', 'sort'];
+
+function splitCsv(val: string): string[] {
+  return val
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function toggleCsvItem(current: string, item: string): string {
+  const list = splitCsv(current);
+  const next = list.includes(item) ? list.filter((x) => x !== item) : [...list, item];
+  return next.join(',');
+}
+
 export default function IngredientAdminList() {
-  const { q, page, pageSize, mode, setFilter, setPage, setPageSize, setMode, clearFilters } =
-    useListParams('pages');
-  const [qInput, setQInput] = useState(q);
+  const {
+    q,
+    sort,
+    page,
+    pageSize,
+    mode,
+    getFilter,
+    setFilter,
+    setPage,
+    setPageSize,
+    setMode,
+    clearFilters,
+  } = useListParams('pages');
+
+  const stock = getFilter('stock');
+  const isAvailable = getFilter('isAvailable');
+  const unit = getFilter('unit');
+  const usage = getFilter('usage');
+
+  const [input, setInput] = useState(q);
 
   useEffect(() => {
-    setQInput(q);
+    setInput(q);
   }, [q]);
 
+  const { data: filterOpts } = useApi(() => ingredientsApi.filterOptions(), []);
+
+  const filtersKey = [q, stock, isAvailable, unit, usage, sort, pageSize].join('|');
+
   const list = usePagedList<Ingredient>({
-    loadPage: (targetPage) => ingredientsApi.listPaged({ q, page: targetPage, pageSize }),
+    loadPage: (targetPage) =>
+      ingredientsApi.listPaged({
+        q: q || undefined,
+        stock: stock || undefined,
+        isAvailable: isAvailable || undefined,
+        unit: unit || undefined,
+        usage: usage || undefined,
+        sort: sort || undefined,
+        page: targetPage,
+        pageSize,
+      }),
     page,
     mode,
-    filtersKey: `${q}|${pageSize}`,
+    filtersKey,
     onPageChange: setPage,
   });
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
-    setFilter('q', qInput.trim());
+    setFilter('q', input.trim());
   }
 
   function reset() {
-    setQInput('');
-    clearFilters(['q']);
+    setInput('');
+    clearFilters(FILTER_KEYS);
   }
 
+  const units = filterOpts?.units ?? [];
+  const selectedUnits = splitCsv(unit);
+  const activeFilterCount = [stock, isAvailable, unit, usage].filter(Boolean).length;
   const rows = list.items;
   const total = list.pagination?.total ?? 0;
 
@@ -47,37 +108,113 @@ export default function IngredientAdminList() {
           <form className="search" onSubmit={onSubmit}>
             <input
               type="search"
-              value={qInput}
-              onChange={(event) => setQInput(event.target.value)}
-              placeholder="Tìm theo tên nguyên liệu"
+              value={input}
+              onChange={(event) => setInput(event.target.value)}
+              placeholder="Tìm tên nguyên liệu hoặc đơn vị…"
             />
             <button type="submit">Tìm</button>
           </form>
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              setPage(1);
-            }}
-            style={{ display: 'flex', gap: 10, alignItems: 'center' }}
+          <select
+            className="tools-select"
+            value={sort}
+            onChange={(event) => setFilter('sort', event.target.value)}
+            aria-label="Sắp xếp"
           >
-            {q ? (
-              <a
-                className="link-quiet"
-                href="#"
-                onClick={(event) => {
-                  event.preventDefault();
-                  reset();
-                }}
-              >
-                Xóa lọc
-              </a>
-            ) : null}
-          </form>
+            {SORTS.map((item) => (
+              <option key={item.value} value={item.value}>
+                {item.label}
+              </option>
+            ))}
+          </select>
           <Link className="btn btn-primary" to="/admin/ingredients/new">
             Thêm nguyên liệu
           </Link>
         </div>
       </div>
+
+      <details className="filter-details" open={activeFilterCount > 0 || undefined}>
+        <summary className="filter-summary">
+          <span>Bộ lọc nguyên liệu</span>
+          {activeFilterCount > 0 ? (
+            <span className="filter-count-badge">{activeFilterCount}</span>
+          ) : null}
+          {q || sort || activeFilterCount > 0 ? (
+            <button
+              type="button"
+              className="filter-clear-btn"
+              onClick={(event) => {
+                event.preventDefault();
+                reset();
+              }}
+            >
+              Xóa lọc
+            </button>
+          ) : null}
+        </summary>
+        <div className="filter-panel-body">
+          <div className="filter-grid">
+            <div className="filter-group">
+              <span className="filter-group-label">Mức tồn kho</span>
+              <select
+                className="filter-select"
+                value={stock}
+                onChange={(event) => setFilter('stock', event.target.value)}
+              >
+                <option value="">Tất cả</option>
+                <option value="in">Còn tồn kho (&gt; 0)</option>
+                <option value="out">Hết tồn kho (= 0)</option>
+              </select>
+            </div>
+
+            <div className="filter-group">
+              <span className="filter-group-label">Trạng thái sẵn có</span>
+              <select
+                className="filter-select"
+                value={isAvailable}
+                onChange={(event) => setFilter('isAvailable', event.target.value)}
+              >
+                <option value="">Tất cả</option>
+                <option value="true">Sẵn có</option>
+                <option value="false">Ngừng sử dụng</option>
+              </select>
+            </div>
+
+            <div className="filter-group">
+              <span className="filter-group-label">Tình trạng dùng trong món</span>
+              <select
+                className="filter-select"
+                value={usage}
+                onChange={(event) => setFilter('usage', event.target.value)}
+              >
+                <option value="">Tất cả</option>
+                <option value="activeDishes">Đang dùng trong món đang bán</option>
+                <option value="unused">Chưa dùng trong món nào</option>
+              </select>
+            </div>
+
+            {units.length > 0 ? (
+              <div className="filter-group full-span">
+                <span className="filter-group-label">Đơn vị tính (chọn nhiều)</span>
+                <div className="filter-chips">
+                  {units.map((item) => {
+                    const active = selectedUnits.includes(item);
+                    return (
+                      <button
+                        key={item}
+                        type="button"
+                        className={`filter-chip${active ? ' active' : ''}`}
+                        onClick={() => setFilter('unit', toggleCsvItem(unit, item))}
+                      >
+                        {item}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </details>
 
       <PaginationToolbar
         mode={mode}

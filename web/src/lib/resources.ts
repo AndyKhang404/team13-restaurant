@@ -3,26 +3,28 @@ import type {
   AuthUser,
   Chef,
   ChefInput,
+  ChefQueryParams,
   Dish,
   DishChef,
+  DishFilterOptions,
   DishIngredientLine,
   DishInput,
+  DishQueryParams,
   Ingredient,
   IngredientInput,
+  IngredientQueryParams,
   Paged,
   Pagination,
   UserItem,
+  UserQueryParams,
   UserRole,
 } from './types';
 
-function qs(q?: string): string {
-  const term = q?.trim();
-  return term ? `?q=${encodeURIComponent(term)}` : '';
-}
+type QueryValue = string | number | undefined;
 
-function buildQuery(params: Record<string, string | number | undefined>): string {
+function buildQuery(params: object): string {
   const sp = new URLSearchParams();
-  for (const [key, value] of Object.entries(params)) {
+  for (const [key, value] of Object.entries(params) as [string, QueryValue][]) {
     if (value === undefined) continue;
     const term = String(value).trim();
     if (term) sp.set(key, term);
@@ -31,11 +33,8 @@ function buildQuery(params: Record<string, string | number | undefined>): string
   return s ? `?${s}` : '';
 }
 
-/** Follows `pagination` and collects every page (server default is 20/page). */
-async function fetchAllPages<T>(
-  path: string,
-  key: string,
-): Promise<T[]> {
+/** Follows `pagination` and collects every page (used for form dropdown options). */
+async function fetchAllPages<T>(path: string, key: string): Promise<T[]> {
   const first = await apiFetch<Record<string, unknown> & { pagination?: { totalPages?: number } }>(
     path,
   );
@@ -105,24 +104,23 @@ function toFormData(
   return fd;
 }
 
-export interface DishListParams {
-  q?: string;
-  category?: string;
-  sort?: string;
-  page?: number;
-  pageSize?: number;
-}
-
-async function fetchDishesPage(params: DishListParams): Promise<Paged<Dish>> {
+async function fetchDishesPage(params: DishQueryParams = {}): Promise<Paged<Dish>> {
   const data = await apiFetch<{ dishes: RawDish[]; pagination: Pagination }>(
-    `/dishes${buildQuery({ ...params })}`,
+    `/dishes${buildQuery(params)}`,
   );
-  return { items: data.dishes.map(normalizeDish), pagination: data.pagination };
+  return {
+    items: data.dishes.map(normalizeDish),
+    pagination: data.pagination,
+  };
 }
 
 export const dishesApi = {
-  /** Public menu / dishes (visible dishes only). */
-  listPublic: (params: DishListParams = {}) => fetchDishesPage(params),
+  /** Public menu / dishes (visible dishes only, server-paginated). */
+  listPublic: (params: DishQueryParams = {}) => fetchDishesPage(params),
+  /** Public filter options (chefs, ingredients, categories, priceRange). */
+  filterOptions: async (): Promise<DishFilterOptions> => {
+    return apiFetch<DishFilterOptions>('/dishes/filter-options');
+  },
   /** Featured dishes for the home page. */
   featured: async () => {
     const data = await apiFetch<{ featured: RawDish[] }>('/');
@@ -139,8 +137,8 @@ export const dishesApi = {
     return normalizeDish(data);
   },
 
-  /** Admin list (paginated, 20/page server-side). */
-  listPaged: (params: DishListParams = {}) => fetchDishesPage(params),
+  /** Admin list (server-paginated). */
+  listPaged: (params: DishQueryParams = {}) => fetchDishesPage(params),
   get: async (id: string) => {
     const data = await apiFetch<{ dish: RawDish }>(`/dishes/${id}`);
     return normalizeDish(data.dish);
@@ -165,14 +163,16 @@ export const dishesApi = {
 };
 
 export const chefsApi = {
-  listPaged: async (params: { q?: string; page?: number; pageSize?: number } = {}): Promise<Paged<Chef>> => {
+  listPaged: async (params: ChefQueryParams = {}): Promise<Paged<Chef>> => {
     const data = await apiFetch<{ chefs: Chef[]; pagination: Pagination }>(
-      `/chefs${buildQuery({ ...params })}`,
+      `/chefs${buildQuery(params)}`,
     );
     return { items: data.chefs, pagination: data.pagination };
   },
+  filterOptions: () => apiFetch<{ specialties: string[] }>('/chefs/filter-options'),
   /** All chef options for form dropdowns (may span multiple pages). */
-  options: async (q?: string) => fetchAllPages<Chef>(`/chefs${qs(q)}`, 'chefs'),
+  options: (q?: string) =>
+    fetchAllPages<Chef>(`/chefs${buildQuery({ q, pageSize: 100 })}`, 'chefs'),
   get: async (id: string) => {
     const data = await apiFetch<{ chef: Chef }>(`/chefs/${id}`);
     return data.chef;
@@ -197,14 +197,16 @@ export const chefsApi = {
 };
 
 export const ingredientsApi = {
-  listPaged: async (params: { q?: string; page?: number; pageSize?: number } = {}): Promise<Paged<Ingredient>> => {
+  listPaged: async (params: IngredientQueryParams = {}): Promise<Paged<Ingredient>> => {
     const data = await apiFetch<{ ingredients: Ingredient[]; pagination: Pagination }>(
-      `/ingredients${buildQuery({ ...params })}`,
+      `/ingredients${buildQuery(params)}`,
     );
     return { items: data.ingredients, pagination: data.pagination };
   },
+  filterOptions: () => apiFetch<{ units: string[] }>('/ingredients/filter-options'),
   /** All ingredient options for form dropdowns (may span multiple pages). */
-  options: async (q?: string) => fetchAllPages<Ingredient>(`/ingredients${qs(q)}`, 'ingredients'),
+  options: (q?: string) =>
+    fetchAllPages<Ingredient>(`/ingredients${buildQuery({ q, pageSize: 100 })}`, 'ingredients'),
   get: async (id: string) => {
     const data = await apiFetch<{ ingredient: Ingredient }>(`/ingredients/${id}`);
     return data.ingredient;
@@ -255,7 +257,10 @@ export const authApi = {
   me: () => loadSession(),
   login: async (email: string, password: string) => {
     await loadSession();
-    const result = await apiFetch<LoginResult>('/auth/login', { method: 'POST', body: { email, password } });
+    const result = await apiFetch<LoginResult>('/auth/login', {
+      method: 'POST',
+      body: { email, password },
+    });
     const token = result.token ?? result.accessToken;
     if (token) {
       setAuthToken(token);
@@ -269,7 +274,10 @@ export const authApi = {
     confirmPassword: string;
   }) => {
     await loadSession();
-    const result = await apiFetch<RegisterResult>('/auth/register', { method: 'POST', body: input });
+    const result = await apiFetch<RegisterResult>('/auth/register', {
+      method: 'POST',
+      body: input,
+    });
     const token = result.token ?? result.accessToken;
     if (token) {
       setAuthToken(token);
@@ -300,9 +308,9 @@ export const statsApi = {
 };
 
 export const usersApi = {
-  listPaged: async (params: { q?: string; page?: number; pageSize?: number } = {}): Promise<Paged<UserItem>> => {
+  listPaged: async (params: UserQueryParams = {}): Promise<Paged<UserItem>> => {
     const data = await apiFetch<{ users: UserItem[]; pagination: Pagination }>(
-      `/users${buildQuery({ ...params })}`,
+      `/users${buildQuery(params)}`,
     );
     return { items: data.users, pagination: data.pagination };
   },

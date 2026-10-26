@@ -9,7 +9,10 @@ A modern client-side rendered (CSR) web application for restaurant meal manageme
 ### 1. Public Dining Portal (`/`)
 
 - **Homepage (`/`)**: Hero carousel, chef-highlighted dishes (`isFeatured`), and brand ticker.
-- **Menu & Dish Catalog (`/dishes`)**: Category filter pills (`appetizer`, `main`, `dessert`, `drink`, `combo`), server-side keyword search via query parameter (`/dishes?q=...`), price/name sorting, and real-time **"Sold out"** badges. Server pagination supports `page` and `pageSize` (default 20, max 100) with switchable **infinite scroll / load more / numbered pages** modes; all paging/filter state is URL-backed.
+- **Menu & Dish Catalog (`/dishes`)**:
+  - **Accent-insensitive full-text search** via PostgreSQL `unaccent`, generated `tsvector` columns, and `GIN` indexes (supports Vietnamese diacritics including `đ`/`Đ`, and prefix-style queries such as `pho` → `Phở Bò`).
+  - **Rich filtering & sorting**: multi-select category pills (`appetizer`, `main`, `dessert`, `drink`, `combo`), collapsible filter panel (chef, included/excluded ingredients, featured, availability, price range, prep-time ceiling), and sorting by relevance, name, price, recency, prep time, or ingredient count.
+  - **Server-side pagination** with `page` and `pageSize` (default 20, max 100) and switchable **infinite scroll / load more / numbered pages** modes. All paging, filter, and sort state is URL-backed; real-time **"Sold out"** badges remain.
 - **Dish Detail (`/dishes/:id` & `/dishes/:slug`)**: High-resolution dish imagery, formatted pricing in VND, preparation time, ingredient breakdown (names only, protecting internal inventory costs), and creator Chef spotlight. Supports direct lookup by both UUID `id` and SEO `slug`.
 
 ### 2. Admin Operations Portal (`/admin`)
@@ -21,9 +24,10 @@ A modern client-side rendered (CSR) web application for restaurant meal manageme
   - Image upload to Supabase Storage with live preview and removal toggle.
   - Recipe proportioning: dynamic multi-row ingredient selector with auto-filled units and quantities.
   - Automatic Vietnamese diacritic-stripped SEO slugs (`Phở Bò` → `pho-bo`), collision-safe (`pho-bo-2`).
-- **Chefs Management (`/admin/chefs`)**: Manage chef profiles, culinary specialties, biographies, and portrait uploads.
-- **Ingredients Inventory (`/admin/ingredients`)**: Track inventory quantities, units (`g`, `kg`, `ml`), unit wholesale prices, and availability status.
-- **User Role Management (`/admin/users`)**: Exclusively available to `ADMIN`. Role alteration with safety locks preventing self-demotion and ensuring the last remaining `ADMIN` cannot be demoted.
+  - Full-text search plus multi-filter/sort toolbar (categories, chefs, included/excluded ingredients, featured, availability, price range, prep time, assigned chef, deleted records) with server pagination.
+- **Chefs Management (`/admin/chefs`)**: Manage chef profiles, culinary specialties, biographies, and portrait uploads, with full-text search, multi-select specialty filters, active/has-dishes filters, sorting, and server pagination.
+- **Ingredients Inventory (`/admin/ingredients`)**: Track inventory quantities, units (`g`, `kg`, `ml`), unit wholesale prices, and availability status, with full-text search, unit/stock/availability/usage filters, sorting, and server pagination.
+- **User Role Management (`/admin/users`)**: Exclusively available to `ADMIN`. Full-text search, multi-select role filters, registration date range, server pagination, and role alteration with safety locks preventing self-demotion and ensuring the last remaining `ADMIN` cannot be demoted.
 
 ### 3. Role-Based Access Control (RBAC)
 
@@ -54,6 +58,7 @@ A modern client-side rendered (CSR) web application for restaurant meal manageme
 
 - **Runtime**: [Express 5](https://expressjs.com/) on Node.js (TypeScript, ES modules)
 - **Database / ORM**: PostgreSQL via Supabase + [Prisma ORM 7](https://www.prisma.io/) with `@prisma/adapter-pg`
+- **Full-Text Search**: PostgreSQL `unaccent` with an immutable `public.f_unaccent(text)` wrapper (including Vietnamese `đ`/`Đ` folding), weighted generated `search_vector` (`tsvector`) columns, and `GIN` indexes on dishes, chefs, ingredients, and profiles.
 - **Authentication**: Supabase Auth supporting `Authorization: Bearer <token>` header (primary for SPA / REST clients) and HTTP-only session cookies (`@supabase/ssr` fallback) + lazy `Profile` sync
 - **Object Storage**: Supabase Storage (`images` bucket for meals, chefs, and ingredients)
 - **Security**:
@@ -109,29 +114,43 @@ All protected endpoints accept authentication via `Authorization: Bearer <access
 Mutating endpoints using `Authorization: Bearer <token>` bypass double-submit CSRF enforcement (since cross-origin requests cannot attach custom headers without CORS preflight).
 Legacy `/api/admin/*` routes remain fully supported as backward-compatibility aliases to `/api/*`.
 
-| Route                          |         Method          |     Access     | Description                                                                 |
-| ------------------------------ | :---------------------: | :------------: | --------------------------------------------------------------------------- |
-| `/api/auth/me`                 |           GET           |     Public     | Current profile and CSRF token                                              |
-| `/api/auth/login`              |          POST           |     Public     | Sign in with email and password (returns session token)                     |
-| `/api/auth/register`           |          POST           |     Public     | Register new account (returns session token)                                |
-| `/api/auth/logout`             |          POST           | Authenticated  | Clear session cookies / invalidate session                                  |
-| `/api/auth/callback`           |        GET/POST         |     Public     | Supabase OAuth / email verification callback                                |
-| `/api/home`                    |           GET           |     Public     | Featured dishes for the home page                                           |
-| `/api/menu`                    |           GET           |     Public     | Full visible dish catalog; optional `q`, `category`, `sort` (no pagination) |
-| `/api/dishes`                  |        GET, POST        | Public / Staff | List catalog with server pagination (`page`, `pageSize` ≤ 100), `q`, `category`, `sort`; create dish (`dish:create`) |
-| `/api/dishes/:idOrSlug`        | GET, PATCH, PUT, DELETE | Public / Staff | View dish (public); update / soft-delete (`dish:update`/`delete`)           |
-| `/api/dishes/:id/restore`      |          POST           | Staff / Admin  | Restore soft-deleted dish                                                   |
-| `/api/dishes/form-deps`        |           GET           | Staff / Admin  | Active chefs and ingredients options for dish editor                        |
-| `/api/chefs`                   |        GET, POST        | Staff / Admin  | List chefs with pagination (`page`, `pageSize`) & search; create new chef profile |
-| `/api/chefs/:id`               | GET, PATCH, PUT, DELETE | Staff / Admin  | View, update, or soft-delete chef                                           |
-| `/api/chefs/:id/restore`       |          POST           | Staff / Admin  | Restore soft-deleted chef                                                   |
-| `/api/ingredients`             |        GET, POST        | Staff / Admin  | List ingredients with pagination (`page`, `pageSize`) & search; create new ingredient |
-| `/api/ingredients/:id`         | GET, PATCH, PUT, DELETE | Staff / Admin  | View, update, or soft-delete ingredient                                     |
-| `/api/ingredients/:id/restore` |          POST           | Staff / Admin  | Restore soft-deleted ingredient                                             |
-| `/api/stats`                   |           GET           | Staff / Admin  | Dashboard summary counts (dishes, chefs, ingredients, users)                |
-| `/api/users`                   |           GET           |   Admin only   | List registered users with pagination (`page`, `pageSize`) & search                              |
-| `/api/users/:id/role`          |       PATCH, POST       |   Admin only   | Change user role (`CUSTOMER`, `STAFF`, `ADMIN`)                             |
-| `/api/admin/*`                 |           ANY           | Staff / Admin  | Backward-compatibility aliases for `/api/*` management endpoints            |
+| Route                             |         Method          |     Access     | Description                                                                    |
+| --------------------------------- | :---------------------: | :------------: | ------------------------------------------------------------------------------ |
+| `/api/auth/me`                    |           GET           |     Public     | Current profile and CSRF token                                                 |
+| `/api/auth/login`                 |          POST           |     Public     | Sign in with email and password (returns session token)                        |
+| `/api/auth/register`              |          POST           |     Public     | Register new account (returns session token)                                   |
+| `/api/auth/logout`                |          POST           | Authenticated  | Clear session cookies / invalidate session                                     |
+| `/api/auth/callback`              |        GET/POST         |     Public     | Supabase OAuth / email verification callback                                   |
+| `/api/home`                       |           GET           |     Public     | Featured dishes for the home page                                              |
+| `/api/menu`                       |           GET           |     Public     | Full visible dish catalog with FTS, filters & sort (no pagination)             |
+| `/api/dishes/filter-options`      |           GET           |     Public     | Chefs, ingredients, categories and price range for public filter UI            |
+| `/api/dishes`                     |        GET, POST        | Public / Staff | Server-paginated catalog with FTS, filters & sort; create dish (`dish:create`) |
+| `/api/dishes/:idOrSlug`           | GET, PATCH, PUT, DELETE | Public / Staff | View dish (public); update / soft-delete (`dish:update`/`delete`)              |
+| `/api/dishes/:id/restore`         |          POST           | Staff / Admin  | Restore soft-deleted dish                                                      |
+| `/api/dishes/form-deps`           |           GET           | Staff / Admin  | Active chefs and ingredients options for dish editor                           |
+| `/api/chefs/filter-options`       |           GET           | Staff / Admin  | Distinct active specialty values for chef filters                              |
+| `/api/chefs`                      |        GET, POST        | Staff / Admin  | Server-paginated chefs with FTS, filters & sort; create chef                   |
+| `/api/chefs/:id`                  | GET, PATCH, PUT, DELETE | Staff / Admin  | View, update, or soft-delete chef                                              |
+| `/api/chefs/:id/restore`          |          POST           | Staff / Admin  | Restore soft-deleted chef                                                      |
+| `/api/ingredients/filter-options` |           GET           | Staff / Admin  | Distinct unit values for ingredient filters                                    |
+| `/api/ingredients`                |        GET, POST        | Staff / Admin  | Server-paginated ingredients with FTS, filters & sort; create ingredient       |
+| `/api/ingredients/:id`            | GET, PATCH, PUT, DELETE | Staff / Admin  | View, update, or soft-delete ingredient                                        |
+| `/api/ingredients/:id/restore`    |          POST           | Staff / Admin  | Restore soft-deleted ingredient                                                |
+| `/api/stats`                      |           GET           | Staff / Admin  | Dashboard summary counts (dishes, chefs, ingredients, users)                   |
+| `/api/users`                      |           GET           |   Admin only   | Server-paginated users with FTS, role/date filters                             |
+| `/api/users/:id/role`             |       PATCH, POST       |   Admin only   | Change user role (`CUSTOMER`, `STAFF`, `ADMIN`)                                |
+| `/api/admin/*`                    |           ANY           | Staff / Admin  | Backward-compatibility aliases for `/api/*` management endpoints               |
+
+### Search, Filtering, Sorting & Pagination Query Parameters
+
+All list endpoints accept `page` (default `1`) and `pageSize` (default `20`, max `100`). Multi-value filters accept comma-separated values, e.g. `?category=main,dessert`. Invalid values on recognized keys return `VALIDATION_FAILED` with `error.fields`; unknown keys are ignored. When no filters/search are active, list totals come from the record-counter cache instead of a fresh `COUNT`.
+
+| Resource                              | Full-Text Search (`q`)                                                                          | Filters                                                                                                                                                                                                 | Sort (`sort`)                                                                                                                                                     |
+| :------------------------------------ | :---------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Dish** (`/api/dishes`, `/api/menu`) | Weighted `tsvector` (`name` A, `slug` B, `description` C) plus chef and ingredient name matches | `category` (CSV), `chefId` (CSV), `withIngredients` (CSV IDs), `withoutIngredients` (CSV IDs), `available`, `featured`, `minPrice`, `maxPrice`, `maxPrepTime`, `unassignedChef`, `deleted` (staff only) | `name-asc`, `name-desc`, `price-asc`, `price-desc`, `newest`, `updated`, `prep-asc`, `ingredients-asc`, `ingredients-desc`, `relevance` (default when `q` is set) |
+| **Chef** (`/api/chefs`)               | Weighted `tsvector` (`name` A, `specialty` B, `bio` C)                                          | `specialty` (CSV), `isActive`, `minExperience`, `hasActiveDishes`                                                                                                                                       | `experience-asc`, `experience-desc`, `dishes-desc`, `name-asc`, `newest`, `updated`, `relevance` (default when `q` is set)                                        |
+| **Ingredient** (`/api/ingredients`)   | Weighted `tsvector` (`name` A, `unit` B)                                                        | `unit` (CSV), `isAvailable`, `stock` (`in`/`out`), `usage` (`unused`/`activeDishes`)                                                                                                                    | `name-asc`, `stock-asc`, `stock-desc`, `price-asc`, `price-desc`, `usage-desc`, `updated`, `relevance` (default when `q` is set)                                  |
+| **Profile / User** (`/api/users`)     | Weighted `tsvector` (`full_name` A, `email` B)                                                  | `role` (CSV: `CUSTOMER,STAFF,ADMIN`), `createdFrom`, `createdTo` (ISO dates)                                                                                                                            | Newest first; ranked by FTS relevance when `q` is set                                                                                                             |
 
 ---
 
@@ -213,7 +232,7 @@ npm run dev:server  # Express API server on port 3000 (tsx watch)
 
 ## 🧪 Testing & Code Quality
 
-Run Vitest unit test suite (10 test suites, 60 test cases covering HTTP envelopes, Bearer token auth, CSRF bypass, business/technical error contracts, CORS, validation, rate limiting, and RBAC):
+Run Vitest unit test suite (13 test suites, 89 test cases covering HTTP envelopes, Bearer token auth, CSRF bypass, business/technical error contracts, CORS, validation, rate limiting, RBAC, full-text search/filter builders, and server pagination):
 
 ```bash
 npm test
