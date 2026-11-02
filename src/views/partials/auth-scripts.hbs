@@ -1,10 +1,30 @@
 <script>
 (function () {
-  var form = document.querySelector('form[action="/login"], form[action="/register"], form[action="/activate"]');
+  var toggles = document.querySelectorAll('[data-pw-toggle]');
+  for (var i = 0; i < toggles.length; i++) {
+    toggles[i].addEventListener('click', function () {
+      var btn = this;
+      var wrap = btn.closest('.pw-wrap');
+      var input = wrap ? wrap.querySelector('input') : null;
+      if (!input) return;
+      var show = input.type === 'password';
+      input.type = show ? 'text' : 'password';
+      btn.setAttribute('aria-pressed', show ? 'true' : 'false');
+      btn.setAttribute('aria-label', show ? 'Ẩn mật khẩu' : 'Hiện mật khẩu');
+    });
+  }
+
+  var form = document.querySelector('form[action="/login"], form[action="/register"], form[action="/activate"], form[action="/forgot"], form[action="/reset"]');
   if (!form) return;
 
   var submitting = false;
   form.addEventListener('submit', function (event) {
+    // Reset any revealed password inputs back to type="password" on submit
+    var revealed = form.querySelectorAll('.pw-wrap input[type="text"]');
+    for (var j = 0; j < revealed.length; j++) {
+      revealed[j].type = 'password';
+    }
+
     // reCAPTCHA tokens are single-use; a double submit would consume the token
     // twice and show a confusing "expired/used" error even though login worked.
     if (submitting) {
