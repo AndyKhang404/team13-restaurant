@@ -3,7 +3,13 @@ import { z } from 'zod';
 import type { Prisma } from '../../generated/prisma/client.js';
 import { prisma } from '../../lib/prisma.js';
 import { notFound } from '../../lib/http.js';
-import { buildPagination, skipFor } from '../../lib/pagination.js';
+import {
+  ADMIN_PAGE_SIZE,
+  buildPagination,
+  pageUrl,
+  resolvePage,
+  skipFor,
+} from '../../lib/pagination.js';
 import { listParams, isNotFound, isUniqueViolation, paramId } from '../../lib/admin.js';
 import { requiredText, decimal, checkbox, toFieldErrors } from '../../lib/validation.js';
 import { fileFor, validateImage, saveWithImage, type UploadedFile } from '../../lib/storage.js';
@@ -36,27 +42,36 @@ async function findNameClash(name: string, excludeId?: string) {
 }
 
 router.get('/', requirePermission('ingredient:create'), async (req, res) => {
-  const { page, q, showDeleted, filters } = listParams(req);
+  const { rawPage, filters, q, showDeleted } = listParams(req);
   const where: Prisma.IngredientWhereInput = {
     ...(showDeleted ? { deletedAt: { not: null } } : { deletedAt: null }),
     ...(q ? { name: { contains: q, mode: 'insensitive' } } : {}),
   };
 
-  const [total, ingredients] = await Promise.all([
-    prisma.ingredient.count({ where }),
-    prisma.ingredient.findMany({
-      where,
-      orderBy: [{ name: 'asc' }],
-      skip: skipFor(page),
-      take: 10,
-    }),
-  ]);
+  const total = await prisma.ingredient.count({ where });
+  const { page, redirectPage } = resolvePage(rawPage, total, ADMIN_PAGE_SIZE);
+  if (redirectPage !== null) {
+    return res.redirect(302, pageUrl('/admin/ingredients', filters, redirectPage));
+  }
+
+  const ingredients = await prisma.ingredient.findMany({
+    where,
+    orderBy: [{ name: 'asc' }],
+    skip: skipFor(page, ADMIN_PAGE_SIZE),
+    take: ADMIN_PAGE_SIZE,
+  });
 
   res.render('pages/admin/ingredients/index', {
     layout: 'admin',
     title: 'Kho nguyên liệu',
     ingredients,
-    pagination: buildPagination(page, total, filters),
+    pagination: buildPagination({
+      basePath: '/admin/ingredients',
+      filters,
+      page,
+      total,
+      pageSize: ADMIN_PAGE_SIZE,
+    }),
     q,
     showDeleted,
   });

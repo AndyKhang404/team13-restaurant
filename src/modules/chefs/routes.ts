@@ -3,9 +3,22 @@ import { z } from 'zod';
 import type { Prisma } from '../../generated/prisma/client.js';
 import { prisma } from '../../lib/prisma.js';
 import { notFound } from '../../lib/http.js';
-import { buildPagination, skipFor } from '../../lib/pagination.js';
+import {
+  ADMIN_PAGE_SIZE,
+  buildPagination,
+  pageUrl,
+  resolvePage,
+  skipFor,
+} from '../../lib/pagination.js';
 import { listParams, isNotFound, paramId } from '../../lib/admin.js';
-import { requiredText, optionalText, optionalInt, optionalPhone, checkbox, toFieldErrors } from '../../lib/validation.js';
+import {
+  requiredText,
+  optionalText,
+  optionalInt,
+  optionalPhone,
+  checkbox,
+  toFieldErrors,
+} from '../../lib/validation.js';
 import { fileFor, validateImage, saveWithImage, type UploadedFile } from '../../lib/storage.js';
 import { requirePermission } from '../../auth/middleware.js';
 
@@ -22,7 +35,7 @@ export const ChefSchema = z.object({
 });
 
 router.get('/', requirePermission('chef:create'), async (req, res) => {
-  const { page, q, showDeleted, filters } = listParams(req);
+  const { rawPage, filters, q, showDeleted } = listParams(req);
   const where: Prisma.ChefWhereInput = {
     ...(showDeleted ? { deletedAt: { not: null } } : { deletedAt: null }),
     ...(q
@@ -35,21 +48,30 @@ router.get('/', requirePermission('chef:create'), async (req, res) => {
       : {}),
   };
 
-  const [total, chefs] = await Promise.all([
-    prisma.chef.count({ where }),
-    prisma.chef.findMany({
-      where,
-      orderBy: [{ updatedAt: 'desc' }],
-      skip: skipFor(page),
-      take: 10,
-    }),
-  ]);
+  const total = await prisma.chef.count({ where });
+  const { page, redirectPage } = resolvePage(rawPage, total, ADMIN_PAGE_SIZE);
+  if (redirectPage !== null) {
+    return res.redirect(302, pageUrl('/admin/chefs', filters, redirectPage));
+  }
+
+  const chefs = await prisma.chef.findMany({
+    where,
+    orderBy: [{ updatedAt: 'desc' }],
+    skip: skipFor(page, ADMIN_PAGE_SIZE),
+    take: ADMIN_PAGE_SIZE,
+  });
 
   res.render('pages/admin/chefs/index', {
     layout: 'admin',
     title: 'Danh sách đầu bếp',
     chefs,
-    pagination: buildPagination(page, total, filters),
+    pagination: buildPagination({
+      basePath: '/admin/chefs',
+      filters,
+      page,
+      total,
+      pageSize: ADMIN_PAGE_SIZE,
+    }),
     q,
     showDeleted,
   });
@@ -83,22 +105,19 @@ router.post('/', requirePermission('chef:create'), async (req, res) => {
   }
 
   const data = parsed.data;
-  await saveWithImage(
-    { folder: 'chefs', file },
-    async (avatarUrl) => {
-      await prisma.chef.create({
-        data: {
-          name: data.name,
-          specialty: data.specialty ?? null,
-          bio: data.bio ?? null,
-          experienceYears: data.experienceYears ?? 0,
-          phone: data.phone ?? null,
-          isActive: data.isActive,
-          avatarUrl: avatarUrl ?? null,
-        },
-      });
-    },
-  );
+  await saveWithImage({ folder: 'chefs', file }, async (avatarUrl) => {
+    await prisma.chef.create({
+      data: {
+        name: data.name,
+        specialty: data.specialty ?? null,
+        bio: data.bio ?? null,
+        experienceYears: data.experienceYears ?? 0,
+        phone: data.phone ?? null,
+        isActive: data.isActive,
+        avatarUrl: avatarUrl ?? null,
+      },
+    });
+  });
 
   req.flash('success', `Đã tạo đầu bếp "${data.name}".`);
   res.redirect(303, '/admin/chefs');

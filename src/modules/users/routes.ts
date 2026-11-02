@@ -4,7 +4,13 @@ import { Role } from '../../generated/prisma/enums.js';
 import type { Prisma } from '../../generated/prisma/client.js';
 import { prisma } from '../../lib/prisma.js';
 import { notFound } from '../../lib/http.js';
-import { buildPagination, skipFor } from '../../lib/pagination.js';
+import {
+  ADMIN_PAGE_SIZE,
+  buildPagination,
+  pageUrl,
+  resolvePage,
+  skipFor,
+} from '../../lib/pagination.js';
 import { listParams, paramId } from '../../lib/admin.js';
 import { requirePermission } from '../../auth/middleware.js';
 
@@ -17,7 +23,7 @@ const UpdateRoleSchema = z.object({
 const ROLES = Object.values(Role);
 
 router.get('/', requirePermission('user:manage'), async (req, res) => {
-  const { page, q, filters } = listParams(req);
+  const { rawPage, filters, q } = listParams(req);
   const where: Prisma.ProfileWhereInput = q
     ? {
         OR: [
@@ -27,22 +33,31 @@ router.get('/', requirePermission('user:manage'), async (req, res) => {
       }
     : {};
 
-  const [total, users] = await Promise.all([
-    prisma.profile.count({ where }),
-    prisma.profile.findMany({
-      where,
-      orderBy: [{ createdAt: 'desc' }],
-      skip: skipFor(page),
-      take: 10,
-    }),
-  ]);
+  const total = await prisma.profile.count({ where });
+  const { page, redirectPage } = resolvePage(rawPage, total, ADMIN_PAGE_SIZE);
+  if (redirectPage !== null) {
+    return res.redirect(302, pageUrl('/admin/users', filters, redirectPage));
+  }
+
+  const users = await prisma.profile.findMany({
+    where,
+    orderBy: [{ createdAt: 'desc' }],
+    skip: skipFor(page, ADMIN_PAGE_SIZE),
+    take: ADMIN_PAGE_SIZE,
+  });
 
   res.render('pages/admin/users/index', {
     layout: 'admin',
     title: 'Quản lý người dùng',
     users,
     roles: ROLES,
-    pagination: buildPagination(page, total, filters),
+    pagination: buildPagination({
+      basePath: '/admin/users',
+      filters,
+      page,
+      total,
+      pageSize: ADMIN_PAGE_SIZE,
+    }),
     q,
   });
 });

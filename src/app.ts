@@ -61,7 +61,8 @@ export function createApp() {
         and: (a: unknown, b: unknown) => Boolean(a && b),
         not: (a: unknown) => !a,
         concat: (...args: unknown[]) => args.slice(0, -1).join(''),
-        can: (user: unknown, perm: unknown) => can(user as any, perm as Permission),
+        can: (user: unknown, perm: unknown) =>
+          can(user as Parameters<typeof can>[0], perm as Permission),
         json: (val: unknown) => JSON.stringify(val),
         add: (a: unknown, b: unknown) => Number(a) + Number(b),
         subtract: (a: unknown, b: unknown) => Number(a) - Number(b),

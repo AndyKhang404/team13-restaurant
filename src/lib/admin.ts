@@ -11,6 +11,7 @@ export function listParams(req: Request) {
     deleted: showDeleted ? '1' : undefined,
   };
   return {
+    rawPage: req.query.page,
     page: parsePage(req.query.page),
     q,
     showDeleted,
@@ -24,7 +25,11 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
  * since Prisma rejects malformed UUIDs with a validation error.
  */
 export function paramId(raw: unknown): string {
-  const id = Array.isArray(raw) ? String(raw[0] ?? '') : typeof raw === 'string' ? raw : String(raw ?? '');
+  const id = Array.isArray(raw)
+    ? String(raw[0] ?? '')
+    : typeof raw === 'string'
+      ? raw
+      : String(raw ?? '');
   if (!UUID_RE.test(id)) throw notFound();
   return id;
 }

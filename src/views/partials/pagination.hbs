@@ -1,20 +1,58 @@
 {{#if pagination}}
   {{#if (gt pagination.totalPages 1)}}
-    <div class="panel-foot">
-      Hiển thị trang {{pagination.page}} / {{pagination.totalPages}} — tổng {{pagination.total}} bản ghi
-      <div class="pager">
+    {{#if (eq variant "public")}}
+      <nav class="pager" aria-label="Phân trang">
         {{#if pagination.hasPrev}}
-          <a href="?page={{pagination.prevPage}}{{#if pagination.baseQuery}}&{{pagination.baseQuery}}{{/if}}">Trước</a>
+          <a href="{{{pagination.prevHref}}}" rel="prev">« Trước</a>
         {{else}}
-          <span>Trước</span>
+          <span aria-disabled="true">« Trước</span>
         {{/if}}
-        <span class="current">{{pagination.page}}</span>
+        {{#each pagination.items}}
+          {{#if (eq this.kind "page")}}
+            {{#if this.current}}
+              <span class="num current" aria-current="page">{{this.number}}</span>
+            {{else}}
+              <a class="num" href="{{{this.href}}}">{{this.number}}</a>
+            {{/if}}
+          {{else}}
+            <span class="gap">…</span>
+          {{/if}}
+        {{/each}}
+        <span class="compact">{{pagination.page}} / {{pagination.totalPages}}</span>
         {{#if pagination.hasNext}}
-          <a href="?page={{pagination.nextPage}}{{#if pagination.baseQuery}}&{{pagination.baseQuery}}{{/if}}">Sau</a>
+          <a href="{{{pagination.nextHref}}}" rel="next">Sau »</a>
         {{else}}
-          <span>Sau</span>
+          <span aria-disabled="true">Sau »</span>
         {{/if}}
+      </nav>
+    {{else}}
+      <div class="panel-foot">
+        Hiển thị trang {{pagination.page}} / {{pagination.totalPages}} — tổng {{pagination.total}} bản ghi
+        <nav class="pager" aria-label="Phân trang">
+          {{#if pagination.hasPrev}}
+            <a href="{{{pagination.prevHref}}}" rel="prev">« Trước</a>
+          {{else}}
+            <span aria-disabled="true">« Trước</span>
+          {{/if}}
+          {{#each pagination.items}}
+            {{#if (eq this.kind "page")}}
+              {{#if this.current}}
+                <span class="num current" aria-current="page">{{this.number}}</span>
+              {{else}}
+                <a class="num" href="{{{this.href}}}">{{this.number}}</a>
+              {{/if}}
+            {{else}}
+              <span class="gap">…</span>
+            {{/if}}
+          {{/each}}
+          <span class="compact">{{pagination.page}} / {{pagination.totalPages}}</span>
+          {{#if pagination.hasNext}}
+            <a href="{{{pagination.nextHref}}}" rel="next">Sau »</a>
+          {{else}}
+            <span aria-disabled="true">Sau »</span>
+          {{/if}}
+        </nav>
       </div>
-    </div>
+    {{/if}}
   {{/if}}
 {{/if}}

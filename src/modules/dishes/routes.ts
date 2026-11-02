@@ -4,7 +4,13 @@ import { DishCategory } from '../../generated/prisma/enums.js';
 import type { Prisma } from '../../generated/prisma/client.js';
 import { prisma } from '../../lib/prisma.js';
 import { notFound } from '../../lib/http.js';
-import { buildPagination, skipFor } from '../../lib/pagination.js';
+import {
+  ADMIN_PAGE_SIZE,
+  buildPagination,
+  pageUrl,
+  resolvePage,
+  skipFor,
+} from '../../lib/pagination.js';
 import { listParams, isNotFound, isUniqueViolation, paramId } from '../../lib/admin.js';
 import { slugify, nextFreeSlug } from '../../lib/slug.js';
 import {
@@ -47,7 +53,9 @@ const DishSchema = z.object({
 /** Parse dynamically submitted dish ingredient rows from body.
  * Body can have: `ingredient_id[]`, `quantity[]`, `unit[]`
  */
-function parseIngredientRows(body: Record<string, unknown>): Array<{ ingredientId: string; quantity: number; unit: string }> {
+function parseIngredientRows(
+  body: Record<string, unknown>,
+): Array<{ ingredientId: string; quantity: number; unit: string }> {
   const ids = Array.isArray(body['ingredient_id'])
     ? (body['ingredient_id'] as string[])
     : body['ingredient_id']
@@ -95,8 +103,7 @@ export function validateIngredientRows(
     const parsed = DishIngredientItemSchema.safeParse(row);
     if (!parsed.success) {
       const first = parsed.error.issues[0];
-      errors['ingredients'] =
-        `Dòng nguyên liệu #${line}: ${first?.message ?? 'không hợp lệ'}`;
+      errors['ingredients'] = `Dòng nguyên liệu #${line}: ${first?.message ?? 'không hợp lệ'}`;
       return;
     }
     if (seen.has(parsed.data.ingredientId)) {
@@ -153,9 +160,11 @@ async function loadFormDependencies(currentDishId?: string) {
 }
 
 router.get('/', requirePermission('dish:create'), async (req, res) => {
-  const { page, q, showDeleted, filters } = listParams(req);
+  const { rawPage, filters, q, showDeleted } = listParams(req);
   const rawCat = typeof req.query.category === 'string' ? req.query.category : '';
-  const category = CATEGORIES.includes(rawCat as DishCategory) ? (rawCat as DishCategory) : undefined;
+  const category = CATEGORIES.includes(rawCat as DishCategory)
+    ? (rawCat as DishCategory)
+    : undefined;
   if (category) filters['category'] = category;
 
   const where: Prisma.DishWhereInput = {
@@ -164,22 +173,31 @@ router.get('/', requirePermission('dish:create'), async (req, res) => {
     ...(q ? { name: { contains: q, mode: 'insensitive' } } : {}),
   };
 
-  const [total, dishes] = await Promise.all([
-    prisma.dish.count({ where }),
-    prisma.dish.findMany({
-      where,
-      include: { chef: true },
-      orderBy: [{ updatedAt: 'desc' }],
-      skip: skipFor(page),
-      take: 10,
-    }),
-  ]);
+  const total = await prisma.dish.count({ where });
+  const { page, redirectPage } = resolvePage(rawPage, total, ADMIN_PAGE_SIZE);
+  if (redirectPage !== null) {
+    return res.redirect(302, pageUrl('/admin/dishes', filters, redirectPage));
+  }
+
+  const dishes = await prisma.dish.findMany({
+    where,
+    include: { chef: true },
+    orderBy: [{ updatedAt: 'desc' }],
+    skip: skipFor(page, ADMIN_PAGE_SIZE),
+    take: ADMIN_PAGE_SIZE,
+  });
 
   res.render('pages/admin/dishes/index', {
     layout: 'admin',
     title: 'Danh sách món ăn',
     dishes,
-    pagination: buildPagination(page, total, filters),
+    pagination: buildPagination({
+      basePath: '/admin/dishes',
+      filters,
+      page,
+      total,
+      pageSize: ADMIN_PAGE_SIZE,
+    }),
     q,
     category,
     categories: CATEGORIES.map((c) => ({ key: c, label: CATEGORY_LABELS[c] ?? c })),
@@ -288,7 +306,7 @@ router.get('/:id/edit', requirePermission('dish:update'), async (req, res) => {
 
   res.render('pages/admin/dishes/form', {
     layout: 'admin',
-      title: `Sửa món: ${dish.name}`,
+    title: `Sửa món: ${dish.name}`,
     isNew: false,
     dish,
     values: dish,

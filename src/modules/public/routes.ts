@@ -4,6 +4,14 @@ import type { Prisma } from '../../generated/prisma/client.js';
 import { prisma } from '../../lib/prisma.js';
 import { notFound } from '../../lib/http.js';
 import { CATEGORY_LABELS } from '../../lib/format.js';
+import {
+  MENU_PAGE_SIZE,
+  buildPagination,
+  pageUrl,
+  resolvePage,
+  skipFor,
+  type Filters,
+} from '../../lib/pagination.js';
 
 const router = Router();
 
@@ -22,12 +30,12 @@ router.get('/', async (_req, res) => {
 });
 
 const SORTS: Record<string, Prisma.DishOrderByWithRelationInput[]> = {
-  '': [{ name: 'asc' }],
-  'name-asc': [{ name: 'asc' }],
-  'name-desc': [{ name: 'desc' }],
-  'price-asc': [{ price: 'asc' }],
-  'price-desc': [{ price: 'desc' }],
-  newest: [{ updatedAt: 'desc' }],
+  '': [{ createdAt: 'desc' }, { id: 'asc' }],
+  'name-asc': [{ name: 'asc' }, { id: 'asc' }],
+  'name-desc': [{ name: 'desc' }, { id: 'asc' }],
+  'price-asc': [{ price: 'asc' }, { id: 'asc' }],
+  'price-desc': [{ price: 'desc' }, { id: 'asc' }],
+  newest: [{ updatedAt: 'desc' }, { id: 'asc' }],
 };
 
 router.get('/menu', async (req, res) => {
@@ -36,37 +44,57 @@ router.get('/menu', async (req, res) => {
   const q = typeof req.query.q === 'string' ? req.query.q.trim().slice(0, 80) : '';
   const sortRaw = typeof req.query.sort === 'string' ? req.query.sort : '';
   const sort = sortRaw in SORTS ? sortRaw : '';
-  const flat = Boolean(q) || sort !== '';
+
+  const filters: Filters = {
+    category,
+    q: q || undefined,
+    sort: sort || undefined,
+  };
+
+  const where: Prisma.DishWhereInput = {
+    ...visibleDish,
+    ...(category ? { category } : {}),
+    ...(q ? { name: { contains: q, mode: 'insensitive' } } : {}),
+  };
+
+  const total = await prisma.dish.count({ where });
+
+  const { page, redirectPage } = resolvePage(req.query.page, total, MENU_PAGE_SIZE);
+  if (redirectPage !== null) {
+    return res.redirect(302, pageUrl('/menu', filters, redirectPage));
+  }
 
   const dishes = await prisma.dish.findMany({
-    where: {
-      ...visibleDish,
-      ...(category ? { category } : {}),
-      ...(q ? { name: { contains: q, mode: 'insensitive' } } : {}),
-    },
+    where,
     orderBy: SORTS[sort],
+    skip: skipFor(page, MENU_PAGE_SIZE),
+    take: MENU_PAGE_SIZE,
   });
 
-  const groups = flat
-    ? []
-    : CATEGORIES.filter((c) => !category || c === category)
-        .map((c) => ({
-          key: c,
-          label: CATEGORY_LABELS[c] ?? c,
-          dishes: dishes.filter((d) => d.category === c),
-        }))
-        .filter((g) => g.dishes.length > 0);
+  const allHref = pageUrl('/menu', { q: q || undefined, sort: sort || undefined }, 1);
+  const categories = CATEGORIES.map((c) => ({
+    key: c,
+    label: CATEGORY_LABELS[c] ?? c,
+    href: pageUrl('/menu', { category: c, q: q || undefined, sort: sort || undefined }, 1),
+    active: category === c,
+  }));
 
   res.render('pages/public/menu', {
     title: 'Menu',
-    groups,
-    flat,
     dishes,
+    total,
     q,
     sort,
-    resultCount: dishes.length,
     category,
-    categories: CATEGORIES.map((c) => ({ key: c, label: CATEGORY_LABELS[c] ?? c })),
+    pagination: buildPagination({
+      basePath: '/menu',
+      filters,
+      page,
+      total,
+      pageSize: MENU_PAGE_SIZE,
+    }),
+    allHref,
+    categories,
   });
 });
 
