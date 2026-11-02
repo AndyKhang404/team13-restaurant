@@ -6,7 +6,10 @@ import type { RequestHandler } from 'express';
  * the same auth form with 429 instead of crashing or silently dropping.
  * Not for distributed setups — a single Node process (đồ án) is assumed.
  */
-export function authRateLimit({ windowMs = 60_000, max = 20 }: { windowMs?: number; max?: number } = {}): RequestHandler {
+export function authRateLimit({
+  windowMs = 60_000,
+  max = 20,
+}: { windowMs?: number; max?: number } = {}): RequestHandler {
   const hits = new Map<string, number[]>();
   const MESSAGE = 'Bạn thử quá nhiều lần. Vui lòng đợi một phút rồi thử lại.';
 
@@ -30,6 +33,37 @@ export function authRateLimit({ windowMs = 60_000, max = 20 }: { windowMs?: numb
         return res.status(429).render('pages/auth/register', {
           title: 'Create account',
           values: { displayName, email },
+          formError: MESSAGE,
+        });
+      }
+      if (req.path === '/forgot') {
+        return res.status(429).render('pages/auth/forgot', {
+          title: 'Forgot password',
+          values: { email },
+          formError: MESSAGE,
+        });
+      }
+      if (req.path === '/activate') {
+        return res.status(429).render('pages/auth/activate', {
+          title: 'Activate account',
+          email,
+          values: { email },
+          formError: MESSAGE,
+        });
+      }
+      if (req.path === '/activate/resend') {
+        return res.status(429).render('pages/auth/check-email', {
+          title: 'Check your email',
+          email,
+          formError: MESSAGE,
+        });
+      }
+      if (req.path === '/reset') {
+        const token = typeof req.body?.token === 'string' ? req.body.token : '';
+        return res.status(429).render('pages/auth/reset', {
+          title: 'Reset password',
+          token,
+          values: {},
           formError: MESSAGE,
         });
       }

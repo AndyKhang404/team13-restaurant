@@ -1,9 +1,12 @@
 import 'dotenv/config';
+import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { createClient } from '@supabase/supabase-js';
 import { PrismaClient } from '../src/generated/prisma/client.js';
-import { Role, DishCategory } from '../src/generated/prisma/enums.js';
+import { AccountStatus, Role, DishCategory } from '../src/generated/prisma/enums.js';
+import { normalizeEmail } from '../src/auth/email.js';
+import { hashPassword } from '../src/auth/password.js';
 
 const SeedEnvSchema = z.object({
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
@@ -16,7 +19,7 @@ const SeedEnvSchema = z.object({
   SEED_ADMIN_PASSWORD: z
     .string()
     .trim()
-    .min(6, 'SEED_ADMIN_PASSWORD must be at least 6 characters (Supabase Auth requirement)'),
+    .min(6, 'SEED_ADMIN_PASSWORD must be at least 6 characters'),
 });
 
 function loadSeedEnv() {
@@ -79,42 +82,31 @@ async function main() {
     console.warn('⚠️ Storage bucket check skipped:', message);
   }
 
-  // 2. Create or find initial Admin in Supabase Auth
-  let adminUserId: string;
-  const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
-  const existingAdmin = existingUsers?.users?.find((u) => u.email === seedAdminEmail);
+  // 2. Create or update the initial local admin account
+  const adminUserId = randomUUID();
+  const adminEmailNormalized = normalizeEmail(seedAdminEmail);
+  const adminPasswordHash = await hashPassword(seedAdminPassword);
 
-  if (existingAdmin) {
-    adminUserId = existingAdmin.id;
-    console.log(`ℹ️ Admin user already exists in Supabase Auth (${adminUserId})`);
-  } else {
-    const { data: created, error } = await supabaseAdmin.auth.admin.createUser({
-      email: seedAdminEmail,
-      password: seedAdminPassword,
-      email_confirm: true,
-      user_metadata: { display_name: 'Master Admin' },
-    });
-    if (error || !created.user) {
-      throw new Error(`Failed to create admin in Supabase Auth: ${error?.message}`);
-    }
-    adminUserId = created.user.id;
-    console.log(`✅ Created admin user in Supabase Auth (${adminUserId})`);
-  }
-
-  // 3. Upsert Admin Profile with ADMIN role
   await prisma.profile.upsert({
-    where: { id: adminUserId },
+    where: { emailNormalized: adminEmailNormalized },
     create: {
       id: adminUserId,
       email: seedAdminEmail,
+      emailNormalized: adminEmailNormalized,
+      passwordHash: adminPasswordHash,
       displayName: 'Master Admin',
       role: Role.ADMIN,
+      status: AccountStatus.ACTIVE,
+      emailVerifiedAt: new Date(),
     },
     update: {
+      passwordHash: adminPasswordHash,
       role: Role.ADMIN,
+      status: AccountStatus.ACTIVE,
+      emailVerifiedAt: new Date(),
     },
   });
-  console.log(`✅ Upserted Admin profile with role ADMIN`);
+  console.log(`✅ Upserted local admin profile with role ADMIN`);
 
   // 4. Seed Chefs
   const chefRamsay = await prisma.chef.upsert({

@@ -33,7 +33,8 @@ export function createApp() {
     }),
   );
   if (!isProd) {
-    app.use(morgan('dev'));
+    // Never log /reset URLs: they carry the one-time reset token.
+    app.use(morgan('dev', { skip: (req) => req.path === '/reset' }));
   }
 
   // Static assets
@@ -64,6 +65,7 @@ export function createApp() {
         can: (user: unknown, perm: unknown) =>
           can(user as Parameters<typeof can>[0], perm as Permission),
         json: (val: unknown) => JSON.stringify(val),
+        urlencode: (val: unknown) => encodeURIComponent(String(val ?? '')),
         add: (a: unknown, b: unknown) => Number(a) + Number(b),
         subtract: (a: unknown, b: unknown) => Number(a) - Number(b),
       },
@@ -94,7 +96,7 @@ export function createApp() {
   app.use(csrfProtection);
   app.use(csrfToken);
 
-  // Load user from Supabase auth cookie and link to Prisma Profile
+  // Load the local server-side session and attach its Profile
   app.use(loadUser);
 
   // App routes

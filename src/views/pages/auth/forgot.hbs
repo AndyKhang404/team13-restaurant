@@ -1,0 +1,52 @@
+<div class="auth-split">
+  <div class="auth-aside">
+    <div>
+      <div class="eyebrow">Team13 Restaurant</div>
+      <p class="auth-quote">Lấy lại quyền truy cập tài khoản.</p>
+    </div>
+    <div class="auth-aside-foot">
+      <span>123 Nguyễn Văn Cừ, Q.5, TP.HCM</span>
+      <span>Mở cửa 09:00 — 22:00</span>
+      <span>1900 6868</span>
+    </div>
+  </div>
+
+  <div class="auth-body">
+    {{#if sent}}
+      <h1>Kiểm tra email</h1>
+      <p class="lead">{{message}}</p>
+      <a class="btn btn-solid btn-lg" href="/login">Quay lại đăng nhập</a>
+    {{else}}
+      <h1>Quên mật khẩu</h1>
+      <p class="lead">Nhập email đã đăng ký. Chúng tôi sẽ gửi liên kết đặt lại mật khẩu.</p>
+
+      {{#if formError}}
+        <div class="alert error"><b>Lỗi</b> <span>{{formError}}</span></div>
+      {{/if}}
+
+      <form action="/forgot" method="POST">
+        <input type="hidden" name="_csrf" value="{{csrfToken}}" />
+
+        <div class="field">
+          <label for="email">Email <span class="req">*</span></label>
+          <input type="email" id="email" name="email" value="{{values.email}}" required autocomplete="email" placeholder="ban@example.com" class="{{#if errors.email}}invalid{{/if}}" />
+          {{#if errors.email}}<span class="err">{{errors.email}}</span>{{/if}}
+        </div>
+
+        <div class="field">
+          <div class="g-recaptcha" data-sitekey="{{captchaSiteKey}}" data-hl="vi"></div>
+        </div>
+
+        <button type="submit" class="btn btn-solid btn-lg">Gửi liên kết</button>
+      </form>
+
+      <div class="auth-alt">
+        Đã nhớ mật khẩu? <a href="/login">Đăng nhập</a>
+      </div>
+    {{/if}}
+  </div>
+</div>
+
+{{#unless sent}}
+<script src="https://www.google.com/recaptcha/api.js" async defer></script>
+{{/unless}}

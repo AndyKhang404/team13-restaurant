@@ -1,0 +1,36 @@
+<script>
+(function () {
+  var form = document.querySelector('form[action="/login"], form[action="/register"], form[action="/activate"]');
+  if (!form) return;
+
+  var submitting = false;
+  form.addEventListener('submit', function (event) {
+    // reCAPTCHA tokens are single-use; a double submit would consume the token
+    // twice and show a confusing "expired/used" error even though login worked.
+    if (submitting) {
+      event.preventDefault();
+      return;
+    }
+    submitting = true;
+    var button = form.querySelector('button[type="submit"]');
+    if (button) {
+      button.disabled = true;
+      button.setAttribute('aria-busy', 'true');
+    }
+  });
+
+  // Restored from bfcache: the widget still holds an already-consumed token.
+  window.addEventListener('pageshow', function (event) {
+    if (!event.persisted) return;
+    submitting = false;
+    var button = form.querySelector('button[type="submit"]');
+    if (button) {
+      button.disabled = false;
+      button.removeAttribute('aria-busy');
+    }
+    if (window.grecaptcha && window.grecaptcha.reset) {
+      window.grecaptcha.reset();
+    }
+  });
+})();
+</script>

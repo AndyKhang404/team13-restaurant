@@ -12,9 +12,24 @@
 
   <div class="auth-body">
     <h1>Kiểm tra email</h1>
-    <p class="lead">
-      Chúng tôi đã gửi email xác nhận tới <b>{{email}}</b>. Bấm liên kết trong email để kích hoạt tài khoản rồi đăng nhập.
-    </p>
-    <a class="btn btn-solid btn-lg" href="/login">Quay lại đăng nhập</a>
+    <p class="lead">{{#if message}}{{message}}{{else}}Chúng tôi đã gửi mã OTP kích hoạt tới <b>{{email}}</b>.{{/if}}</p>
+
+    {{#if formError}}
+      <div class="alert error"><b>Lỗi</b> <span>{{formError}}</span></div>
+    {{/if}}
+
+    {{#if email}}
+      <a class="btn btn-solid btn-lg" href="/activate?email={{urlencode email}}">Nhập mã OTP</a>
+
+      <form action="/activate/resend" method="POST" class="auth-alt">
+        <input type="hidden" name="_csrf" value="{{csrfToken}}" />
+        <input type="hidden" name="email" value="{{email}}" />
+        <button type="submit" class="btn btn-quiet">Gửi lại mã OTP</button>
+      </form>
+    {{/if}}
+
+    <div class="auth-alt">
+      <a href="/login">Quay lại đăng nhập</a>
+    </div>
   </div>
 </div>

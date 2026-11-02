@@ -5,16 +5,14 @@
     <nav class="nav-links">
       <a href="/" {{#if (eq title 'Home')}}class="active"{{/if}}>Trang chủ</a>
       <a href="/menu" {{#if (or (eq title 'Menu') dish)}}class="active"{{/if}}>Thực đơn</a>
-      {{#if (and user (can user 'admin:access'))}}
+      {{#if user}}
         <a href="/admin" class="nav-mobile-admin {{#if (eq title 'Admin')}}active{{/if}}">Quản trị</a>
       {{/if}}
     </nav>
     <div class="nav-cta">
       <label for="theme-toggle" class="theme-switch" title="Sáng / Tối"></label>
       {{#if user}}
-        {{#if (can user 'admin:access')}}
-          <a class="btn btn-quiet nav-admin-btn" href="/admin">Quản trị</a>
-        {{/if}}
+        <a class="btn btn-quiet nav-admin-btn" href="/admin">Quản trị</a>
         <form action="/logout" method="POST" class="inline-form">
           <input type="hidden" name="_csrf" value="{{csrfToken}}" />
           <button type="submit" class="btn btn-solid">Đăng xuất</button>

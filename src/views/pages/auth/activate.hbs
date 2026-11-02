@@ -1,0 +1,52 @@
+<div class="auth-split">
+  <div class="auth-aside">
+    <div>
+      <div class="eyebrow">Team13 Restaurant</div>
+      <p class="auth-quote">Một mã OTP, tài khoản sẵn sàng.</p>
+    </div>
+    <div class="auth-aside-foot">
+      <span>123 Nguyễn Văn Cừ, Q.5, TP.HCM</span>
+      <span>Mở cửa 09:00 — 22:00</span>
+      <span>1900 6868</span>
+    </div>
+  </div>
+
+  <div class="auth-body">
+    <h1>Kích hoạt tài khoản</h1>
+    <p class="lead">Nhập mã OTP 6 chữ số đã được gửi tới email của bạn.</p>
+
+    {{#if formError}}
+      <div class="alert error"><b>Lỗi</b> <span>{{formError}}</span></div>
+    {{/if}}
+
+    <form action="/activate" method="POST">
+      <input type="hidden" name="_csrf" value="{{csrfToken}}" />
+
+      <div class="field">
+        <label for="email">Email <span class="req">*</span></label>
+        <input type="email" id="email" name="email" value="{{values.email}}" required autocomplete="email" placeholder="ban@example.com" class="{{#if errors.email}}invalid{{/if}}" />
+        {{#if errors.email}}<span class="err">{{errors.email}}</span>{{/if}}
+      </div>
+
+      <div class="field">
+        <label for="otp">Mã OTP <span class="req">*</span></label>
+        <input type="text" id="otp" name="otp" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required autocomplete="one-time-code" placeholder="123456" class="{{#if errors.otp}}invalid{{/if}}" />
+        {{#if errors.otp}}<span class="err">{{errors.otp}}</span>{{/if}}
+      </div>
+
+      <button type="submit" class="btn btn-solid btn-lg">Kích hoạt</button>
+    </form>
+
+    <form action="/activate/resend" method="POST" class="auth-alt">
+      <input type="hidden" name="_csrf" value="{{csrfToken}}" />
+      <input type="hidden" name="email" value="{{values.email}}" />
+      <button type="submit" class="btn btn-quiet">Gửi lại mã OTP</button>
+    </form>
+
+    <div class="auth-alt">
+      Đã kích hoạt? <a href="/login">Đăng nhập</a>
+    </div>
+  </div>
+</div>
+
+{{> auth-scripts}}

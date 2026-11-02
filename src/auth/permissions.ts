@@ -6,6 +6,7 @@ import { Role } from '../generated/prisma/enums.js';
  */
 export type Permission =
   | 'admin:access'
+  | 'content:view'
   | 'dish:create'
   | 'dish:update'
   | 'dish:delete'
@@ -36,10 +37,16 @@ const CONTENT_PERMISSIONS: Permission[] = [
 ];
 
 export const ROLE_PERMISSIONS: Record<Role, ReadonlySet<Permission>> = {
-  [Role.ADMIN]: new Set<Permission>(['admin:access', ...CONTENT_PERMISSIONS, 'user:manage']),
-  // STAFF can access admin panel and manage content (dishes, chefs, ingredients), but cannot manage users.
-  [Role.STAFF]: new Set<Permission>(['admin:access', ...CONTENT_PERMISSIONS]),
-  [Role.CUSTOMER]: new Set<Permission>(),
+  [Role.ADMIN]: new Set<Permission>([
+    'admin:access',
+    'content:view',
+    ...CONTENT_PERMISSIONS,
+    'user:manage',
+  ]),
+  // STAFF can access the admin panel and manage content, but cannot manage users.
+  [Role.STAFF]: new Set<Permission>(['admin:access', 'content:view', ...CONTENT_PERMISSIONS]),
+  // VIEWER can read content (list/detail) but cannot create, edit or delete it.
+  [Role.VIEWER]: new Set<Permission>(['admin:access', 'content:view']),
 };
 
 export function can(user: { role: Role } | null | undefined, permission: Permission): boolean {

@@ -14,3 +14,6 @@ public/css/app.css
 .DS_Store
 
 .opencode
+opencode.json
+blocks
+*-deck.html

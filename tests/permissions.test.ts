@@ -5,7 +5,7 @@ import { Role } from '../src/generated/prisma/enums.js';
 describe('RBAC Permissions', () => {
   const admin = { role: Role.ADMIN };
   const staff = { role: Role.STAFF };
-  const customer = { role: Role.CUSTOMER };
+  const viewer = { role: Role.VIEWER };
 
   it('allows ADMIN to access admin panel, CRUD dishes, and manage users', () => {
     expect(can(admin, 'admin:access')).toBe(true);
@@ -26,11 +26,20 @@ describe('RBAC Permissions', () => {
     expect(can(staff, 'user:manage')).toBe(false);
   });
 
-  it('denies CUSTOMER all admin permissions', () => {
-    expect(can(customer, 'admin:access')).toBe(false);
-    expect(can(customer, 'dish:create')).toBe(false);
-    expect(can(customer, 'dish:delete')).toBe(false);
-    expect(can(customer, 'user:manage')).toBe(false);
+  it('lets VIEWER read content but denies every write and role management', () => {
+    expect(can(viewer, 'admin:access')).toBe(true);
+    expect(can(viewer, 'content:view')).toBe(true);
+    expect(can(viewer, 'dish:create')).toBe(false);
+    expect(can(viewer, 'dish:update')).toBe(false);
+    expect(can(viewer, 'dish:delete')).toBe(false);
+    expect(can(viewer, 'chef:create')).toBe(false);
+    expect(can(viewer, 'ingredient:update')).toBe(false);
+    expect(can(viewer, 'user:manage')).toBe(false);
+  });
+
+  it('grants content:view to ADMIN and STAFF', () => {
+    expect(can(admin, 'content:view')).toBe(true);
+    expect(can(staff, 'content:view')).toBe(true);
   });
 
   it('denies unauthenticated visitors (null or undefined)', () => {

@@ -1,0 +1,62 @@
+<section class="panel">
+  <div class="panel-head">
+    <h2>Chi tiết nguyên liệu</h2>
+    <div class="panel-tools">
+      <a class="link-quiet" href="/admin/ingredients">← Danh sách nguyên liệu</a>
+      {{#if (can user 'ingredient:update')}}<a class="btn btn-sm btn-quiet" href="/admin/ingredients/{{ingredient.id}}/edit">Sửa</a>{{/if}}
+    </div>
+  </div>
+
+  <div class="form-grid">
+    <div class="field">
+      <label>Hình</label>
+      {{#if ingredient.imageUrl}}
+        <img class="thumb" src="{{ingredient.imageUrl}}" alt="{{ingredient.name}}" />
+      {{else}}
+        <span class="avatar">{{ingredient.unit}}</span>
+      {{/if}}
+    </div>
+    <div class="field">
+      <label>Tên nguyên liệu</label>
+      <p><b>{{ingredient.name}}</b></p>
+    </div>
+    <div class="field">
+      <label>Đơn vị</label>
+      <p><span class="badge">{{ingredient.unit}}</span></p>
+    </div>
+    <div class="field">
+      <label>Tồn kho</label>
+      <p class="num">{{ingredient.stockQuantity}}</p>
+    </div>
+    <div class="field">
+      <label>Đơn giá</label>
+      <p class="num">{{formatVnd ingredient.pricePerUnit}}</p>
+    </div>
+    <div class="field">
+      <label>Trạng thái</label>
+      <p>
+        {{#if ingredient.deletedAt}}
+          <span class="badge danger">Đã xóa</span>
+        {{else if ingredient.isAvailable}}
+          <span class="badge ok">Sẵn có</span>
+        {{else}}
+          <span class="badge warn">Hết</span>
+        {{/if}}
+      </p>
+    </div>
+  </div>
+
+  <div class="panel-head">
+    <h3>Dùng trong món ăn</h3>
+    <span class="count">{{ingredient.dishes.length}} món</span>
+  </div>
+  {{#if ingredient.dishes.length}}
+    <ul class="cell-list">
+      {{#each ingredient.dishes}}
+        <li><a href="/admin/dishes/{{dishId}}">{{dish.name}}</a> — {{quantity}} {{#if unit}}{{unit}}{{else}}{{../ingredient.unit}}{{/if}}</li>
+      {{/each}}
+    </ul>
+  {{else}}
+    <div class="empty"><b>Chưa được dùng</b>Nguyên liệu này chưa có trong công thức món nào.</div>
+  {{/if}}
+</section>

@@ -25,9 +25,9 @@
   <div class="panel-head">
     <h2>Thao tác nhanh</h2>
     <div class="panel-tools">
-      <a class="btn btn-primary" href="/admin/dishes/new">Thêm món</a>
-      <a class="btn" href="/admin/chefs/new">Thêm đầu bếp</a>
-      <a class="btn" href="/admin/ingredients/new">Thêm nguyên liệu</a>
+      {{#if (can user 'dish:create')}}<a class="btn btn-primary" href="/admin/dishes/new">Thêm món</a>{{/if}}
+      {{#if (can user 'chef:create')}}<a class="btn" href="/admin/chefs/new">Thêm đầu bếp</a>{{/if}}
+      {{#if (can user 'ingredient:create')}}<a class="btn" href="/admin/ingredients/new">Thêm nguyên liệu</a>{{/if}}
       {{#if (can user 'user:manage')}}
         <a class="btn btn-quiet" href="/admin/users">Phân quyền</a>
       {{/if}}
@@ -88,7 +88,7 @@
               </td>
               <td>
                 <div class="row-actions">
-                  <a class="btn btn-sm btn-quiet" href="/admin/dishes/{{id}}/edit">Sửa</a>
+                  {{#if (can ../user 'dish:update')}}<a class="btn btn-sm btn-quiet" href="/admin/dishes/{{id}}/edit">Sửa</a>{{/if}}
                 </div>
               </td>
             </tr>
@@ -101,9 +101,11 @@
       <div class="empty">
         <b>Chưa có món ăn nào</b>
         Bắt đầu bằng cách thêm món đầu tiên vào thực đơn.
+        {{#if (can user 'dish:create')}}
         <div style="margin-top:18px">
           <a class="btn btn-primary" href="/admin/dishes/new">Thêm món</a>
         </div>
+        {{/if}}
       </div>
     {{/unless}}
   </div>

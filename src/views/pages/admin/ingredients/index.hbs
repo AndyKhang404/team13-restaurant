@@ -15,7 +15,9 @@
           <a class="link-quiet" href="/admin/ingredients">Xóa lọc</a>
         {{/if}}
       </form>
-      <a class="btn btn-primary" href="/admin/ingredients/new">Thêm nguyên liệu</a>
+      {{#if (can user 'ingredient:create')}}
+        <a class="btn btn-primary" href="/admin/ingredients/new">Thêm nguyên liệu</a>
+      {{/if}}
     </div>
   </div>
 
@@ -62,14 +64,21 @@
               </td>
               <td>
                 <div class="row-actions">
-                  <a class="btn btn-sm btn-quiet" href="/admin/ingredients/{{id}}/edit">Sửa</a>
+                  <a class="btn btn-sm btn-quiet" href="/admin/ingredients/{{id}}">Chi tiết</a>
+                  {{#if (can ../user 'ingredient:update')}}
+                    <a class="btn btn-sm btn-quiet" href="/admin/ingredients/{{id}}/edit">Sửa</a>
+                  {{/if}}
                   {{#if deletedAt}}
-                    <form class="inline-form" action="/admin/ingredients/{{id}}/restore" method="POST" onsubmit="return confirm('Khôi phục nguyên liệu này?')">
-                      <input type="hidden" name="_csrf" value="{{../csrfToken}}" />
-                      <button type="submit" class="btn btn-sm btn-quiet">Khôi phục</button>
-                    </form>
+                    {{#if (can ../user 'ingredient:restore')}}
+                      <form class="inline-form" action="/admin/ingredients/{{id}}/restore" method="POST" onsubmit="return confirm('Khôi phục nguyên liệu này?')">
+                        <input type="hidden" name="_csrf" value="{{../csrfToken}}" />
+                        <button type="submit" class="btn btn-sm btn-quiet">Khôi phục</button>
+                      </form>
+                    {{/if}}
                   {{else}}
-                    <a class="btn btn-sm btn-danger" href="/admin/ingredients/{{id}}/delete">Xóa</a>
+                    {{#if (can ../user 'ingredient:delete')}}
+                      <a class="btn btn-sm btn-danger" href="/admin/ingredients/{{id}}/delete">Xóa</a>
+                    {{/if}}
                   {{/if}}
                 </div>
               </td>

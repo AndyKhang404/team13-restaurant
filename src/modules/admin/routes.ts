@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { prisma } from '../../lib/prisma.js';
-import { requirePermission } from '../../auth/middleware.js';
+import { requireAuth } from '../../auth/middleware.js';
 import dishesRouter from '../dishes/routes.js';
 import chefsRouter from '../chefs/routes.js';
 import ingredientsRouter from '../ingredients/routes.js';
@@ -8,8 +8,9 @@ import usersRouter from '../users/routes.js';
 
 const router = Router();
 
-// Every route in /admin requires admin:access (ADMIN and STAFF)
-router.use(requirePermission('admin:access'));
+// Block 8 only requires an authenticated ACTIVE account for content CRUD.
+// Fine-grained role permissions remain in /admin/users for Block 9.
+router.use(requireAuth);
 
 router.get('/', async (_req, res) => {
   const [dishCount, chefCount, ingredientCount, userCount, recentDishes] = await Promise.all([

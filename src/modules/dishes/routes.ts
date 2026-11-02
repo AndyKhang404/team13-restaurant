@@ -159,7 +159,7 @@ async function loadFormDependencies(currentDishId?: string) {
   };
 }
 
-router.get('/', requirePermission('dish:create'), async (req, res) => {
+router.get('/', requirePermission('content:view'), async (req, res) => {
   const { rawPage, filters, q, showDeleted } = listParams(req);
   const rawCat = typeof req.query.category === 'string' ? req.query.category : '';
   const category = CATEGORIES.includes(rawCat as DishCategory)
@@ -296,6 +296,28 @@ router.post('/', requirePermission('dish:create'), async (req, res) => {
 
   req.flash('success', `Đã tạo món "${data.name}".`);
   res.redirect(303, '/admin/dishes');
+});
+
+router.get('/:id', requirePermission('content:view'), async (req, res) => {
+  const id = paramId(req.params.id);
+  const dish = await prisma.dish.findUnique({
+    where: { id },
+    include: {
+      chef: true,
+      ingredients: {
+        include: { ingredient: { select: { name: true, unit: true } } },
+        orderBy: { ingredient: { name: 'asc' } },
+      },
+    },
+  });
+  if (!dish) throw notFound('Dish');
+
+  res.render('pages/admin/dishes/show', {
+    layout: 'admin',
+    title: dish.name,
+    dish,
+    categoryLabel: CATEGORY_LABELS[dish.category] ?? dish.category,
+  });
 });
 
 router.get('/:id/edit', requirePermission('dish:update'), async (req, res) => {

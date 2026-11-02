@@ -1,0 +1,62 @@
+<section class="panel">
+  <div class="panel-head">
+    <h2>Chi tiết đầu bếp</h2>
+    <div class="panel-tools">
+      <a class="link-quiet" href="/admin/chefs">← Danh sách đầu bếp</a>
+      {{#if (can user 'chef:update')}}<a class="btn btn-sm btn-quiet" href="/admin/chefs/{{chef.id}}/edit">Sửa</a>{{/if}}
+    </div>
+  </div>
+
+  <div class="form-grid">
+    <div class="field">
+      <label>Hình</label>
+      {{> avatar url=chef.avatarUrl name=chef.name size=96}}
+    </div>
+    <div class="field">
+      <label>Họ và tên</label>
+      <p><b>{{chef.name}}</b></p>
+    </div>
+    <div class="field">
+      <label>Chuyên môn</label>
+      <p><span class="badge">{{#if chef.specialty}}{{chef.specialty}}{{else}}—{{/if}}</span></p>
+    </div>
+    <div class="field">
+      <label>Kinh nghiệm</label>
+      <p class="num">{{chef.experienceYears}} năm</p>
+    </div>
+    <div class="field">
+      <label>Số điện thoại</label>
+      <p class="mono">{{#if chef.phone}}{{chef.phone}}{{else}}—{{/if}}</p>
+    </div>
+    <div class="field">
+      <label>Trạng thái</label>
+      <p>
+        {{#if chef.deletedAt}}
+          <span class="badge danger">Đã xóa</span>
+        {{else if chef.isActive}}
+          <span class="badge ok">Đang làm</span>
+        {{else}}
+          <span class="badge warn">Nghỉ</span>
+        {{/if}}
+      </p>
+    </div>
+    <div class="field full">
+      <label>Giới thiệu</label>
+      <p>{{#if chef.bio}}{{chef.bio}}{{else}}—{{/if}}</p>
+    </div>
+  </div>
+
+  <div class="panel-head">
+    <h3>Món ăn phụ trách</h3>
+    <span class="count">{{chef.dishes.length}} món</span>
+  </div>
+  {{#if chef.dishes.length}}
+    <ul class="cell-list">
+      {{#each chef.dishes}}
+        <li><a href="/admin/dishes/{{id}}">{{name}}</a></li>
+      {{/each}}
+    </ul>
+  {{else}}
+    <div class="empty"><b>Chưa có món nào</b>Đầu bếp này chưa phụ trách món ăn nào.</div>
+  {{/if}}
+</section>

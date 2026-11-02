@@ -1,0 +1,72 @@
+<section class="panel">
+  <div class="panel-head">
+    <h2>Chi tiết món ăn</h2>
+    <div class="panel-tools">
+      <a class="link-quiet" href="/admin/dishes">← Danh sách món ăn</a>
+      {{#if (can user 'dish:update')}}<a class="btn btn-sm btn-quiet" href="/admin/dishes/{{dish.id}}/edit">Sửa</a>{{/if}}
+    </div>
+  </div>
+
+  <div class="form-grid">
+    <div class="field">
+      <label>Hình</label>
+      {{#if dish.imageUrl}}
+        <img class="thumb" src="{{dish.imageUrl}}" alt="{{dish.name}}" />
+      {{else}}
+        <span class="thumb-ph">-</span>
+      {{/if}}
+    </div>
+    <div class="field">
+      <label>Tên món</label>
+      <p><b>{{dish.name}}</b></p>
+      <small>/dishes/{{dish.slug}}</small>
+    </div>
+    <div class="field">
+      <label>Danh mục</label>
+      <p><span class="badge">{{categoryLabel}}</span></p>
+    </div>
+    <div class="field">
+      <label>Giá</label>
+      <p class="num">{{formatVnd dish.price}}</p>
+    </div>
+    <div class="field">
+      <label>Đầu bếp</label>
+      <p>{{#if dish.chef}}<a href="/admin/chefs/{{dish.chef.id}}">{{dish.chef.name}}</a>{{else}}—{{/if}}</p>
+    </div>
+    <div class="field">
+      <label>Thời gian chuẩn bị</label>
+      <p class="num">{{#if dish.prepTimeMinutes}}{{dish.prepTimeMinutes}} phút{{else}}—{{/if}}</p>
+    </div>
+    <div class="field">
+      <label>Trạng thái</label>
+      <p>
+        {{#if dish.deletedAt}}
+          <span class="badge danger">Đã xóa</span>
+        {{else if dish.isAvailable}}
+          <span class="badge ok">Đang bán</span>
+        {{else}}
+          <span class="badge warn">Ngừng bán</span>
+        {{/if}}
+        {{#if dish.isFeatured}} <span class="badge">Nổi bật</span>{{/if}}
+      </p>
+    </div>
+    <div class="field full">
+      <label>Mô tả</label>
+      <p>{{#if dish.description}}{{dish.description}}{{else}}—{{/if}}</p>
+    </div>
+  </div>
+
+  <div class="panel-head">
+    <h3>Nguyên liệu</h3>
+    <span class="count">{{dish.ingredients.length}} nguyên liệu</span>
+  </div>
+  {{#if dish.ingredients.length}}
+    <ul class="cell-list">
+      {{#each dish.ingredients}}
+        <li><a href="/admin/ingredients/{{ingredientId}}">{{ingredient.name}}</a> — {{quantity}} {{#if unit}}{{unit}}{{else}}{{ingredient.unit}}{{/if}}</li>
+      {{/each}}
+    </ul>
+  {{else}}
+    <div class="empty"><b>Chưa có nguyên liệu</b>Món này chưa có công thức nguyên liệu.</div>
+  {{/if}}
+</section>

@@ -35,11 +35,26 @@
         {{#if errors.password}}<span class="err">{{errors.password}}</span>{{/if}}
       </div>
 
+      {{#if captchaRequired}}
+        <div class="field">
+          <div class="g-recaptcha" data-sitekey="{{captchaSiteKey}}" data-hl="vi"></div>
+        </div>
+      {{/if}}
+
       <button type="submit" class="btn btn-solid btn-lg">Đăng nhập</button>
     </form>
+
+    <div class="auth-alt">
+      <a href="/forgot">Quên mật khẩu?</a>
+    </div>
 
     <div class="auth-alt">
       Chưa có tài khoản? <a href="/register">Tạo tài khoản</a>
     </div>
   </div>
 </div>
+
+{{#if captchaRequired}}
+<script src="https://www.google.com/recaptcha/api.js" async defer></script>
+{{/if}}
+{{> auth-scripts}}

@@ -5,25 +5,26 @@ import { doubleCsrf } from 'csrf-csrf';
 import { env, isProd } from '../config/env.js';
 import type { FlashMessage } from '../types/express.js';
 
-const SID_COOKIE = 'sid';
+const BID_COOKIE = 'bid';
 const FLASH_COOKIE = 'flash';
 
 /**
  * Stable anonymous browser id (signed cookie). Binds CSRF tokens to a browser
- * without needing server-side sessions.
+ * without needing server-side sessions. The login session uses a separate
+ * `sid` cookie so this value is not confused with an authenticated session.
  */
 export const browserId: RequestHandler = (req, res, next) => {
-  const current = req.signedCookies?.[SID_COOKIE];
+  const current = req.signedCookies?.[BID_COOKIE];
   if (typeof current === 'string' && current) return next();
-  const sid = randomUUID();
-  res.cookie(SID_COOKIE, sid, {
+  const bid = randomUUID();
+  res.cookie(BID_COOKIE, bid, {
     signed: true,
     httpOnly: true,
     sameSite: 'lax',
     secure: isProd,
     maxAge: 1000 * 60 * 60 * 24 * 365,
   });
-  req.signedCookies = { ...req.signedCookies, [SID_COOKIE]: sid };
+  req.signedCookies = { ...req.signedCookies, [BID_COOKIE]: bid };
   next();
 };
 
@@ -86,7 +87,7 @@ export const multipart: RequestHandler = (req, res, next) => {
 
 const { doubleCsrfProtection, generateCsrfToken } = doubleCsrf({
   getSecret: () => env.CSRF_SECRET,
-  getSessionIdentifier: (req: Request) => String(req.signedCookies?.[SID_COOKIE] ?? ''),
+  getSessionIdentifier: (req: Request) => String(req.signedCookies?.[BID_COOKIE] ?? ''),
   cookieName: isProd ? '__Host-x-csrf-token' : 'x-csrf-token',
   cookieOptions: { sameSite: 'lax', secure: isProd, path: '/', httpOnly: true },
   getCsrfTokenFromRequest: (req: Request) =>

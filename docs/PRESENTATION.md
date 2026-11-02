@@ -86,12 +86,14 @@ npm install → cấu hình .env → npx prisma migrate deploy → npx prisma db
 - Khi cập nhật ảnh mới hoặc xóa đối tượng, file ảnh cũ trên bucket sẽ được xóa dọn dẹp.
 
 ### 5.4. Xác thực & Phân quyền (Auth & RBAC)
-- Khách vãng lai đăng ký/đăng nhập qua Supabase Auth → Phiên làm việc được quản lý qua signed cookies an toàn.
-- Middleware `loadUser` giải mã token, tự động tạo hồ sơ lazy-create trong bảng `profiles` nếu chưa có (mặc định vai trò `CUSTOMER`).
-- Middleware `requirePermission` kiểm tra quyền theo ma trận tĩnh `can(user, permission)`:
-  - **`ADMIN`**: Toàn quyền truy cập quản trị và **độc quyền** quản lý người dùng (`user:manage`).
-  - **`STAFF`**: Được cấp quyền `admin:access` vào `/admin` và quản lý nội dung (món ăn, đầu bếp, nguyên liệu), nhưng **không có** quyền `user:manage` (menu người dùng bị ẩn và đường dẫn `/admin/users` trả về 403).
-  - **`CUSTOMER`**: Chỉ được sử dụng các chức năng công khai, bị chặn hoàn toàn khỏi `/admin`.
+- Auth được quản lý cục bộ: đăng ký + reCAPTCHA + OTP email; mật khẩu hash bằng **scrypt**; phiên đăng nhập lưu trong bảng `sessions` (cookie `sid` chỉ chứa giá trị ngẫu nhiên opaque).
+- Tài khoản mới có `status = PENDING`, role mặc định `VIEWER`; chỉ sau khi nhập đúng OTP mới chuyển `ACTIVE` và **không tự đăng nhập**.
+- Middleware `loadUser` đọc `sid`, kiểm tra session còn hạn/chưa thu hồi và user `ACTIVE`; session cũ bị thu hồi khi logout hoặc reset mật khẩu.
+- Block 8: mọi tài khoản `ACTIVE` được dùng CRUD nội dung trong `/admin` qua `requireAuth`; chưa đăng nhập nhận **303** về `/login`.
+- `requirePermission` vẫn dùng cho `/admin/users` (`user:manage`):
+  - **`ADMIN`**: Quản lý người dùng.
+  - **`STAFF`**, **`VIEWER`**: Không có `user:manage`; vào `/admin/users` nhận 403.
+- Phân quyền chi tiết hơn (role/permission cho từng thao tác nội dung) được triển khai ở Block 9.
 
 ---
 

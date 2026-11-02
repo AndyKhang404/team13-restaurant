@@ -46,6 +46,10 @@
         {{#if errors.confirmPassword}}<span class="err">{{errors.confirmPassword}}</span>{{/if}}
       </div>
 
+      <div class="field">
+        <div class="g-recaptcha" data-sitekey="{{captchaSiteKey}}" data-hl="vi"></div>
+      </div>
+
       <button type="submit" class="btn btn-solid btn-lg">Tạo tài khoản</button>
     </form>
 
@@ -54,3 +58,6 @@
     </div>
   </div>
 </div>
+
+<script src="https://www.google.com/recaptcha/api.js" async defer></script>
+{{> auth-scripts}}

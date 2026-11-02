@@ -15,7 +15,9 @@
           <a class="link-quiet" href="/admin/chefs">Xóa lọc</a>
         {{/if}}
       </form>
-      <a class="btn btn-primary" href="/admin/chefs/new">Thêm đầu bếp</a>
+      {{#if (can user 'chef:create')}}
+        <a class="btn btn-primary" href="/admin/chefs/new">Thêm đầu bếp</a>
+      {{/if}}
     </div>
   </div>
 
@@ -61,14 +63,21 @@
               </td>
               <td>
                 <div class="row-actions">
-                  <a class="btn btn-sm btn-quiet" href="/admin/chefs/{{id}}/edit">Sửa</a>
+                  <a class="btn btn-sm btn-quiet" href="/admin/chefs/{{id}}">Chi tiết</a>
+                  {{#if (can ../user 'chef:update')}}
+                    <a class="btn btn-sm btn-quiet" href="/admin/chefs/{{id}}/edit">Sửa</a>
+                  {{/if}}
                   {{#if deletedAt}}
-                    <form class="inline-form" action="/admin/chefs/{{id}}/restore" method="POST" onsubmit="return confirm('Khôi phục đầu bếp này?')">
-                      <input type="hidden" name="_csrf" value="{{../csrfToken}}" />
-                      <button type="submit" class="btn btn-sm btn-quiet">Khôi phục</button>
-                    </form>
+                    {{#if (can ../user 'chef:restore')}}
+                      <form class="inline-form" action="/admin/chefs/{{id}}/restore" method="POST" onsubmit="return confirm('Khôi phục đầu bếp này?')">
+                        <input type="hidden" name="_csrf" value="{{../csrfToken}}" />
+                        <button type="submit" class="btn btn-sm btn-quiet">Khôi phục</button>
+                      </form>
+                    {{/if}}
                   {{else}}
-                    <a class="btn btn-sm btn-danger" href="/admin/chefs/{{id}}/delete">Xóa</a>
+                    {{#if (can ../user 'chef:delete')}}
+                      <a class="btn btn-sm btn-danger" href="/admin/chefs/{{id}}/delete">Xóa</a>
+                    {{/if}}
                   {{/if}}
                 </div>
               </td>

@@ -41,7 +41,7 @@ async function findNameClash(name: string, excludeId?: string) {
   });
 }
 
-router.get('/', requirePermission('ingredient:create'), async (req, res) => {
+router.get('/', requirePermission('content:view'), async (req, res) => {
   const { rawPage, filters, q, showDeleted } = listParams(req);
   const where: Prisma.IngredientWhereInput = {
     ...(showDeleted ? { deletedAt: { not: null } } : { deletedAt: null }),
@@ -143,6 +143,27 @@ router.post('/', requirePermission('ingredient:create'), async (req, res) => {
 
   req.flash('success', `Đã tạo nguyên liệu "${data.name}".`);
   res.redirect(303, '/admin/ingredients');
+});
+
+router.get('/:id', requirePermission('content:view'), async (req, res) => {
+  const id = paramId(req.params.id);
+  const ingredient = await prisma.ingredient.findUnique({
+    where: { id },
+    include: {
+      dishes: {
+        where: { dish: { deletedAt: null } },
+        include: { dish: { select: { name: true, slug: true } } },
+        orderBy: { dish: { name: 'asc' } },
+      },
+    },
+  });
+  if (!ingredient) throw notFound('Ingredient');
+
+  res.render('pages/admin/ingredients/show', {
+    layout: 'admin',
+    title: ingredient.name,
+    ingredient,
+  });
 });
 
 router.get('/:id/edit', requirePermission('ingredient:update'), async (req, res) => {

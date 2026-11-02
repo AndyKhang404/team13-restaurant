@@ -7,9 +7,7 @@
       <a class="btn btn-solid btn-lg" href="/menu">Xem thực đơn</a>
       <a class="btn btn-lg" href="tel:19006868">Đặt bàn: 1900 6868</a>
       {{#if user}}
-        {{#if (can user 'admin:access')}}
-          <a class="btn btn-lg" href="/admin">Quản trị</a>
-        {{/if}}
+        <a class="btn btn-lg" href="/admin">Quản trị</a>
       {{else}}
         <a class="btn btn-lg" href="/login">Đăng nhập</a>
       {{/if}}

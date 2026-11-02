@@ -34,7 +34,7 @@ export const ChefSchema = z.object({
   removeImage: checkbox,
 });
 
-router.get('/', requirePermission('chef:create'), async (req, res) => {
+router.get('/', requirePermission('content:view'), async (req, res) => {
   const { rawPage, filters, q, showDeleted } = listParams(req);
   const where: Prisma.ChefWhereInput = {
     ...(showDeleted ? { deletedAt: { not: null } } : { deletedAt: null }),
@@ -121,6 +121,21 @@ router.post('/', requirePermission('chef:create'), async (req, res) => {
 
   req.flash('success', `Đã tạo đầu bếp "${data.name}".`);
   res.redirect(303, '/admin/chefs');
+});
+
+router.get('/:id', requirePermission('content:view'), async (req, res) => {
+  const id = paramId(req.params.id);
+  const chef = await prisma.chef.findUnique({
+    where: { id },
+    include: { dishes: { where: { deletedAt: null }, orderBy: { name: 'asc' } } },
+  });
+  if (!chef) throw notFound('Chef');
+
+  res.render('pages/admin/chefs/show', {
+    layout: 'admin',
+    title: chef.name,
+    chef,
+  });
 });
 
 router.get('/:id/edit', requirePermission('chef:update'), async (req, res) => {
