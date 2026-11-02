@@ -2,6 +2,14 @@
 
 An SSR web application for restaurant meal management and a public dining catalog, built with **Express**, **Handlebars**, **TypeScript**, **Tailwind CSS v4**, **Prisma ORM 7**, and **Supabase** (PostgreSQL + Storage). Authentication is implemented locally in this app (scrypt + database sessions + email OTP), not delegated to Supabase Auth.
 
+## Team Members (Team 13)
+
+| Name                |                      GitHub                      | Student ID |
+| ------------------- | :----------------------------------------------: | ---------- |
+| **Phùng Bảo Khang** | [@AndyKhang404](https://github.com/AndyKhang404) | 24127052   |
+| **Nguyễn Minh Đức** |    [@JohnZ9696](https://github.com/JohnZ9696)    | 24127345   |
+| **Hy Huê Hưng**     |   [@HungHy2314](https://github.com/HungHy2314)   | 24127388   |
+
 ## Key Features
 
 ### Public Dining Portal (`/`)
