@@ -2,6 +2,10 @@
 
 This folder documents the implementation of Block 8 (registration, activation, login, sessions, logout, password reset, and authenticated CRUD).
 
+> [!IMPORTANT]
+> - **Full Submission Evidence Report:** See [EVIDENCE_REPORT.md](./EVIDENCE_REPORT.md) for full flowcharts, masked database records, direct requests (curl), and UI screenshots for all 6 required scenarios.
+> - **Agent Bug Report (Requirement 4):** See [agent-bugs.md](./agent-bugs.md) for reproduction steps and evidence of agent-introduced bugs.
+
 ## Architecture summary
 
 ```mermaid
