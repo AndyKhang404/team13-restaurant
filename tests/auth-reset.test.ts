@@ -98,6 +98,7 @@ vi.mock('../src/lib/captcha.js', () => ({
 
 import { createApp } from '../src/app.js';
 import {
+  FORGOT_COOLDOWN_MS,
   FORGOT_MAX_REQUESTS,
   hashResetToken,
   resetForgotRateLimit,
@@ -160,15 +161,35 @@ describe('forgot / reset password with local accounts', () => {
     expect(create).toHaveBeenCalledOnce();
   });
 
-  it('returns 429 after too many requests for the same email', async () => {
-    for (let i = 0; i < FORGOT_MAX_REQUESTS; i += 1) {
-      const res = await postForgot('a@b.com');
-      expect(res.status).toBe(200);
-    }
+  it('enforces a 30-second cooldown between forgot-password attempts', async () => {
+    const first = await postForgot('a@b.com');
+    expect(first.status).toBe(200);
 
-    const fourth = await postForgot('a@b.com');
-    expect(fourth.status).toBe(429);
-    expect(fourth.text).toContain('quá nhiều lần');
+    const immediate = await postForgot('a@b.com');
+    expect(immediate.status).toBe(429);
+    expect(Number(immediate.headers['retry-after'])).toBeGreaterThan(0);
+    expect(immediate.text).toContain('giây trước khi yêu cầu lại');
+    expect(immediate.text).toContain('g-recaptcha');
+  });
+
+  it('returns 429 after too many requests for the same email', async () => {
+    let fakeNow = Date.now();
+    const spy = vi.spyOn(Date, 'now').mockImplementation(() => fakeNow);
+    try {
+      for (let i = 0; i < FORGOT_MAX_REQUESTS; i += 1) {
+        fakeNow += FORGOT_COOLDOWN_MS;
+        const res = await postForgot('a@b.com');
+        expect(res.status).toBe(200);
+      }
+
+      fakeNow += FORGOT_COOLDOWN_MS;
+      const fourth = await postForgot('a@b.com');
+      expect(fourth.status).toBe(429);
+      expect(fourth.text).toContain('quá nhiều lần');
+      expect(fourth.text).toContain('g-recaptcha');
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it('validates the email format', async () => {

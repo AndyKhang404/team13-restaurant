@@ -35,7 +35,7 @@ import {
 } from './login-attempts.js';
 import { DUMMY_PASSWORD_HASH, hashPassword, verifyPassword } from './password.js';
 import {
-  consumeForgotRequest,
+  decideForgotRequest,
   createResetToken,
   ensureMinimumDuration,
   hashResetToken,
@@ -529,11 +529,17 @@ router.post('/forgot', authRateLimit(), async (req, res) => {
   }
 
   const email = normalizeEmail(parsed.data.email);
-  if (!consumeForgotRequest(email)) {
+  const decision = decideForgotRequest(email);
+  if (!decision.allowed) {
+    res.setHeader('Retry-After', String(decision.retryAfterSeconds));
     return res.status(429).render('pages/auth/forgot', {
       title: 'Forgot password',
       values: { email: parsed.data.email },
-      formError: 'Bạn đã yêu cầu quá nhiều lần. Vui lòng thử lại sau 15 phút.',
+      formError:
+        decision.reason === 'cooldown'
+          ? `Vui lòng đợi ${decision.retryAfterSeconds} giây trước khi yêu cầu lại.`
+          : 'Bạn đã yêu cầu quá nhiều lần. Vui lòng thử lại sau 15 phút.',
+      captchaRequired: true,
     });
   }
 

@@ -15,6 +15,9 @@ export const MIN_FORGOT_RESPONSE_MS = 250;
 
 const forgotHits = new Map<string, number[]>();
 
+/** Minimum gap between two forgot-password attempts for the same email. */
+export const FORGOT_COOLDOWN_MS = 30 * 1000;
+
 /** Opaque, high-entropy token that is only ever sent in the email link. */
 export function createResetToken(): string {
   return randomBytes(32).toString('base64url');
@@ -37,15 +40,34 @@ export function isResetRequestValid(
 }
 
 /**
- * Sliding-window limit keyed by normalized email. It is deliberately checked
- * before any user lookup so a 429 does not reveal whether the email exists.
+ * Sliding-window limit + per-attempt cooldown keyed by normalized email.
+ * Deliberately checked before any user lookup so a 429 does not reveal
+ * whether the email exists.
  */
-export function consumeForgotRequest(email: string, now = Date.now()): boolean {
+export type ForgotDecision =
+  | { allowed: true }
+  | { allowed: false; reason: 'cooldown' | 'max'; retryAfterSeconds: number };
+
+export function decideForgotRequest(email: string, now = Date.now()): ForgotDecision {
   const key = normalizeEmail(email);
   const recent = (forgotHits.get(key) ?? []).filter((t) => now - t < FORGOT_WINDOW_MS);
+  const last = recent[recent.length - 1];
+  if (last !== undefined && now - last < FORGOT_COOLDOWN_MS) {
+    forgotHits.set(key, recent);
+    return {
+      allowed: false,
+      reason: 'cooldown',
+      retryAfterSeconds: Math.ceil((FORGOT_COOLDOWN_MS - (now - last)) / 1000),
+    };
+  }
   if (recent.length >= FORGOT_MAX_REQUESTS) {
     forgotHits.set(key, recent);
-    return false;
+    const oldest = recent[0]!;
+    return {
+      allowed: false,
+      reason: 'max',
+      retryAfterSeconds: Math.ceil((oldest + FORGOT_WINDOW_MS - now) / 1000),
+    };
   }
   recent.push(now);
   forgotHits.set(key, recent);
@@ -55,7 +77,11 @@ export function consumeForgotRequest(email: string, now = Date.now()): boolean {
       if (v.every((t) => now - t >= FORGOT_WINDOW_MS)) forgotHits.delete(k);
     }
   }
-  return true;
+  return { allowed: true };
+}
+
+export function consumeForgotRequest(email: string, now = Date.now()): boolean {
+  return decideForgotRequest(email, now).allowed;
 }
 
 /** Test helper; production code never needs to clear the limiter. */

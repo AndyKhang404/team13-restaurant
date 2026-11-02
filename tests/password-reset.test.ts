@@ -1,9 +1,11 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
+  FORGOT_COOLDOWN_MS,
   FORGOT_MAX_REQUESTS,
   FORGOT_WINDOW_MS,
   RESET_TOKEN_TTL_MS,
   consumeForgotRequest,
+  decideForgotRequest,
   createResetToken,
   hashResetToken,
   isResetRequestValid,
@@ -45,19 +47,37 @@ describe('password reset helpers', () => {
     expect(isResetRequestValid({ usedAt: null, expiresAt: new Date(now - 1) }, now)).toBe(false);
   });
 
-  it('limits reset requests per normalized email', () => {
+  it('enforces a 30-second cooldown between forgot-password attempts for the same email', () => {
+    const now = 1_700_000_000_000;
+    expect(decideForgotRequest(' User@Example.com ', now)).toEqual({ allowed: true });
+    expect(decideForgotRequest('user@example.com', now + 5_000)).toEqual({
+      allowed: false,
+      reason: 'cooldown',
+      retryAfterSeconds: 25,
+    });
+    expect(decideForgotRequest('other@example.com', now + 5_000)).toEqual({ allowed: true });
+    expect(decideForgotRequest('user@example.com', now + FORGOT_COOLDOWN_MS)).toEqual({
+      allowed: true,
+    });
+  });
+
+  it('limits reset requests per normalized email within the 15-minute window', () => {
     const now = 1_700_000_000_000;
     for (let i = 0; i < FORGOT_MAX_REQUESTS; i += 1) {
-      expect(consumeForgotRequest(' User@Example.com ', now + i)).toBe(true);
+      expect(consumeForgotRequest(' User@Example.com ', now + i * FORGOT_COOLDOWN_MS)).toBe(true);
     }
-    expect(consumeForgotRequest('user@example.com', now + FORGOT_MAX_REQUESTS)).toBe(false);
-    expect(consumeForgotRequest('other@example.com', now + FORGOT_MAX_REQUESTS)).toBe(true);
+    const afterAll = now + FORGOT_MAX_REQUESTS * FORGOT_COOLDOWN_MS;
+    expect(decideForgotRequest('user@example.com', afterAll)).toMatchObject({
+      allowed: false,
+      reason: 'max',
+    });
+    expect(consumeForgotRequest('other@example.com', afterAll)).toBe(true);
   });
 
   it('allows requests again after the 15-minute window', () => {
     const now = 1_700_000_000_000;
     for (let i = 0; i < FORGOT_MAX_REQUESTS; i += 1) {
-      consumeForgotRequest('user@example.com', now);
+      consumeForgotRequest('user@example.com', now + i * FORGOT_COOLDOWN_MS);
     }
     expect(consumeForgotRequest('user@example.com', now + FORGOT_WINDOW_MS)).toBe(true);
   });
