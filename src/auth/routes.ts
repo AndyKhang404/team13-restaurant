@@ -18,7 +18,7 @@ import {
 } from './login-attempts.js';
 import { normalizeEmail } from './email.js';
 import { can } from './permissions.js';
-import { authRateLimit } from '../middleware/rate-limit.js';
+import { authRateLimit, otpRateLimit } from '../middleware/rate-limit.js';
 import { generateCsrfToken } from '../middleware/security.js';
 
 const router = Router();
@@ -42,6 +42,20 @@ const RegisterSchema = z
     path: ['confirmPassword'],
     message: 'Mật khẩu nhập lại không khớp',
   });
+
+const VerifyOtpSchema = z.object({
+  email: z.email('Email không hợp lệ').trim(),
+  token: z
+    .string()
+    .transform((s) => s.replace(/\D/g, ''))
+    .refine((s) => /^\d{6}$/.test(s), {
+      message: 'Mã xác nhận phải gồm đúng 6 chữ số',
+    }),
+});
+
+const ResendOtpSchema = z.object({
+  email: z.email('Email không hợp lệ').trim(),
+});
 
 /** Where to send a user after login: requested page, else /admin for staff, else home. */
 async function landingFor(userId: string, email: string, next: unknown): Promise<string> {
@@ -134,11 +148,17 @@ router.post('/register', authRateLimit(), async (req, res) => {
     password,
     options: {
       data: cleanName ? { display_name: cleanName } : {},
-      emailRedirectTo: `${env.APP_URL}/auth/callback`,
     },
   });
 
   if (error) {
+    if (error.status === 429 || error.code === 'over_email_send_rate_limit') {
+      return sendOk(res, {
+        requiresEmailConfirmation: true,
+        email,
+        message: 'Mã xác nhận đã được gửi trước đó. Vui lòng kiểm tra hộp thư của bạn.',
+      });
+    }
     return sendError(res, 400, 'AUTH_ERROR', error.message);
   }
 
@@ -168,7 +188,93 @@ router.post('/register', authRateLimit(), async (req, res) => {
   return sendOk(res, {
     requiresEmailConfirmation: true,
     email,
-    message: 'Vui lòng kiểm tra email để xác nhận tài khoản.',
+    message: 'Mã xác nhận đã được gửi tới email của bạn.',
+  });
+});
+
+router.post('/verify-otp', otpRateLimit(), async (req, res) => {
+  const parsed = VerifyOtpSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return sendError(
+      res,
+      422,
+      'VALIDATION_ERROR',
+      'Dữ liệu xác nhận không hợp lệ',
+      toFieldErrors(parsed.error),
+    );
+  }
+
+  const { email, token } = parsed.data;
+  const supabase = createSupabaseForRequest(req, res);
+  const { data, error } = await supabase.auth.verifyOtp({
+    email,
+    token,
+    type: 'signup',
+  });
+
+  if (error || !data.user) {
+    return sendError(res, 400, 'INVALID_OTP', 'Mã xác nhận không hợp lệ hoặc đã hết hạn.');
+  }
+
+  const metaName = data.user.user_metadata?.display_name;
+  const displayName =
+    typeof metaName === 'string' && metaName.trim() !== '' ? metaName.trim() : null;
+
+  await prisma.profile.upsert({
+    where: { id: data.user.id },
+    create: {
+      id: data.user.id,
+      email: data.user.email ?? email,
+      displayName,
+    },
+    update: {},
+  });
+
+  // Do not keep an active session after signup OTP verification;
+  // user is redirected to /login to sign in with their password.
+  await supabase.auth.signOut();
+
+  return sendOk(res, {
+    verified: true,
+    email: data.user.email ?? email,
+    message: 'Xác thực email thành công! Đang chuyển đến trang đăng nhập…',
+  });
+});
+
+router.post('/resend-otp', otpRateLimit(), async (req, res) => {
+  const parsed = ResendOtpSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return sendError(
+      res,
+      422,
+      'VALIDATION_ERROR',
+      'Email không hợp lệ',
+      toFieldErrors(parsed.error),
+    );
+  }
+
+  const { email } = parsed.data;
+  const supabase = createSupabaseForRequest(req, res);
+  const { error } = await supabase.auth.resend({
+    type: 'signup',
+    email,
+  });
+
+  if (error) {
+    if (error.status === 429 || error.code === 'over_email_send_rate_limit') {
+      return sendError(
+        res,
+        429,
+        'RATE_LIMITED',
+        'Vui lòng đợi ít nhất 60 giây trước khi gửi lại mã.',
+      );
+    }
+    return sendError(res, 400, 'AUTH_ERROR', error.message || 'Không thể gửi lại mã xác nhận.');
+  }
+
+  return sendOk(res, {
+    email,
+    message: 'Đã gửi lại mã xác nhận tới email của bạn.',
   });
 });
 

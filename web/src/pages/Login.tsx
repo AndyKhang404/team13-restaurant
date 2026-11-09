@@ -9,6 +9,8 @@ import Recaptcha from '../components/Recaptcha';
 
 interface LocationState {
   from?: string;
+  verifiedEmail?: string;
+  message?: string;
 }
 
 export default function Login() {
@@ -17,9 +19,10 @@ export default function Login() {
   const location = useLocation();
   const state = (location.state ?? {}) as LocationState;
 
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(state.verifiedEmail ?? '');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(state.message ?? null);
   const [busy, setBusy] = useState(false);
   const [siteKey, setSiteKey] = useState('');
   const [captchaRequired, setCaptchaRequired] = useState(false);
@@ -65,6 +68,7 @@ export default function Login() {
     e.preventDefault();
     if (busy) return;
     setError(null);
+    setInfo(null);
     if (captchaRequired && !captchaToken) {
       setError('Vui lòng xác nhận bạn không phải robot.');
       return;
@@ -79,12 +83,23 @@ export default function Login() {
       navigate(target, { replace: true });
     } catch (err) {
       if (err instanceof ApiError) {
+        if (err.code === 'EMAIL_NOT_CONFIRMED') {
+          let notice =
+            'Tài khoản chưa xác thực email. Chúng tôi vừa gửi mã OTP mới tới hộp thư của bạn.';
+          try {
+            await authApi.resendOtp(email);
+          } catch (resendErr) {
+            if (resendErr instanceof ApiError || resendErr instanceof HttpError) {
+              notice = `Tài khoản chưa xác thực email. ${resendErr.message}`;
+            }
+          }
+          navigate(`/register?verify=1&email=${encodeURIComponent(email)}`, {
+            state: { verifyEmail: email, notice },
+          });
+          return;
+        }
         setError(
-          err.code === 'EMAIL_NOT_CONFIRMED'
-            ? 'Vui lòng xác nhận email trước khi đăng nhập.'
-            : err.code === 'INVALID_CREDENTIALS'
-              ? 'Email hoặc mật khẩu không đúng.'
-              : err.message,
+          err.code === 'INVALID_CREDENTIALS' ? 'Email hoặc mật khẩu không đúng.' : err.message,
         );
         if (err.code === 'CAPTCHA_FAILED') {
           setCaptchaRequired(true);
@@ -119,6 +134,12 @@ export default function Login() {
         <h1>Đăng nhập</h1>
         <p className="lead">Đăng nhập để đặt bàn và theo dõi đơn của bạn.</p>
 
+        {info && (
+          <div className="alert">
+            <b>Thành công</b>
+            <span>{info}</span>
+          </div>
+        )}
         <FormError message={error} />
 
         <form onSubmit={onSubmit}>

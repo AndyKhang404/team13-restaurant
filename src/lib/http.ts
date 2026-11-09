@@ -5,6 +5,7 @@ export type ApiErrorCode =
   | 'VALIDATION_ERROR'
   | 'INVALID_CREDENTIALS'
   | 'EMAIL_NOT_CONFIRMED'
+  | 'INVALID_OTP'
   | 'AUTH_ERROR'
   | 'UNAUTHORIZED'
   | 'FORBIDDEN'

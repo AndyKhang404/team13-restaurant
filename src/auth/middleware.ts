@@ -43,7 +43,7 @@ export const loadUser: RequestHandler = async (req, res, next) => {
       if (userId) {
         req.user =
           (await prisma.profile.findUnique({ where: { id: userId } })) ??
-          // Lazy creation on first login; role defaults to CUSTOMER.
+          // Lazy creation on first login; role defaults to VIEWER.
           (await prisma.profile.upsert({
             where: { id: userId },
             create: {
@@ -66,7 +66,7 @@ export const loadUser: RequestHandler = async (req, res, next) => {
         const meta = (claims.user_metadata ?? {}) as Record<string, unknown>;
         req.user =
           (await prisma.profile.findUnique({ where: { id: claims.sub } })) ??
-          // Lazy creation on first login; role defaults to CUSTOMER.
+          // Lazy creation on first login; role defaults to VIEWER.
           (await prisma.profile.upsert({
             where: { id: claims.sub },
             create: {

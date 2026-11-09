@@ -184,7 +184,10 @@ a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid var(-
 .field input{height:46px;border:1px solid var(--ink);background:var(--field,#fff);padding:0 14px;font:inherit;font-size:15px;color:var(--ink);border-radius:0}
 .field input:focus{outline:none;background:var(--field-focus,#fff);box-shadow:0 0 0 1px var(--ink)}
 .field input.invalid{border-color:var(--danger)}
+.field .field-hint{margin:0;font-size:13.5px;line-height:1.45;color:var(--ink-2)}
+.field input.otp-input{height:52px;font-family:var(--mono);font-size:20px;letter-spacing:.35em;text-align:center}
 .field .err{font-family:var(--mono);font-size:11.5px;color:var(--danger)}
+.otp-actions{display:flex;flex-direction:column;gap:10px;margin-top:12px}
 .auth .btn{width:100%}
 .auth-alt{text-align:center;font-family:var(--mono);font-size:11.5px;text-transform:uppercase;letter-spacing:.13em;color:var(--ink-2);margin-top:22px}
 .auth-alt a{color:var(--accent);border-bottom:1px solid var(--line)}

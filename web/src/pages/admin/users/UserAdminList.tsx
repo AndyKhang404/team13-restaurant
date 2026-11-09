@@ -8,7 +8,7 @@ import { ErrorState, NotFoundState, SkeletonRows } from '../../../components/Sta
 import { PaginationFooter, PaginationToolbar } from '../../../components/Pagination';
 import { formatDateTime } from '../../../lib/format';
 
-const ROLES: UserRole[] = ['ADMIN', 'STAFF', 'CUSTOMER'];
+const ROLES: UserRole[] = ['ADMIN', 'STAFF', 'VIEWER'];
 const FILTER_KEYS = ['q', 'fuzzy', 'role', 'createdFrom', 'createdTo'];
 
 function splitCsv(val: string): string[] {
@@ -272,7 +272,7 @@ export default function UserAdminList() {
                       ) : user.role === 'STAFF' ? (
                         <span className="badge warn">STAFF</span>
                       ) : (
-                        <span className="badge">CUSTOMER</span>
+                        <span className="badge">VIEWER</span>
                       )}
                     </td>
                     <td>
@@ -294,7 +294,7 @@ export default function UserAdminList() {
                             >
                               <option value="ADMIN">ADMIN</option>
                               <option value="STAFF">STAFF</option>
-                              <option value="CUSTOMER">CUSTOMER</option>
+                              <option value="VIEWER">VIEWER</option>
                             </select>
                             <button
                               type="button"

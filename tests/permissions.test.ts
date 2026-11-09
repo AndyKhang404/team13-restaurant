@@ -5,7 +5,7 @@ import { Role } from '../src/generated/prisma/enums.js';
 describe('RBAC Permissions', () => {
   const admin = { role: Role.ADMIN };
   const staff = { role: Role.STAFF };
-  const customer = { role: Role.CUSTOMER };
+  const viewer = { role: Role.VIEWER };
 
   it('allows ADMIN to access admin panel, CRUD dishes, and manage users', () => {
     expect(can(admin, 'admin:access')).toBe(true);
@@ -26,11 +26,11 @@ describe('RBAC Permissions', () => {
     expect(can(staff, 'user:manage')).toBe(false);
   });
 
-  it('denies CUSTOMER all admin permissions', () => {
-    expect(can(customer, 'admin:access')).toBe(false);
-    expect(can(customer, 'dish:create')).toBe(false);
-    expect(can(customer, 'dish:delete')).toBe(false);
-    expect(can(customer, 'user:manage')).toBe(false);
+  it('denies VIEWER all admin permissions', () => {
+    expect(can(viewer, 'admin:access')).toBe(false);
+    expect(can(viewer, 'dish:create')).toBe(false);
+    expect(can(viewer, 'dish:delete')).toBe(false);
+    expect(can(viewer, 'user:manage')).toBe(false);
   });
 
   it('denies unauthenticated visitors (null or undefined)', () => {

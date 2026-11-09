@@ -1,4 +1,4 @@
-export type UserRole = 'ADMIN' | 'STAFF' | 'CUSTOMER';
+export type UserRole = 'ADMIN' | 'STAFF' | 'VIEWER';
 
 export type PagingMode = 'infinite' | 'loadMore' | 'pages';
 

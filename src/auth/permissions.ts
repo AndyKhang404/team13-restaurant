@@ -33,7 +33,7 @@ export const ROLE_PERMISSIONS: Record<Role, ReadonlySet<Permission>> = {
   [Role.ADMIN]: new Set<Permission>(['admin:access', ...CONTENT_PERMISSIONS, 'user:manage']),
   // STAFF can access admin panel and manage content (dishes, chefs, ingredients), but cannot manage users.
   [Role.STAFF]: new Set<Permission>(['admin:access', ...CONTENT_PERMISSIONS]),
-  [Role.CUSTOMER]: new Set<Permission>(),
+  [Role.VIEWER]: new Set<Permission>(),
 };
 
 export function can(user: { role: Role } | null | undefined, permission: Permission): boolean {

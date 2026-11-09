@@ -18,7 +18,7 @@ datasource db {
 enum Role {
   ADMIN
   STAFF
-  CUSTOMER
+  VIEWER
 
   @@map("role")
 }
@@ -34,12 +34,12 @@ enum DishCategory {
 }
 
 /// App-side user profile. `id` equals `auth.users.id` (Supabase Auth).
-/// Created lazily on first login; role defaults to CUSTOMER.
+/// Created lazily on first login; role defaults to VIEWER.
 model Profile {
   id           String                   @id @db.Uuid
   email        String
   displayName  String?                  @map("display_name")
-  role         Role                     @default(CUSTOMER)
+  role         Role                     @default(VIEWER)
   createdAt    DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt    DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
   searchVector Unsupported("tsvector")? @map("search_vector")

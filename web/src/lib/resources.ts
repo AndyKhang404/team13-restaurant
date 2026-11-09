@@ -271,6 +271,17 @@ export interface CaptchaConfig {
   required: boolean;
 }
 
+export interface VerifyOtpResult {
+  verified: boolean;
+  email: string;
+  message: string;
+}
+
+export interface ResendOtpResult {
+  email: string;
+  message: string;
+}
+
 export const authApi = {
   me: () => loadSession(),
   captcha: (email?: string) =>
@@ -315,6 +326,20 @@ export const authApi = {
       setAuthToken(token);
     }
     return result;
+  },
+  verifyOtp: async (email: string, token: string) => {
+    await loadSession();
+    return apiFetch<VerifyOtpResult>('/auth/verify-otp', {
+      method: 'POST',
+      body: { email, token },
+    });
+  },
+  resendOtp: async (email: string) => {
+    await loadSession();
+    return apiFetch<ResendOtpResult>('/auth/resend-otp', {
+      method: 'POST',
+      body: { email },
+    });
   },
   logout: async () => {
     try {
