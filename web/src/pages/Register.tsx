@@ -6,6 +6,7 @@ import { useAuth } from '../auth/AuthProvider';
 import { canAccessAdmin } from '../auth/roles';
 import { FormError } from '../components/FieldError';
 import Recaptcha from '../components/Recaptcha';
+import { AuthAside, PasswordField, OtpField } from '../components/auth';
 
 interface RegisterLocationState {
   verifyEmail?: string;
@@ -93,6 +94,14 @@ export default function Register() {
     if (busy) return;
     setError(null);
     setInfo(null);
+    if (password.length < 6) {
+      setError('Mật khẩu tối thiểu 6 ký tự.');
+      return;
+    }
+    if (password.length > 72) {
+      setError('Mật khẩu tối đa 72 ký tự.');
+      return;
+    }
     if (password !== confirm) {
       setError('Mật khẩu nhập lại không khớp.');
       return;
@@ -122,9 +131,7 @@ export default function Register() {
         return;
       }
       await refresh();
-      const target = canAccessAdmin(result.user)
-        ? (result.redirectTo ?? '/admin/dishes')
-        : '/';
+      const target = canAccessAdmin(result.user) ? (result.redirectTo ?? '/admin/dishes') : '/';
       navigate(target, { replace: true });
     } catch (err) {
       if (err instanceof ApiError) {
@@ -201,16 +208,7 @@ export default function Register() {
   if (sent) {
     return (
       <div className="auth-split">
-        <div className="auth-aside">
-          <div>
-            <div className="eyebrow">Team13 Restaurant</div>
-            <p className="auth-quote">Kiểm tra hộp thư của bạn.</p>
-          </div>
-          <div className="auth-aside-foot">
-            <span>123 Nguyễn Văn Cừ, Q.5, TP.HCM</span>
-            <span>1900 6868</span>
-          </div>
-        </div>
+        <AuthAside quote="Kiểm tra hộp thư của bạn." />
 
         <div className="auth-body">
           <h1>Xác thực email</h1>
@@ -223,9 +221,7 @@ export default function Register() {
             <>
               <div className="alert">
                 <b>Thành công</b>
-                <span>
-                  {info ?? 'Xác thực email thành công! Đang chuyển đến trang đăng nhập…'}
-                </span>
+                <span>{info ?? 'Xác thực email thành công! Đang chuyển đến trang đăng nhập…'}</span>
               </div>
               <Link
                 className="btn btn-solid btn-lg"
@@ -237,6 +233,9 @@ export default function Register() {
               >
                 Đăng nhập ngay
               </Link>
+              <p className="field-hint" style={{ marginTop: 12 }}>
+                Đang chuyển về trang đăng nhập sau {REDIRECT_DELAY_MS / 1000} giây…
+              </p>
             </>
           ) : (
             <>
@@ -249,37 +248,14 @@ export default function Register() {
               <FormError message={error} />
 
               <form onSubmit={onVerifyOtp} method="POST">
-                <div className="field">
-                  <label htmlFor="otp-input">
-                    Mã xác nhận OTP <span className="req">*</span>
-                  </label>
-                  <p id="otp-format-hint" className="field-hint">
-                    Nhập mã gồm 6 chữ số được gửi tới hộp thư của bạn (kiểm tra cả mục Spam).
-                  </p>
-                  <input
-                    id="otp-input"
-                    name="otp"
-                    className="otp-input"
-                    type="text"
-                    inputMode="numeric"
-                    autoComplete="one-time-code"
-                    pattern="\d{6}"
-                    maxLength={6}
-                    aria-describedby="otp-format-hint"
-                    placeholder="123456"
-                    required
-                    autoFocus
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  />
-                </div>
+                <OtpField id="otp-input" value={otp} onChange={setOtp} disabled={verifying} />
 
                 <button
                   type="submit"
                   className="btn btn-solid btn-lg"
                   disabled={verifying || otp.length !== 6}
                 >
-                  {verifying ? 'Đang xác nhận…' : 'Xác nhận mã OTP'}
+                  {verifying ? 'Đang xác nhận…' : 'Xác nhận mã'}
                 </button>
               </form>
 
@@ -320,17 +296,7 @@ export default function Register() {
 
   return (
     <div className="auth-split">
-      <div className="auth-aside">
-        <div>
-          <div className="eyebrow">Team13 Restaurant</div>
-          <p className="auth-quote">Thành viên mới, ưu đãi theo mùa.</p>
-        </div>
-        <div className="auth-aside-foot">
-          <span>123 Nguyễn Văn Cừ, Q.5, TP.HCM</span>
-          <span>Mở cửa 09:00 – 22:00</span>
-          <span>1900 6868</span>
-        </div>
-      </div>
+      <AuthAside quote="Thành viên mới, ưu đãi theo mùa." />
 
       <div className="auth-body">
         <h1>Tạo tài khoản</h1>
@@ -347,6 +313,7 @@ export default function Register() {
               placeholder="Tên của bạn"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
+              disabled={busy}
             />
           </div>
 
@@ -362,50 +329,39 @@ export default function Register() {
               placeholder="ban@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              disabled={busy}
             />
           </div>
 
-          <div className="field">
-            <label htmlFor="password">
-              Mật khẩu <span className="req">*</span>
-            </label>
-            <input
-              id="password"
-              type="password"
-              required
-              minLength={6}
-              maxLength={72}
-              autoComplete="new-password"
-              placeholder="Tối thiểu 6 ký tự"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </div>
+          <PasswordField
+            id="password"
+            label="Mật khẩu"
+            required
+            minLength={6}
+            maxLength={72}
+            autoComplete="new-password"
+            placeholder="Tối thiểu 6 ký tự"
+            value={password}
+            onChange={setPassword}
+            disabled={busy}
+          />
 
-          <div className="field">
-            <label htmlFor="confirmPassword">
-              Nhập lại mật khẩu <span className="req">*</span>
-            </label>
-            <input
-              id="confirmPassword"
-              type="password"
-              required
-              minLength={6}
-              maxLength={72}
-              autoComplete="new-password"
-              placeholder="Nhập lại mật khẩu"
-              value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
-            />
-          </div>
+          <PasswordField
+            id="confirmPassword"
+            label="Nhập lại mật khẩu"
+            required
+            minLength={6}
+            maxLength={72}
+            autoComplete="new-password"
+            placeholder="Nhập lại mật khẩu"
+            value={confirm}
+            onChange={setConfirm}
+            disabled={busy}
+          />
 
           {siteKey ? (
             <div className="field">
-              <Recaptcha
-                siteKey={siteKey}
-                onToken={setCaptchaToken}
-                resetSignal={captchaReset}
-              />
+              <Recaptcha siteKey={siteKey} onToken={setCaptchaToken} resetSignal={captchaReset} />
             </div>
           ) : null}
 

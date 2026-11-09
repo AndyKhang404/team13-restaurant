@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-do
 import { authApi } from '../lib/resources';
 import { useAuth } from '../auth/AuthProvider';
 import { FormError } from '../components/FieldError';
+import { AuthAside, PasswordField, OtpField } from '../components/auth';
 
 const RESEND_COOLDOWN_SECONDS = 60;
 const REDIRECT_DELAY_MS = 2500;
@@ -25,21 +26,6 @@ function authErrorToMessage(err: unknown, fallback: string): string {
     return 'Liên kết đã được sử dụng hoặc không còn hợp lệ. Bạn có thể nhập mã 6 số trong email.';
   }
   return raw || fallback;
-}
-
-function EyeIcon({ open }: { open: boolean }) {
-  return open ? (
-    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-      <path d="M2 12s3.5-6.5 10-6.5S22 12 22 12s-3.5 6.5-10 6.5S2 12 2 12z" />
-      <circle cx="12" cy="12" r="2.8" />
-    </svg>
-  ) : (
-    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-      <path d="M2 12s3.5-6.5 10-6.5c2 0 3.7.55 5.2 1.4M22 12s-3.5 6.5-10 6.5c-2 0-3.7-.55-5.2-1.4" />
-      <path d="M4 4l16 16" />
-      <circle cx="12" cy="12" r="2.8" />
-    </svg>
-  );
 }
 
 /**
@@ -67,8 +53,6 @@ export default function ResetPassword() {
   const [info, setInfo] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [resending, setResending] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
   const [cooldown, setCooldown] = useState(stateEmail ? RESEND_COOLDOWN_SECONDS : 0);
 
   // StrictMode may double-run effects; the recovery token can only be used once.
@@ -165,7 +149,7 @@ export default function ResetPassword() {
       return;
     }
     if (password !== confirmPassword) {
-      setError('Mật khẩu nhập lại không khớp');
+      setError('Mật khẩu nhập lại không khớp.');
       return;
     }
     setBusy(true);
@@ -184,13 +168,9 @@ export default function ResetPassword() {
   if (phase === 'verifying') {
     return (
       <div className="auth-split">
-        <div className="auth-aside">
-          <div>
-            <div className="eyebrow">Team13 Restaurant</div>
-            <p className="auth-quote">Đang xác thực liên kết…</p>
-          </div>
-        </div>
+        <AuthAside quote="Đang xác thực liên kết…" />
         <div className="auth-body">
+          <h1>Đang xác thực liên kết</h1>
           <p className="lead">Vui lòng đợi trong giây lát.</p>
         </div>
       </div>
@@ -200,13 +180,9 @@ export default function ResetPassword() {
   if (phase === 'error') {
     return (
       <div className="auth-split">
-        <div className="auth-aside">
-          <div>
-            <div className="eyebrow">Team13 Restaurant</div>
-            <p className="auth-quote">Liên kết không hợp lệ.</p>
-          </div>
-        </div>
+        <AuthAside quote="Liên kết không hợp lệ." />
         <div className="auth-body">
+          <h1>Liên kết không hợp lệ</h1>
           <p className="lead">
             Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn. Bạn có thể nhập mã 6 số trong
             email, hoặc yêu cầu một liên kết mới.
@@ -225,16 +201,7 @@ export default function ResetPassword() {
   if (phase === 'success') {
     return (
       <div className="auth-split">
-        <div className="auth-aside">
-          <div>
-            <div className="eyebrow">Team13 Restaurant</div>
-            <p className="auth-quote">Mật khẩu của bạn đã sẵn sàng.</p>
-          </div>
-          <div className="auth-aside-foot">
-            <span>123 Nguyễn Văn Cừ, Q.5, TP.HCM</span>
-            <span>1900 6868</span>
-          </div>
-        </div>
+        <AuthAside quote="Mật khẩu của bạn đã sẵn sàng." />
         <div className="auth-body">
           <h1>Đổi mật khẩu thành công</h1>
           <div className="alert">
@@ -267,16 +234,7 @@ export default function ResetPassword() {
   if (phase === 'code') {
     return (
       <div className="auth-split">
-        <div className="auth-aside">
-          <div>
-            <div className="eyebrow">Team13 Restaurant</div>
-            <p className="auth-quote">Kiểm tra hộp thư của bạn.</p>
-          </div>
-          <div className="auth-aside-foot">
-            <span>123 Nguyễn Văn Cừ, Q.5, TP.HCM</span>
-            <span>1900 6868</span>
-          </div>
-        </div>
+        <AuthAside quote="Kiểm tra hộp thư của bạn." />
 
         <div className="auth-body">
           <h1>Nhập mã xác nhận</h1>
@@ -311,33 +269,14 @@ export default function ResetPassword() {
               />
             </div>
 
-            <div className="field">
-              <label htmlFor="otp">
-                Mã 6 số <span className="req">*</span>
-              </label>
-              <input
-                id="otp"
-                type="text"
-                required
-                minLength={6}
-                maxLength={6}
-                inputMode="numeric"
-                pattern="^\d{6}$"
-                autoComplete="one-time-code"
-                className="otp-input"
-                placeholder="123456"
-                value={otp}
-                onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                disabled={busy || resending}
-              />
-            </div>
+            <OtpField id="otp" value={otp} onChange={setOtp} disabled={busy || resending} />
 
             <button
               type="submit"
               className="btn btn-solid btn-lg"
               disabled={busy || resending || otp.length !== 6 || !email.trim()}
             >
-              {busy ? 'Đang xác minh…' : 'Xác nhận mã'}
+              {busy ? 'Đang xác nhận…' : 'Xác nhận mã'}
             </button>
           </form>
 
@@ -367,17 +306,7 @@ export default function ResetPassword() {
 
   return (
     <div className="auth-split">
-      <div className="auth-aside">
-        <div>
-          <div className="eyebrow">Team13 Restaurant</div>
-          <p className="auth-quote">Chọn mật khẩu mới cho tài khoản của bạn.</p>
-        </div>
-        <div className="auth-aside-foot">
-          <span>123 Nguyễn Văn Cừ, Q.5, TP.HCM</span>
-          <span>Mở cửa 09:00 – 22:00</span>
-          <span>1900 6868</span>
-        </div>
-      </div>
+      <AuthAside quote="Chọn mật khẩu mới cho tài khoản của bạn." />
 
       <div className="auth-body">
         <h1>Đặt lại mật khẩu</h1>
@@ -386,65 +315,31 @@ export default function ResetPassword() {
         <FormError message={error} />
 
         <form onSubmit={onSubmit}>
-          <div className="field field-with-eye">
-            <label htmlFor="password">
-              Mật khẩu mới <span className="req">*</span>
-            </label>
-            <div className="eye-box">
-              <input
-                id="password"
-                type={showPassword ? 'text' : 'password'}
-                required
-                minLength={6}
-                maxLength={72}
-                autoComplete="new-password"
-                placeholder="Tối thiểu 6 ký tự"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={busy}
-              />
-              <button
-                type="button"
-                className="field-eye"
-                aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-                aria-pressed={showPassword}
-                onClick={() => setShowPassword((v) => !v)}
-                disabled={busy}
-              >
-                <EyeIcon open={showPassword} />
-              </button>
-            </div>
-          </div>
+          <PasswordField
+            id="password"
+            label="Mật khẩu mới"
+            required
+            minLength={6}
+            maxLength={72}
+            autoComplete="new-password"
+            placeholder="Tối thiểu 6 ký tự"
+            value={password}
+            onChange={setPassword}
+            disabled={busy}
+          />
 
-          <div className="field field-with-eye">
-            <label htmlFor="confirmPassword">
-              Nhập lại mật khẩu <span className="req">*</span>
-            </label>
-            <div className="eye-box">
-              <input
-                id="confirmPassword"
-                type={showConfirm ? 'text' : 'password'}
-                required
-                minLength={6}
-                maxLength={72}
-                autoComplete="new-password"
-                placeholder="Nhập lại mật khẩu"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                disabled={busy}
-              />
-              <button
-                type="button"
-                className="field-eye"
-                aria-label={showConfirm ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-                aria-pressed={showConfirm}
-                onClick={() => setShowConfirm((v) => !v)}
-                disabled={busy}
-              >
-                <EyeIcon open={showConfirm} />
-              </button>
-            </div>
-          </div>
+          <PasswordField
+            id="confirmPassword"
+            label="Nhập lại mật khẩu"
+            required
+            minLength={6}
+            maxLength={72}
+            autoComplete="new-password"
+            placeholder="Nhập lại mật khẩu"
+            value={confirmPassword}
+            onChange={setConfirmPassword}
+            disabled={busy}
+          />
 
           <button type="submit" className="btn btn-solid btn-lg" disabled={busy}>
             {busy ? 'Đang lưu…' : 'Đặt lại mật khẩu'}

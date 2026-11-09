@@ -6,6 +6,7 @@ import { useAuth } from '../auth/AuthProvider';
 import { canAccessAdmin } from '../auth/roles';
 import { FormError } from '../components/FieldError';
 import Recaptcha from '../components/Recaptcha';
+import { AuthAside, PasswordField } from '../components/auth';
 
 interface LocationState {
   from?: string;
@@ -118,17 +119,7 @@ export default function Login() {
 
   return (
     <div className="auth-split">
-      <div className="auth-aside">
-        <div>
-          <div className="eyebrow">Team13 Restaurant</div>
-          <p className="auth-quote">Nhà hàng Việt, nấu theo mùa.</p>
-        </div>
-        <div className="auth-aside-foot">
-          <span>123 Nguyễn Văn Cừ, Q.5, TP.HCM</span>
-          <span>Mở cửa 09:00 – 22:00</span>
-          <span>1900 6868</span>
-        </div>
-      </div>
+      <AuthAside quote="Nhà hàng Việt, nấu theo mùa." />
 
       <div className="auth-body">
         <h1>Đăng nhập</h1>
@@ -155,24 +146,21 @@ export default function Login() {
               placeholder="ban@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              disabled={busy}
             />
           </div>
 
-          <div className="field">
-            <label htmlFor="password">
-              Mật khẩu <span className="req">*</span>
-            </label>
-            <input
-              id="password"
-              type="password"
-              required
-              autoComplete="current-password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </div>
-          <div className="field" style={{ textAlign: 'right' }}>
+          <PasswordField
+            id="password"
+            label="Mật khẩu"
+            required
+            autoComplete="current-password"
+            placeholder="••••••••"
+            value={password}
+            onChange={setPassword}
+            disabled={busy}
+          />
+          <div className="field" style={{ textAlign: 'left' }}>
             <Link to="/forgot-password" className="forgot-link">
               Quên mật khẩu?
             </Link>
@@ -180,11 +168,7 @@ export default function Login() {
 
           {captchaRequired && siteKey ? (
             <div className="field">
-              <Recaptcha
-                siteKey={siteKey}
-                onToken={setCaptchaToken}
-                resetSignal={captchaReset}
-              />
+              <Recaptcha siteKey={siteKey} onToken={setCaptchaToken} resetSignal={captchaReset} />
             </div>
           ) : null}
 

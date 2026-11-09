@@ -4,6 +4,7 @@ import { authApi } from '../lib/resources';
 import { useAuth } from '../auth/AuthProvider';
 import { canAccessAdmin } from '../auth/roles';
 import { FormError } from '../components/FieldError';
+import { AuthAside } from '../components/auth';
 
 const SENT_REDIRECT_DELAY_MS = 1200;
 
@@ -53,17 +54,7 @@ export default function ForgotPassword() {
 
   return (
     <div className="auth-split">
-      <div className="auth-aside">
-        <div>
-          <div className="eyebrow">Team13 Restaurant</div>
-          <p className="auth-quote">Nhà hàng Việt, nấu theo mùa.</p>
-        </div>
-        <div className="auth-aside-foot">
-          <span>123 Nguyễn Văn Cừ, Q.5, TP.HCM</span>
-          <span>Mở cửa 09:00 – 22:00</span>
-          <span>1900 6868</span>
-        </div>
-      </div>
+      <AuthAside quote="Nhà hàng Việt, nấu theo mùa." />
 
       <div className="auth-body">
         <h1>Quên mật khẩu</h1>
@@ -119,4 +110,3 @@ export default function ForgotPassword() {
     </div>
   );
 }
-
