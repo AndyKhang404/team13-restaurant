@@ -351,12 +351,40 @@ export const authApi = {
     return loadSession();
   },
   callback: async (search: string) => {
-    const result = await apiFetch<LoginResult>(`/auth/callback${search}`, {}, false);
+    const result = await apiFetch<LoginResult>(`/auth/callback${search}`, { timeoutMs: 30_000 }, false);
     const token = result.token ?? result.accessToken;
     if (token) {
       setAuthToken(token);
     }
     return result;
+  },
+  /** Verifies the 6-digit recovery OTP entered manually (e.g. email opened on another device). */
+  verifyRecovery: async (email: string, otp: string) => {
+    const result = await apiFetch<LoginResult>('/auth/callback', {
+      method: 'POST',
+      body: { email, otp, type: 'recovery' },
+      timeoutMs: 30_000,
+    });
+    const token = result.token ?? result.accessToken;
+    if (token) {
+      setAuthToken(token);
+    }
+    return result;
+  },
+  forgotPassword: async (email: string) => {
+    await loadSession();
+    return apiFetch<{ email: string; message?: string }>('/auth/forgot-password', {
+      method: 'POST',
+      body: { email },
+      timeoutMs: 30_000,
+    });
+  },
+  resetPassword: async (input: { password: string; confirmPassword: string }) => {
+    return apiFetch<{ message?: string }>('/auth/reset-password', {
+      method: 'POST',
+      body: input,
+      timeoutMs: 30_000,
+    });
   },
 };
 

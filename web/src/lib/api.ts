@@ -78,6 +78,8 @@ export function getAuthToken(): string | null {
 
 export interface ApiFetchOptions extends Omit<RequestInit, 'body'> {
   body?: BodyInit | Record<string, unknown> | unknown[] | null;
+  /** Hard cap for this request in ms; opt-in for user-triggered actions so the UI never loads forever. */
+  timeoutMs?: number;
 }
 
 /** Statuses a dev proxy returns while the API is still booting/restarting. */
@@ -108,8 +110,13 @@ async function fetchWithRetry(
         continue;
       }
       return res;
-    } catch {
-      if (lastAttempt) throw new HttpError(0);
+    } catch (ex) {
+      if (lastAttempt) {
+        if (ex instanceof Error && ex.name === 'TimeoutError') {
+          throw new HttpError(0, 'Máy chủ không phản hồi trong thời gian quy định. Vui lòng thử lại.');
+        }
+        throw new HttpError(0);
+      }
       await delay(250 * attempt);
     }
   }
@@ -132,8 +139,9 @@ export async function apiFetch<T>(
 
   const headers = new Headers(options.headers);
   const method = (options.method ?? 'GET').toUpperCase();
+  const { timeoutMs, ...requestInit } = options;
 
-  let body = options.body;
+  let body = requestInit.body;
   if (
     body &&
     typeof body === 'object' &&
@@ -156,7 +164,14 @@ export async function apiFetch<T>(
 
   const res = await fetchWithRetry(
     url,
-    { ...options, headers, body, credentials: 'include', cache: 'no-store' },
+    {
+      ...requestInit,
+      headers,
+      body,
+      credentials: 'include',
+      cache: 'no-store',
+      signal: timeoutMs ? AbortSignal.timeout(timeoutMs) : undefined,
+    },
     method,
   );
 

@@ -187,10 +187,17 @@ a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid var(-
 .field .field-hint{margin:0;font-size:13.5px;line-height:1.45;color:var(--ink-2)}
 .field input.otp-input{height:52px;font-family:var(--mono);font-size:20px;letter-spacing:.35em;text-align:center}
 .field .err{font-family:var(--mono);font-size:11.5px;color:var(--danger)}
+.field-with-eye .eye-box{position:relative}
+.field-with-eye .eye-box input{padding-right:46px}
+.field-with-eye .field-eye{position:absolute;top:50%;right:0;transform:translateY(-50%);height:46px;width:42px;display:flex;align-items:center;justify-content:center;border:none;background:transparent;color:var(--ink-2);cursor:pointer;padding:0}
+.field-with-eye .field-eye:hover{color:var(--ink)}
+.field-with-eye .field-eye:disabled{cursor:default;opacity:.5}
 .otp-actions{display:flex;flex-direction:column;gap:10px;margin-top:12px}
 .auth .btn{width:100%}
-.auth-alt{text-align:center;font-family:var(--mono);font-size:11.5px;text-transform:uppercase;letter-spacing:.13em;color:var(--ink-2);margin-top:22px}
+.auth-alt{margin-top:22px;text-align:center;font-family:var(--mono);font-size:11.5px;text-transform:uppercase;letter-spacing:.13em;color:var(--ink-2)}
 .auth-alt a{color:var(--accent);border-bottom:1px solid var(--line)}
+.forgot-link{font-family:var(--mono);font-size:11.5px;letter-spacing:.13em;color:var(--ink-2);border-bottom:1px solid var(--line)}
+.forgot-link:hover{color:var(--accent)}
 .auth .alert{margin:0 0 20px}
 
 /* ---------- empty / error ---------- */

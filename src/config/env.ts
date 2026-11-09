@@ -5,6 +5,9 @@ const EnvSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.coerce.number().int().positive().default(3000),
   APP_URL: z.url().default('http://localhost:3000'),
+  // Origin the SPA is actually browsable on (Vite dev: 5173). Links inside auth
+  // emails reuse it so they do not land on the API server in development.
+  EMAIL_REDIRECT_ORIGIN: z.url().optional(),
   CORS_ORIGIN: z.string().optional().default(''),
 
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required (Supabase pooler URL)'),

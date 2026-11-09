@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 import type { EmailOtpType } from '@supabase/supabase-js';
-import { env } from '../config/env.js';
+import { env, isProd } from '../config/env.js';
 import { prisma } from '../lib/prisma.js';
 import { createSupabaseForRequest } from '../lib/supabase.js';
 import { safeNext, sendOk, sendError } from '../lib/http.js';
@@ -18,6 +18,7 @@ import {
 } from './login-attempts.js';
 import { normalizeEmail } from './email.js';
 import { can } from './permissions.js';
+import { requireAuth } from './middleware.js';
 import { authRateLimit, otpRateLimit } from '../middleware/rate-limit.js';
 import { generateCsrfToken } from '../middleware/security.js';
 
@@ -56,6 +57,27 @@ const VerifyOtpSchema = z.object({
 const ResendOtpSchema = z.object({
   email: z.email('Email không hợp lệ').trim(),
 });
+
+const ForgotPasswordSchema = z.object({
+  email: z.email('Email không hợp lệ').trim(),
+});
+
+const ResetPasswordSchema = z
+  .object({
+    password: z
+      .string()
+      .min(6, 'Mật khẩu phải ít nhất 6 ký tự')
+      .max(72, 'Mật khẩu tối đa 72 ký tự'),
+    confirmPassword: z.string(),
+  })
+  .refine((d) => d.password === d.confirmPassword, {
+    path: ['confirmPassword'],
+    message: 'Mật khẩu nhập lại không khớp',
+  });
+
+
+/** Origin embedded in auth emails so links land on the browsable SPA. */
+const emailRedirectOrigin = () => env.EMAIL_REDIRECT_ORIGIN ?? env.APP_URL;
 
 /** Where to send a user after login: requested page, else /admin for staff, else home. */
 async function landingFor(userId: string, email: string, next: unknown): Promise<string> {
@@ -278,25 +300,81 @@ router.post('/resend-otp', otpRateLimit(), async (req, res) => {
   });
 });
 
+router.post('/forgot-password', authRateLimit(), async (req, res) => {
+  const startedAt = Date.now();
+  const parsed = ForgotPasswordSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return sendError(res, 422, 'VALIDATION_ERROR', 'Dữ liệu không hợp lệ', toFieldErrors(parsed.error));
+  }
+
+  // Supabase sends a recovery link to `${emailRedirectOrigin()}/reset-password`.
+  // The reply is always the same so the endpoint cannot reveal whether an email exists.
+  const redirect = `${emailRedirectOrigin()}/reset-password`;
+  const supabase = createSupabaseForRequest(req, res);
+  const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {
+    redirectTo: redirect,
+  });
+  if (!isProd) {
+    if (error) {
+      console.warn(`[auth] forgot-password: resetPasswordForEmail failed in ${Date.now() - startedAt}ms — code=${error.code ?? ''} ${error.message}`);
+    } else {
+      console.log(`[auth] forgot-password: recovery email accepted by Supabase (${Date.now() - startedAt}ms), redirect=${redirect}`);
+    }
+  }
+
+  return sendOk(res, {
+    email: parsed.data.email,
+    message: 'Nếu email tồn tại trong hệ thống, liên kết đặt lại mật khẩu đã được gửi đến hộp thư của bạn.',
+  });
+});
+
 router.post('/logout', async (req, res) => {
   const supabase = createSupabaseForRequest(req, res);
   await supabase.auth.signOut();
   return sendOk(res, { message: 'Bạn đã đăng xuất.' });
 });
 
-/** Email confirmation / magic-link landing (PKCE `code` or `token_hash` flow). */
+/** Updates the signed-in user's password (recovery session or normal session). */
+router.post('/reset-password', authRateLimit(), requireAuth, async (req, res) => {
+  const startedAt = Date.now();
+  const parsed = ResetPasswordSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return sendError(res, 422, 'VALIDATION_ERROR', 'Dữ liệu không hợp lệ', toFieldErrors(parsed.error));
+  }
+
+  const supabase = createSupabaseForRequest(req, res);
+  if (!isProd) console.log(`[auth] reset-password: requireAuth passed, calling updateUser…`);
+  const { error } = await supabase.auth.updateUser({ password: parsed.data.password });
+  if (!isProd) console.log(`[auth] reset-password: updateUser done in ${Date.now() - startedAt}ms`);
+  if (error) {
+    if (!isProd) console.warn(`[auth] reset-password: updateUser failed — code=${error.code ?? ''} ${error.message}`);
+    return sendError(res, 400, 'AUTH_ERROR', 'Không thể cập nhật mật khẩu: ' + error.message);
+  }
+
+  // Revoke every other session; the current one (used for the redirect to login) stays active.
+  await supabase.auth.signOut({ scope: 'others' });
+  if (!isProd) console.log(`[auth] reset-password: updateUser OK + others revoked, total ${Date.now() - startedAt}ms`);
+
+  return sendOk(res, { message: 'Đổi mật khẩu thành công.' });
+});
+
+/** Email confirmation / magic-link / recovery landing (PKCE `code`, `token_hash`, or email+OTP flow). */
 async function handleAuthCallback(req: Request, res: Response) {
   const supabase = createSupabaseForRequest(req, res);
   const code = typeof req.query.code === 'string' ? req.query.code : typeof req.body?.code === 'string' ? req.body.code : null;
   const tokenHash = typeof req.query.token_hash === 'string' ? req.query.token_hash : typeof req.body?.token_hash === 'string' ? req.body.token_hash : null;
   const type = typeof req.query.type === 'string' ? (req.query.type as EmailOtpType) : typeof req.body?.type === 'string' ? (req.body.type as EmailOtpType) : null;
+  const email = typeof req.query.email === 'string' ? req.query.email : typeof req.body?.email === 'string' ? req.body.email : null;
+  const otp = typeof req.query.otp === 'string' ? req.query.otp : typeof req.body?.otp === 'string' ? req.body.otp : null;
   const next = req.query.next ?? req.body?.next;
 
   const { data, error } = code
     ? await supabase.auth.exchangeCodeForSession(code)
     : tokenHash && type
       ? await supabase.auth.verifyOtp({ token_hash: tokenHash, type })
-      : { data: { user: null }, error: new Error('Missing confirmation code') };
+      : email && otp && type
+        ? await supabase.auth.verifyOtp({ email, token: otp, type })
+        : { data: { user: null }, error: new Error('Missing confirmation code') };
 
   if (error || !data.user) {
     return sendError(res, 400, 'AUTH_ERROR', 'Liên kết xác nhận không hợp lệ hoặc đã hết hạn.');
@@ -316,6 +394,6 @@ async function handleAuthCallback(req: Request, res: Response) {
 }
 
 router.get('/callback', handleAuthCallback);
-router.post('/callback', handleAuthCallback);
+router.post('/callback', authRateLimit(), handleAuthCallback);
 
 export default router;

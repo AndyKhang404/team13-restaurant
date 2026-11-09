@@ -172,6 +172,11 @@ export default function Login() {
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
+          <div className="field" style={{ textAlign: 'right' }}>
+            <Link to="/forgot-password" className="forgot-link">
+              Quên mật khẩu?
+            </Link>
+          </div>
 
           {captchaRequired && siteKey ? (
             <div className="field">
