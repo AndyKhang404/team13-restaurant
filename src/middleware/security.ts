@@ -4,6 +4,7 @@ import multer from 'multer';
 import { doubleCsrf } from 'csrf-csrf';
 import { env, isProd } from '../config/env.js';
 import { sendError } from '../lib/http.js';
+import { hasAuthCookie } from '../lib/supabase.js';
 import type { FlashMessage } from '../types/express.js';
 
 const SID_COOKIE = 'sid';
@@ -92,14 +93,22 @@ const { doubleCsrfProtection, generateCsrfToken } = doubleCsrf({
 
 /**
  * CSRF protection middleware:
- * If the request uses Bearer token authorization header, CSRF check is bypassed
- * (Bearer tokens are not automatically attached by browsers cross-origin).
- * Cookie-authenticated requests are protected via double-submit CSRF.
+ * - Bearer token authorization header bypasses CSRF (Bearer tokens are not attached by browsers cross-origin).
+ * - For API requests without ambient cookie credentials and without a CSRF token: allow them to proceed
+ *   to authentication check so unauthenticated POST requests get 401 UNAUTHENTICATED instead of 403 CSRF_INVALID.
+ * - Cookie-authenticated requests are protected via double-submit CSRF.
  */
 export const csrfProtection: RequestHandler = (req, res, next) => {
   const auth = req.headers.authorization;
   if (auth && /^Bearer\s+/i.test(auth)) {
     return next();
+  }
+  if (req.path.startsWith('/api') && !hasAuthCookie(req)) {
+    const csrfInHeader = req.headers['x-csrf-token'];
+    const csrfInBody = (req.body as Record<string, unknown> | undefined)?._csrf;
+    if (!csrfInHeader && !csrfInBody) {
+      return next();
+    }
   }
   return doubleCsrfProtection(req, res, next);
 };

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { authApi } from '../lib/resources';
 import { useAuth } from '../auth/AuthProvider';
@@ -8,43 +8,39 @@ import { AuthAside, PasswordField, OtpField } from '../components/auth';
 const RESEND_COOLDOWN_SECONDS = 60;
 const REDIRECT_DELAY_MS = 2500;
 
-type Phase = 'verifying' | 'code' | 'ready' | 'success' | 'error';
+type Phase = 'code' | 'ready' | 'success' | 'error';
 
 /** Maps raw GoTrue/API errors into user-friendly Vietnamese messages. */
 function authErrorToMessage(err: unknown, fallback: string): string {
   const raw = err instanceof Error ? err.message : '';
-  if (/not found/i.test(raw)) {
-    return 'Mã không đúng hoặc email không khớp. Vui lòng kiểm tra lại hoặc gửi lại mã.';
-  }
-  if (/otp.?expired|invalid/i.test(raw)) {
-    return 'Mã đã hết hạn hoặc không còn hiệu lực. Vui lòng gửi lại yêu cầu.';
+  if (/INVALID_RESET_TOKEN|not found|invalid|expired/i.test(raw)) {
+    return 'Token hoặc mã đặt lại mật khẩu không hợp lệ hoặc đã hết hạn. Vui lòng yêu cầu lại.';
   }
   if (/over_email_send_rate_limit|too many|rate/i.test(raw)) {
     return 'Bạn vừa gửi yêu cầu gần đây. Vui lòng đợi một phút rồi thử lại.';
-  }
-  if (/already been used|revoked/i.test(raw)) {
-    return 'Liên kết đã được sử dụng hoặc không còn hợp lệ. Bạn có thể nhập mã 6 số trong email.';
   }
   return raw || fallback;
 }
 
 /**
- * Landing page for the "recovery" email. Two independent ways in:
- * - Recovery link: `?token_hash=…&type=recovery` → verified automatically via
- *   POST /api/auth/callback, which also establishes the real session cookie.
- * - 6-digit OTP: user types the code from the same email (works cross-device).
- * Both paths must produce a live session before the password form is shown.
+ * Slide 18 & 29:
+ * - Email contains a link to the web reset page (e.g. /reset-password?token=... or code / token_hash).
+ * - Opening the page ONLY renders the form. The token is NEVER consumed on page load!
+ * - Token is only consumed when the user submits the reset password form (POST /api/auth/reset).
+ * - Token errors return HTTP 200 INVALID_RESET_TOKEN.
  */
 export default function ResetPassword() {
-  const { user, refresh, signOut } = useAuth();
+  const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [params] = useSearchParams();
 
-  const hasToken = Boolean(params.get('token_hash') || params.get('code'));
+  const urlToken = params.get('token') || params.get('token_hash') || params.get('code');
+  const hasToken = Boolean(urlToken);
   const stateEmail = ((location.state ?? {}) as { email?: string }).email ?? '';
 
-  const [phase, setPhase] = useState<Phase>(hasToken ? 'verifying' : user ? 'ready' : 'code');
+  // Slide 18: Opening the page renders the form directly without consuming token
+  const [phase, setPhase] = useState<Phase>(hasToken ? 'ready' : user ? 'ready' : 'code');
   const [email, setEmail] = useState(stateEmail);
   const [otp, setOtp] = useState('');
   const [password, setPassword] = useState('');
@@ -54,24 +50,6 @@ export default function ResetPassword() {
   const [busy, setBusy] = useState(false);
   const [resending, setResending] = useState(false);
   const [cooldown, setCooldown] = useState(stateEmail ? RESEND_COOLDOWN_SECONDS : 0);
-
-  // StrictMode may double-run effects; the recovery token can only be used once.
-  const verifiedRef = useRef(false);
-  useEffect(() => {
-    if (!hasToken || verifiedRef.current) return;
-    verifiedRef.current = true;
-    authApi
-      .callback(`?${params.toString()}`)
-      .then(async (r) => {
-        await refresh();
-        setPhase(r.user ? 'ready' : 'error');
-      })
-      .catch(() => {
-        setPhase('error');
-      });
-    // Runs once per mount; `verifiedRef` blocks a second verify attempt.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -121,20 +99,16 @@ export default function ResetPassword() {
     }
   }
 
-  async function onCodeSubmit(e: FormEvent) {
+  function onCodeSubmit(e: FormEvent) {
     e.preventDefault();
     if (busy) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const r = await authApi.verifyRecovery(email.trim(), otp.trim());
-      await refresh();
-      setPhase(r.user ? 'ready' : 'error');
-    } catch (err) {
-      setError(authErrorToMessage(err, 'Mã không đúng hoặc đã hết hạn. Vui lòng gửi lại yêu cầu.'));
-    } finally {
-      setBusy(false);
+    if (otp.length !== 6) {
+      setError('Mã xác nhận gồm đúng 6 chữ số.');
+      return;
     }
+    setError(null);
+    // Proceed to ready phase with email and OTP; token is only consumed when password form is submitted!
+    setPhase('ready');
   }
 
   async function onSubmit(e: FormEvent) {
@@ -155,26 +129,24 @@ export default function ResetPassword() {
     setBusy(true);
     setError(null);
     try {
-      await authApi.resetPassword({ password, confirmPassword });
-      // End the recovery session (and any others) before announcing success.
+      // Token is strictly consumed here on POST
+      await authApi.resetPassword({
+        password,
+        confirmPassword,
+        token: params.get('token') ?? undefined,
+        token_hash: params.get('token_hash') ?? undefined,
+        code: params.get('code') ?? undefined,
+        email: email || undefined,
+        otp: otp || undefined,
+      });
+      // End any remaining sessions before announcing success
       await signOut().catch(() => {});
       setPhase('success');
     } catch (err) {
       setError(authErrorToMessage(err, 'Đổi mật khẩu thất bại. Vui lòng thử lại.'));
+    } finally {
       setBusy(false);
     }
-  }
-
-  if (phase === 'verifying') {
-    return (
-      <div className="auth-split">
-        <AuthAside quote="Đang xác thực liên kết…" />
-        <div className="auth-body">
-          <h1>Đang xác thực liên kết</h1>
-          <p className="lead">Vui lòng đợi trong giây lát.</p>
-        </div>
-      </div>
-    );
   }
 
   if (phase === 'error') {
@@ -276,7 +248,7 @@ export default function ResetPassword() {
               className="btn btn-solid btn-lg"
               disabled={busy || resending || otp.length !== 6 || !email.trim()}
             >
-              {busy ? 'Đang xác nhận…' : 'Xác nhận mã'}
+              Tiếp tục đặt lại mật khẩu
             </button>
           </form>
 
@@ -351,7 +323,6 @@ export default function ResetPassword() {
             to="/login"
             onClick={async (e) => {
               e.preventDefault();
-              // Leaving the reset page abandons the recovery session sign-in.
               await signOut().catch(() => {});
               navigate('/login', { replace: true });
             }}

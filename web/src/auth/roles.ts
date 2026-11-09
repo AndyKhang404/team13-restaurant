@@ -1,8 +1,10 @@
 import type { AuthUser } from '../lib/types';
 
-const ADMIN_ROLES: ReadonlySet<AuthUser['role']> = new Set(['ADMIN', 'STAFF']);
-
-/** Roles allowed into the admin shell. The API still enforces RBAC. */
+/**
+ * Slide 30: "Mọi tài khoản đã kích hoạt dùng được CRUD; role chưa dùng để phân quyền ở bài này"
+ * Slide 31: "Route guard cho /admin/*; ẩn nút theo trạng thái đăng nhập chỉ là giao diện"
+ * Any authenticated user has access in Bài 1 (RBAC/ABAC is in Bài 2).
+ */
 export function canAccessAdmin(user: AuthUser | null | undefined): boolean {
-  return !!user && ADMIN_ROLES.has(user.role);
+  return !!user;
 }

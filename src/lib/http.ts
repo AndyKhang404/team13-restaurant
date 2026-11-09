@@ -4,8 +4,15 @@ export type ApiErrorCode =
   | 'VALIDATION_FAILED'
   | 'VALIDATION_ERROR'
   | 'INVALID_CREDENTIALS'
+  | 'ACCOUNT_NOT_ACTIVATED'
   | 'EMAIL_NOT_CONFIRMED'
   | 'INVALID_OTP'
+  | 'CAPTCHA_REQUIRED'
+  | 'INVALID_CAPTCHA'
+  | 'CAPTCHA_FAILED'
+  | 'INVALID_RESET_TOKEN'
+  | 'UNAUTHENTICATED'
+  | 'TOKEN_EXPIRED'
   | 'AUTH_ERROR'
   | 'UNAUTHORIZED'
   | 'FORBIDDEN'
@@ -15,7 +22,6 @@ export type ApiErrorCode =
   | 'SELF_ROLE_CHANGE'
   | 'LAST_ADMIN'
   | 'RATE_LIMITED'
-  | 'CAPTCHA_FAILED'
   | 'CSRF_INVALID'
   | 'UPLOAD_LIMIT_EXCEEDED'
   | 'INTERNAL_ERROR';
@@ -34,14 +40,8 @@ export type ApiFailure = {
   };
 };
 
-/** Technical failure body: real HTTP status, deliberately without an `ok` flag. */
-export type ApiTechnicalFailure = {
-  error: {
-    code: ApiErrorCode | string;
-    message: string;
-    fields?: Record<string, string>;
-  };
-};
+/** All failure responses under the deck contract contain ok: false */
+export type ApiTechnicalFailure = ApiFailure;
 
 export type ApiResponse<T> = ApiSuccess<T> | ApiFailure;
 
@@ -65,8 +65,16 @@ export const badRequest = (
   fields?: Record<string, string>,
 ) => new HttpError(400, msg, code, fields, true);
 
-export const unauthorized = (msg = 'Vui lòng đăng nhập để tiếp tục') =>
-  new HttpError(401, msg, 'UNAUTHORIZED');
+export const unauthenticated = (
+  msg = 'Vui lòng đăng nhập để tiếp tục',
+  code: ApiErrorCode | string = 'UNAUTHENTICATED',
+) => new HttpError(401, msg, code);
+
+export const unauthorized = unauthenticated;
+
+export const tokenExpired = (
+  msg = 'Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại.',
+) => new HttpError(401, msg, 'TOKEN_EXPIRED');
 
 export const forbidden = (msg = 'Bạn không có quyền thực hiện thao tác này') =>
   new HttpError(403, msg, 'FORBIDDEN');
@@ -91,7 +99,7 @@ export function sendOk<T>(res: Response, data: T, status = 200): Response {
 
 /**
  * Handler-produced business error: always HTTP 200 with `{ ok: false, error }`
- * so the SPA branches on `error.code` instead of the status (deck slide 13).
+ * so the SPA branches on `error.code` instead of the status (deck slide 13, 15, 16, 17, 18).
  */
 export function sendBusinessError(
   res: Response,
@@ -110,13 +118,14 @@ export function sendBusinessError(
   return res.status(200).json(body);
 }
 
-/** Body for technical errors (wrong URL, crash, auth): no `ok` flag (deck slide 13). */
+/** Standard failure body containing ok: false (deck slide 13, 58). */
 export function technicalErrorBody(
   code: ApiErrorCode | string,
   message: string,
   fields?: Record<string, string>,
-): ApiTechnicalFailure {
+): ApiFailure {
   return {
+    ok: false,
     error: {
       code,
       message,
@@ -126,8 +135,7 @@ export function technicalErrorBody(
 }
 
 /**
- * Envelope error with an explicit status. Kept for out-of-contract flows
- * (auth, rate limit, uploads) that the SPA reads as `ApiError`.
+ * Envelope error with an explicit status (e.g. 401, 403, 429).
  */
 export function sendError(
   res: Response,
@@ -152,4 +160,3 @@ export function safeNext(raw: unknown, fallback = '/'): string {
   const s = typeof raw === 'string' ? raw : '';
   return s.startsWith('/') && !s.startsWith('//') && !s.startsWith('/\\') ? s : fallback;
 }
-

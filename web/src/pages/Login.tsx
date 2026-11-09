@@ -84,14 +84,14 @@ export default function Login() {
       navigate(target, { replace: true });
     } catch (err) {
       if (err instanceof ApiError) {
-        if (err.code === 'EMAIL_NOT_CONFIRMED') {
+        if (err.code === 'EMAIL_NOT_CONFIRMED' || err.code === 'ACCOUNT_NOT_ACTIVATED') {
           let notice =
-            'Tài khoản chưa xác thực email. Chúng tôi vừa gửi mã OTP mới tới hộp thư của bạn.';
+            'Tài khoản chưa kích hoạt email. Chúng tôi vừa gửi mã OTP mới tới hộp thư của bạn.';
           try {
             await authApi.resendOtp(email);
           } catch (resendErr) {
             if (resendErr instanceof ApiError || resendErr instanceof HttpError) {
-              notice = `Tài khoản chưa xác thực email. ${resendErr.message}`;
+              notice = `Tài khoản chưa kích hoạt email. ${resendErr.message}`;
             }
           }
           navigate(`/register?verify=1&email=${encodeURIComponent(email)}`, {
@@ -102,7 +102,11 @@ export default function Login() {
         setError(
           err.code === 'INVALID_CREDENTIALS' ? 'Email hoặc mật khẩu không đúng.' : err.message,
         );
-        if (err.code === 'CAPTCHA_FAILED') {
+        if (
+          err.code === 'CAPTCHA_FAILED' ||
+          err.code === 'CAPTCHA_REQUIRED' ||
+          err.code === 'INVALID_CAPTCHA'
+        ) {
           setCaptchaRequired(true);
           resetCaptcha();
         } else {

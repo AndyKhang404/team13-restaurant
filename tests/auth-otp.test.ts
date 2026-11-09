@@ -85,7 +85,7 @@ describe('Signup OTP Verification Endpoints (/api/auth/verify-otp & /api/auth/re
         token: '000000',
       });
 
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(200);
     expect(res.body).toMatchObject({
       ok: false,
       error: {

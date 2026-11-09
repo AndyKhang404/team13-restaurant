@@ -73,7 +73,7 @@ describe('JSON Envelope Helpers', () => {
 
   it('HttpError instances have code and status', () => {
     expect(badRequest('lỗi', 'VALIDATION_ERROR')).toBeInstanceOf(HttpError);
-    expect(unauthorized().code).toBe('UNAUTHORIZED');
+    expect(unauthorized().code).toBe('UNAUTHENTICATED');
     expect(forbidden().status).toBe(403);
     expect(notFound('Món').status).toBe(404);
     expect(conflict('Trùng').status).toBe(409);

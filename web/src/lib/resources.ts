@@ -379,7 +379,15 @@ export const authApi = {
       timeoutMs: 30_000,
     });
   },
-  resetPassword: async (input: { password: string; confirmPassword: string }) => {
+  resetPassword: async (input: {
+    password: string;
+    confirmPassword: string;
+    token?: string;
+    token_hash?: string;
+    code?: string;
+    email?: string;
+    otp?: string;
+  }) => {
     return apiFetch<{ message?: string }>('/auth/reset-password', {
       method: 'POST',
       body: input,

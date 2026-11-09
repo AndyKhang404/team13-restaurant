@@ -36,38 +36,38 @@ describe('Bearer Auth & Refactored /api/* Endpoints', () => {
   });
 
   describe('Unauthenticated access to protected /api/* endpoints', () => {
-    it('rejects GET /api/stats with 401 UNAUTHORIZED', async () => {
+    it('rejects GET /api/stats with 401 UNAUTHENTICATED', async () => {
       const res = await request(app).get('/api/stats');
       expect(res.status).toBe(401);
-      expect(res.body.error).toMatchObject({ code: 'UNAUTHORIZED' });
+      expect(res.body.error).toMatchObject({ code: 'UNAUTHENTICATED' });
     });
 
-    it('rejects GET /api/chefs with 401 UNAUTHORIZED', async () => {
+    it('rejects GET /api/chefs with 401 UNAUTHENTICATED', async () => {
       const res = await request(app).get('/api/chefs');
       expect(res.status).toBe(401);
-      expect(res.body.error).toMatchObject({ code: 'UNAUTHORIZED' });
+      expect(res.body.error).toMatchObject({ code: 'UNAUTHENTICATED' });
     });
 
-    it('rejects GET /api/ingredients with 401 UNAUTHORIZED', async () => {
+    it('rejects GET /api/ingredients with 401 UNAUTHENTICATED', async () => {
       const res = await request(app).get('/api/ingredients');
       expect(res.status).toBe(401);
-      expect(res.body.error).toMatchObject({ code: 'UNAUTHORIZED' });
+      expect(res.body.error).toMatchObject({ code: 'UNAUTHENTICATED' });
     });
 
-    it('rejects GET /api/users with 401 UNAUTHORIZED', async () => {
+    it('rejects GET /api/users with 401 UNAUTHENTICATED', async () => {
       const res = await request(app).get('/api/users');
       expect(res.status).toBe(401);
-      expect(res.body.error).toMatchObject({ code: 'UNAUTHORIZED' });
+      expect(res.body.error).toMatchObject({ code: 'UNAUTHENTICATED' });
     });
 
     it('retains backward compatibility aliases under /api/admin/*', async () => {
       const statsRes = await request(app).get('/api/admin/stats');
       expect(statsRes.status).toBe(401);
-      expect(statsRes.body.error).toMatchObject({ code: 'UNAUTHORIZED' });
+      expect(statsRes.body.error).toMatchObject({ code: 'UNAUTHENTICATED' });
 
       const chefsRes = await request(app).get('/api/admin/chefs');
       expect(chefsRes.status).toBe(401);
-      expect(chefsRes.body.error).toMatchObject({ code: 'UNAUTHORIZED' });
+      expect(chefsRes.body.error).toMatchObject({ code: 'UNAUTHENTICATED' });
     });
   });
 
@@ -104,23 +104,27 @@ describe('Bearer Auth & Refactored /api/* Endpoints', () => {
   });
 
   describe('CSRF bypass for Bearer token requests', () => {
-    it('rejects mutating POST requests without Bearer token or CSRF token with 403 CSRF_INVALID', async () => {
+    it('rejects mutating POST requests without Bearer token with 401 UNAUTHENTICATED (Deck Slide 32)', async () => {
       const res = await request(app).post('/api/dishes').send({ name: 'Test' });
-      expect(res.status).toBe(403);
-      expect(res.body.error).toMatchObject({ code: 'CSRF_INVALID' });
+      expect(res.status).toBe(401);
+      expect(res.body.error).toMatchObject({ code: 'UNAUTHENTICATED' });
     });
 
     it('bypasses CSRF when Authorization: Bearer is present (falls through to auth check -> 401)', async () => {
+      vi.spyOn(supabaseLib, 'createSupabaseForRequest').mockReturnValue({
+        auth: {
+          getClaims: vi.fn().mockResolvedValue({ data: null, error: new Error('Invalid token') }),
+          getUser: vi.fn().mockResolvedValue({ data: { user: null }, error: new Error('Invalid token') }),
+        },
+      } as any);
+
       const res = await request(app)
         .post('/api/dishes')
         .set('Authorization', 'Bearer invalid-dummy-token')
         .send({ name: 'Test' });
 
-      // Note: Because Bearer header is present, CSRF protection is bypassed.
-      // Since dummy token is invalid, loadUser leaves req.user = null,
-      // and requirePermission('dish:create') rejects with 401 UNAUTHORIZED (not 403 CSRF_INVALID).
       expect(res.status).toBe(401);
-      expect(res.body.error).toMatchObject({ code: 'UNAUTHORIZED' });
+      expect(res.body.error).toMatchObject({ code: 'UNAUTHENTICATED' });
     });
   });
 

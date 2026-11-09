@@ -3,8 +3,8 @@ import { z } from 'zod';
 import type { EmailOtpType } from '@supabase/supabase-js';
 import { env, isProd } from '../config/env.js';
 import { prisma } from '../lib/prisma.js';
-import { createSupabaseForRequest } from '../lib/supabase.js';
-import { safeNext, sendOk, sendError } from '../lib/http.js';
+import { createSupabaseForRequest, getBearerToken } from '../lib/supabase.js';
+import { safeNext, sendOk, sendError, sendBusinessError } from '../lib/http.js';
 import { toFieldErrors } from '../lib/validation.js';
 import { verifyCaptcha, captchaErrorMessage } from '../lib/captcha.js';
 import {
@@ -18,9 +18,9 @@ import {
 } from './login-attempts.js';
 import { normalizeEmail } from './email.js';
 import { can } from './permissions.js';
-import { requireAuth } from './middleware.js';
 import { authRateLimit, otpRateLimit } from '../middleware/rate-limit.js';
 import { generateCsrfToken } from '../middleware/security.js';
+import { recordPasswordReset } from './token-revocation.js';
 
 const router = Router();
 
@@ -69,12 +69,16 @@ const ResetPasswordSchema = z
       .min(6, 'Mật khẩu phải ít nhất 6 ký tự')
       .max(72, 'Mật khẩu tối đa 72 ký tự'),
     confirmPassword: z.string(),
+    token: z.string().optional(),
+    token_hash: z.string().optional(),
+    code: z.string().optional(),
+    email: z.string().optional(),
+    otp: z.string().optional(),
   })
   .refine((d) => d.password === d.confirmPassword, {
     path: ['confirmPassword'],
     message: 'Mật khẩu nhập lại không khớp',
   });
-
 
 /** Origin embedded in auth emails so links land on the browsable SPA. */
 const emailRedirectOrigin = () => env.EMAIL_REDIRECT_ORIGIN ?? env.APP_URL;
@@ -109,31 +113,60 @@ router.get('/captcha', (req, res) => {
   });
 });
 
-router.post('/login', authRateLimit(), async (req, res) => {
+/** POST /api/auth/login */
+async function handleLogin(req: Request, res: Response) {
   const next = req.body?.next;
   const parsed = LoginSchema.safeParse(req.body);
   if (!parsed.success) {
-    return sendError(res, 422, 'VALIDATION_ERROR', 'Dữ liệu đăng nhập không hợp lệ', toFieldErrors(parsed.error));
+    return sendBusinessError(
+      res,
+      'VALIDATION_ERROR',
+      'Dữ liệu đăng nhập không hợp lệ',
+      toFieldErrors(parsed.error),
+    );
   }
 
   const email = normalizeEmail(parsed.data.email);
   const keys = attemptKeys(email, req.ip);
 
   if (isCaptchaRequired(getLoginAttemptState(keys))) {
-    const captcha = await verifyCaptcha(req.body?.['g-recaptcha-response'], req.ip);
+    const rawCaptcha = req.body?.['g-recaptcha-response'];
+    if (!rawCaptcha) {
+      return sendBusinessError(
+        res,
+        'CAPTCHA_REQUIRED',
+        'Vui lòng xác nhận bạn không phải robot.',
+      );
+    }
+    const captcha = await verifyCaptcha(rawCaptcha, req.ip);
     if (!captcha.ok) {
-      return sendError(res, 422, 'CAPTCHA_FAILED', captchaErrorMessage(captcha.reason));
+      return sendBusinessError(
+        res,
+        'INVALID_CAPTCHA',
+        captchaErrorMessage(captcha.reason),
+      );
     }
   }
 
   const supabase = createSupabaseForRequest(req, res);
   const { data, error } = await supabase.auth.signInWithPassword(parsed.data);
   if (error || !data.user) {
-    if (error?.code === 'email_not_confirmed') {
-      return sendError(res, 401, 'EMAIL_NOT_CONFIRMED', 'Vui lòng xác nhận địa chỉ email trước.');
+    if (
+      error?.code === 'email_not_confirmed' ||
+      error?.message?.toLowerCase().includes('email not confirmed')
+    ) {
+      return sendBusinessError(
+        res,
+        'ACCOUNT_NOT_ACTIVATED',
+        'Tài khoản chưa được kích hoạt. Vui lòng xác nhận mã OTP.',
+      );
     }
     registerFailedLogin(keys);
-    return sendError(res, 401, 'INVALID_CREDENTIALS', 'Email hoặc mật khẩu không đúng.');
+    return sendBusinessError(
+      res,
+      'INVALID_CREDENTIALS',
+      'Email hoặc mật khẩu không đúng.',
+    );
   }
 
   clearLoginAttempts(emailKey(email));
@@ -145,21 +178,40 @@ router.post('/login', authRateLimit(), async (req, res) => {
     user: profile,
     token: data.session?.access_token,
     accessToken: data.session?.access_token,
+    expiresIn: data.session?.expires_in ?? 3600,
     session: data.session,
     redirectTo,
     message: 'Đăng nhập thành công.',
   });
-});
+}
 
-router.post('/register', authRateLimit(), async (req, res) => {
+/** POST /api/auth/register */
+async function handleRegister(req: Request, res: Response) {
   const parsed = RegisterSchema.safeParse(req.body);
   if (!parsed.success) {
-    return sendError(res, 422, 'VALIDATION_ERROR', 'Dữ liệu đăng ký không hợp lệ', toFieldErrors(parsed.error));
+    return sendBusinessError(
+      res,
+      'VALIDATION_ERROR',
+      'Dữ liệu đăng ký không hợp lệ',
+      toFieldErrors(parsed.error),
+    );
   }
 
-  const captcha = await verifyCaptcha(req.body?.['g-recaptcha-response'], req.ip);
+  const rawCaptcha = req.body?.['g-recaptcha-response'];
+  if (!rawCaptcha) {
+    return sendBusinessError(
+      res,
+      'CAPTCHA_REQUIRED',
+      'Vui lòng xác nhận bạn không phải robot.',
+    );
+  }
+  const captcha = await verifyCaptcha(rawCaptcha, req.ip);
   if (!captcha.ok) {
-    return sendError(res, 422, 'CAPTCHA_FAILED', captchaErrorMessage(captcha.reason));
+    return sendBusinessError(
+      res,
+      'INVALID_CAPTCHA',
+      captchaErrorMessage(captcha.reason),
+    );
   }
 
   const { email, password, displayName } = parsed.data;
@@ -181,45 +233,42 @@ router.post('/register', authRateLimit(), async (req, res) => {
         message: 'Mã xác nhận đã được gửi trước đó. Vui lòng kiểm tra hộp thư của bạn.',
       });
     }
-    return sendError(res, 400, 'AUTH_ERROR', error.message);
+    // Slide 29: phản hồi giống nhau cho email mới và đã có (chống enumeration)
+    if (
+      error.message?.toLowerCase().includes('already registered') ||
+      error.code === 'user_already_exists'
+    ) {
+      return sendOk(res, {
+        requiresEmailConfirmation: true,
+        email,
+        message: 'Mã xác nhận đã được gửi tới email của bạn.',
+      });
+    }
+    return sendBusinessError(res, 'AUTH_ERROR', error.message);
   }
 
-  let profile = null;
   if (data.user) {
-    profile = await prisma.profile.upsert({
+    await prisma.profile.upsert({
       where: { id: data.user.id },
       create: { id: data.user.id, email, displayName: cleanName },
       update: {},
     });
   }
 
-  if (data.session) {
-    const redirectTo = await landingFor(data.user!.id, email, undefined);
-    return sendOk(res, {
-      requiresEmailConfirmation: false,
-      email,
-      user: profile,
-      token: data.session.access_token,
-      accessToken: data.session.access_token,
-      session: data.session,
-      redirectTo,
-      message: 'Chào mừng! Tài khoản của bạn đã được tạo.',
-    });
-  }
-
+  // Slide 17 & 29: Thành công trả 200 { ok: true }, không có accessToken
   return sendOk(res, {
     requiresEmailConfirmation: true,
     email,
     message: 'Mã xác nhận đã được gửi tới email của bạn.',
   });
-});
+}
 
-router.post('/verify-otp', otpRateLimit(), async (req, res) => {
+/** POST /api/auth/verify-otp & POST /api/auth/activate */
+async function handleVerifyOtp(req: Request, res: Response) {
   const parsed = VerifyOtpSchema.safeParse(req.body);
   if (!parsed.success) {
-    return sendError(
+    return sendBusinessError(
       res,
-      422,
       'VALIDATION_ERROR',
       'Dữ liệu xác nhận không hợp lệ',
       toFieldErrors(parsed.error),
@@ -235,7 +284,11 @@ router.post('/verify-otp', otpRateLimit(), async (req, res) => {
   });
 
   if (error || !data.user) {
-    return sendError(res, 400, 'INVALID_OTP', 'Mã xác nhận không hợp lệ hoặc đã hết hạn.');
+    return sendBusinessError(
+      res,
+      'INVALID_OTP',
+      'Mã xác nhận không hợp lệ hoặc đã hết hạn.',
+    );
   }
 
   const metaName = data.user.user_metadata?.display_name;
@@ -252,23 +305,22 @@ router.post('/verify-otp', otpRateLimit(), async (req, res) => {
     update: {},
   });
 
-  // Do not keep an active session after signup OTP verification;
-  // user is redirected to /login to sign in with their password.
+  // Slide 17 & 29: Kích hoạt không trả accessToken; người dùng đăng nhập tại /login
   await supabase.auth.signOut();
 
   return sendOk(res, {
     verified: true,
     email: data.user.email ?? email,
-    message: 'Xác thực email thành công! Đang chuyển đến trang đăng nhập…',
+    message: 'Tài khoản đã được kích hoạt thành công. Vui lòng đăng nhập.',
   });
-});
+}
 
-router.post('/resend-otp', otpRateLimit(), async (req, res) => {
+/** POST /api/auth/resend-otp & POST /api/auth/activate/resend */
+async function handleResendOtp(req: Request, res: Response) {
   const parsed = ResendOtpSchema.safeParse(req.body);
   if (!parsed.success) {
-    return sendError(
+    return sendBusinessError(
       res,
-      422,
       'VALIDATION_ERROR',
       'Email không hợp lệ',
       toFieldErrors(parsed.error),
@@ -291,81 +343,216 @@ router.post('/resend-otp', otpRateLimit(), async (req, res) => {
         'Vui lòng đợi ít nhất 60 giây trước khi gửi lại mã.',
       );
     }
-    return sendError(res, 400, 'AUTH_ERROR', error.message || 'Không thể gửi lại mã xác nhận.');
+    return sendBusinessError(
+      res,
+      'AUTH_ERROR',
+      error.message || 'Không thể gửi lại mã xác nhận.',
+    );
   }
 
   return sendOk(res, {
     email,
     message: 'Đã gửi lại mã xác nhận tới email của bạn.',
   });
-});
+}
 
-router.post('/forgot-password', authRateLimit(), async (req, res) => {
-  const startedAt = Date.now();
+/** POST /api/auth/forgot-password & POST /api/auth/forgot */
+async function handleForgotPassword(req: Request, res: Response) {
   const parsed = ForgotPasswordSchema.safeParse(req.body);
   if (!parsed.success) {
-    return sendError(res, 422, 'VALIDATION_ERROR', 'Dữ liệu không hợp lệ', toFieldErrors(parsed.error));
+    return sendBusinessError(
+      res,
+      'VALIDATION_ERROR',
+      'Dữ liệu không hợp lệ',
+      toFieldErrors(parsed.error),
+    );
   }
 
-  // Supabase sends a recovery link to `${emailRedirectOrigin()}/reset-password`.
-  // The reply is always the same so the endpoint cannot reveal whether an email exists.
   const redirect = `${emailRedirectOrigin()}/reset-password`;
   const supabase = createSupabaseForRequest(req, res);
-  const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {
+  await supabase.auth.resetPasswordForEmail(parsed.data.email, {
     redirectTo: redirect,
   });
-  if (!isProd) {
-    if (error) {
-      console.warn(`[auth] forgot-password: resetPasswordForEmail failed in ${Date.now() - startedAt}ms — code=${error.code ?? ''} ${error.message}`);
-    } else {
-      console.log(`[auth] forgot-password: recovery email accepted by Supabase (${Date.now() - startedAt}ms), redirect=${redirect}`);
-    }
-  }
 
+  // Slide 18 & 29: Phản hồi giống nhau cho email có và không có tài khoản
   return sendOk(res, {
     email: parsed.data.email,
     message: 'Nếu email tồn tại trong hệ thống, liên kết đặt lại mật khẩu đã được gửi đến hộp thư của bạn.',
   });
-});
+}
 
+/** POST /api/auth/logout */
 router.post('/logout', async (req, res) => {
   const supabase = createSupabaseForRequest(req, res);
   await supabase.auth.signOut();
   return sendOk(res, { message: 'Bạn đã đăng xuất.' });
 });
 
-/** Updates the signed-in user's password (recovery session or normal session). */
-router.post('/reset-password', authRateLimit(), requireAuth, async (req, res) => {
-  const startedAt = Date.now();
+/** POST /api/auth/reset-password & POST /api/auth/reset */
+async function handleResetPassword(req: Request, res: Response) {
   const parsed = ResetPasswordSchema.safeParse(req.body);
   if (!parsed.success) {
-    return sendError(res, 422, 'VALIDATION_ERROR', 'Dữ liệu không hợp lệ', toFieldErrors(parsed.error));
+    return sendBusinessError(
+      res,
+      'VALIDATION_ERROR',
+      'Dữ liệu không hợp lệ',
+      toFieldErrors(parsed.error),
+    );
   }
 
   const supabase = createSupabaseForRequest(req, res);
-  if (!isProd) console.log(`[auth] reset-password: requireAuth passed, calling updateUser…`);
-  const { error } = await supabase.auth.updateUser({ password: parsed.data.password });
-  if (!isProd) console.log(`[auth] reset-password: updateUser done in ${Date.now() - startedAt}ms`);
-  if (error) {
-    if (!isProd) console.warn(`[auth] reset-password: updateUser failed — code=${error.code ?? ''} ${error.message}`);
-    return sendError(res, 400, 'AUTH_ERROR', 'Không thể cập nhật mật khẩu: ' + error.message);
+  let userId: string | null = req.user?.id ?? null;
+
+  const bearer = getBearerToken(req);
+  const code = parsed.data.code ?? (typeof req.query.code === 'string' ? req.query.code : undefined);
+  const tokenHash =
+    parsed.data.token_hash ??
+    (typeof req.query.token_hash === 'string' ? req.query.token_hash : undefined);
+  const token = parsed.data.token;
+  const email = parsed.data.email;
+  const otp = parsed.data.otp;
+
+  // Resolve session if not already logged in
+  if (!userId) {
+    if (bearer) {
+      // Verify Bearer token
+      const { data, error } = await supabase.auth.getUser(bearer);
+      if (error || !data?.user) {
+        return sendBusinessError(
+          res,
+          'INVALID_RESET_TOKEN',
+          'Token đặt lại mật khẩu không hợp lệ hoặc đã hết hạn.',
+        );
+      }
+      userId = data.user.id;
+    } else if (code) {
+      const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+      if (error || !data?.user) {
+        return sendBusinessError(
+          res,
+          'INVALID_RESET_TOKEN',
+          'Mã khôi phục không hợp lệ hoặc đã hết hạn.',
+        );
+      }
+      userId = data.user.id;
+    } else if (tokenHash) {
+      const { data, error } = await supabase.auth.verifyOtp({
+        token_hash: tokenHash,
+        type: 'recovery',
+      });
+      if (error || !data?.user) {
+        return sendBusinessError(
+          res,
+          'INVALID_RESET_TOKEN',
+          'Liên kết khôi phục không hợp lệ hoặc đã hết hạn.',
+        );
+      }
+      userId = data.user.id;
+    } else if (email && (otp || token)) {
+      const codeToVerify = otp ?? token!;
+      const { data, error } = await supabase.auth.verifyOtp({
+        email,
+        token: codeToVerify,
+        type: 'recovery',
+      });
+      if (error || !data?.user) {
+        return sendBusinessError(
+          res,
+          'INVALID_RESET_TOKEN',
+          'Mã xác nhận khôi phục không hợp lệ hoặc đã hết hạn.',
+        );
+      }
+      userId = data.user.id;
+    } else if (token) {
+      // Generic token passed in body: try token_hash then exchangeCode
+      let verifiedUser: string | null = null;
+      const resHash = await supabase.auth.verifyOtp({ token_hash: token, type: 'recovery' });
+      if (!resHash.error && resHash.data?.user) {
+        verifiedUser = resHash.data.user.id;
+      } else {
+        const resCode = await supabase.auth.exchangeCodeForSession(token);
+        if (!resCode.error && resCode.data?.user) {
+          verifiedUser = resCode.data.user.id;
+        } else {
+          const resUser = await supabase.auth.getUser(token);
+          if (!resUser.error && resUser.data?.user) {
+            verifiedUser = resUser.data.user.id;
+          }
+        }
+      }
+      if (!verifiedUser) {
+        return sendBusinessError(
+          res,
+          'INVALID_RESET_TOKEN',
+          'Token đặt lại mật khẩu không hợp lệ hoặc đã hết hạn.',
+        );
+      }
+      userId = verifiedUser;
+    } else {
+      return sendBusinessError(
+        res,
+        'INVALID_RESET_TOKEN',
+        'Thiếu token đặt lại mật khẩu.',
+      );
+    }
   }
 
-  // Revoke every other session; the current one (used for the redirect to login) stays active.
+  // Update password in Supabase Auth
+  const { error: updateError } = await supabase.auth.updateUser({
+    password: parsed.data.password,
+  });
+
+  if (updateError) {
+    return sendBusinessError(
+      res,
+      'INVALID_RESET_TOKEN',
+      'Không thể cập nhật mật khẩu: ' + updateError.message,
+    );
+  }
+
+  // Slide 22 & 29: Invalidate previously issued JWTs immediately
+  if (userId) {
+    recordPasswordReset(userId);
+  }
   await supabase.auth.signOut({ scope: 'others' });
-  if (!isProd) console.log(`[auth] reset-password: updateUser OK + others revoked, total ${Date.now() - startedAt}ms`);
 
+  // Slide 18 & 29: Reset không trả accessToken và không tự đăng nhập
   return sendOk(res, { message: 'Đổi mật khẩu thành công.' });
-});
+}
 
-/** Email confirmation / magic-link / recovery landing (PKCE `code`, `token_hash`, or email+OTP flow). */
+/** Email confirmation / magic-link landing */
 async function handleAuthCallback(req: Request, res: Response) {
   const supabase = createSupabaseForRequest(req, res);
-  const code = typeof req.query.code === 'string' ? req.query.code : typeof req.body?.code === 'string' ? req.body.code : null;
-  const tokenHash = typeof req.query.token_hash === 'string' ? req.query.token_hash : typeof req.body?.token_hash === 'string' ? req.body.token_hash : null;
-  const type = typeof req.query.type === 'string' ? (req.query.type as EmailOtpType) : typeof req.body?.type === 'string' ? (req.body.type as EmailOtpType) : null;
-  const email = typeof req.query.email === 'string' ? req.query.email : typeof req.body?.email === 'string' ? req.body.email : null;
-  const otp = typeof req.query.otp === 'string' ? req.query.otp : typeof req.body?.otp === 'string' ? req.body.otp : null;
+  const code =
+    typeof req.query.code === 'string'
+      ? req.query.code
+      : typeof req.body?.code === 'string'
+        ? req.body.code
+        : null;
+  const tokenHash =
+    typeof req.query.token_hash === 'string'
+      ? req.query.token_hash
+      : typeof req.body?.token_hash === 'string'
+        ? req.body.token_hash
+        : null;
+  const type =
+    typeof req.query.type === 'string'
+      ? (req.query.type as EmailOtpType)
+      : typeof req.body?.type === 'string'
+        ? (req.body.type as EmailOtpType)
+        : null;
+  const email =
+    typeof req.query.email === 'string'
+      ? req.query.email
+      : typeof req.body?.email === 'string'
+        ? req.body.email
+        : null;
+  const otp =
+    typeof req.query.otp === 'string'
+      ? req.query.otp
+      : typeof req.body?.otp === 'string'
+        ? req.body.otp
+        : null;
   const next = req.query.next ?? req.body?.next;
 
   const { data, error } = code
@@ -377,7 +564,11 @@ async function handleAuthCallback(req: Request, res: Response) {
         : { data: { user: null }, error: new Error('Missing confirmation code') };
 
   if (error || !data.user) {
-    return sendError(res, 400, 'AUTH_ERROR', 'Liên kết xác nhận không hợp lệ hoặc đã hết hạn.');
+    return sendBusinessError(
+      res,
+      'INVALID_RESET_TOKEN',
+      'Liên kết xác nhận không hợp lệ hoặc đã hết hạn.',
+    );
   }
 
   const redirectTo = await landingFor(data.user.id, data.user.email ?? '', next);
@@ -389,9 +580,25 @@ async function handleAuthCallback(req: Request, res: Response) {
     accessToken: data.session?.access_token,
     session: data.session,
     redirectTo,
-    message: 'Email đã được xác nhận. Chào mừng bạn!',
+    message: 'Xác nhận thành công.',
   });
 }
+
+// Routes and Aliases conforming to Deck (Slide 15, 16, 17, 18, 28, 29)
+router.post('/login', authRateLimit(), handleLogin);
+router.post('/register', authRateLimit(), handleRegister);
+
+router.post('/verify-otp', otpRateLimit(), handleVerifyOtp);
+router.post('/activate', otpRateLimit(), handleVerifyOtp);
+
+router.post('/resend-otp', otpRateLimit(), handleResendOtp);
+router.post('/activate/resend', otpRateLimit(), handleResendOtp);
+
+router.post('/forgot-password', authRateLimit(), handleForgotPassword);
+router.post('/forgot', authRateLimit(), handleForgotPassword);
+
+router.post('/reset-password', authRateLimit(), handleResetPassword);
+router.post('/reset', authRateLimit(), handleResetPassword);
 
 router.get('/callback', handleAuthCallback);
 router.post('/callback', authRateLimit(), handleAuthCallback);

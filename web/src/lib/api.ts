@@ -177,6 +177,16 @@ export async function apiFetch<T>(
 
   if (res.status === 401) {
     setAuthToken(null);
+    if (
+      typeof window !== 'undefined' &&
+      !window.location.pathname.startsWith('/login') &&
+      !window.location.pathname.startsWith('/register') &&
+      !window.location.pathname.startsWith('/forgot-password') &&
+      !window.location.pathname.startsWith('/reset-password')
+    ) {
+      const current = window.location.pathname + window.location.search;
+      window.location.href = `/login?next=${encodeURIComponent(current)}`;
+    }
   }
 
   let json: Partial<Envelope<T>> | null = null;

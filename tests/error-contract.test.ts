@@ -13,9 +13,9 @@ import {
   technicalErrorBody,
 } from '../src/lib/http.js';
 
-// Deck contract (slides 13, 17, 51):
-// - business errors (NOT_FOUND / VALIDATION_FAILED / ALREADY_EXISTS) -> HTTP 200 + { ok:false }
-// - technical errors (wrong URL, crash, auth) -> real status, body WITHOUT `ok`
+// Deck contract (slides 13, 17, 58):
+// - business errors (NOT_FOUND / VALIDATION_FAILED / ALREADY_EXISTS) -> HTTP 200 + { ok:false, error }
+// - technical errors (wrong URL 404, crash 500, auth 401/403) -> real status, body WITH { ok:false, error }
 
 interface MockResponse {
   statusCode: number;
@@ -79,20 +79,22 @@ describe('business errors', () => {
 });
 
 describe('technical error body', () => {
-  it('omits the `ok` flag', () => {
+  it('includes ok: false and error object', () => {
     const body = technicalErrorBody('NOT_FOUND', 'Endpoint GET /api/bok not found');
-    expect(body).toEqual({ error: { code: 'NOT_FOUND', message: 'Endpoint GET /api/bok not found' } });
-    expect('ok' in body).toBe(false);
+    expect(body).toEqual({
+      ok: false,
+      error: { code: 'NOT_FOUND', message: 'Endpoint GET /api/bok not found' },
+    });
+    expect(body.ok).toBe(false);
   });
 });
 
 describe('unknown API route', () => {
-  it('returns 404 with a body that has no `ok`', async () => {
+  it('returns 404 with ok: false in body', async () => {
     const app = createApp();
     const res = await request(app).get('/api/does-not-exist');
     expect(res.status).toBe(404);
-    expect('ok' in res.body).toBe(false);
+    expect(res.body.ok).toBe(false);
     expect(res.body.error).toMatchObject({ code: 'NOT_FOUND' });
   });
 });
-
