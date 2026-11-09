@@ -15,7 +15,30 @@ A modern client-side rendered (CSR) web application for restaurant meal manageme
   - **Server-side pagination** with `page` and `pageSize` (default 20, max 100) and switchable **infinite scroll / load more / numbered pages** modes. All paging, filter, and sort state is URL-backed; real-time **"Sold out"** badges remain.
 - **Dish Detail (`/dishes/:id` & `/dishes/:slug`)**: High-resolution dish imagery, formatted pricing in VND, preparation time, ingredient breakdown (names only, protecting internal inventory costs), and creator Chef spotlight. Supports direct lookup by both UUID `id` and SEO `slug`.
 
-### 2. Admin Operations Portal (`/admin`)
+### 2. Authentication & Account Lifecycle (`/login`, `/register`, `/forgot-password`, `/reset-password`)
+
+- **Sign In (`/login`)**:
+  - Email & password authentication supporting `Authorization: Bearer <token>` or HTTP-only session cookies.
+  - Adaptive Google reCAPTCHA v2 verification triggered automatically after repeated failed login attempts (`CAPTCHA_SITE_KEY`).
+  - Accessible password eye visibility toggle (`<PasswordField />`) with keyboard navigation and ARIA attributes.
+  - Left-aligned password recovery link leading directly to `/forgot-password`.
+- **Sign Up with 6-Digit Email OTP (`/register`)**:
+  - Account creation with display name, email, password strength/confirmation validation (6–72 characters), and CAPTCHA challenge.
+  - Automatic transition to 6-digit OTP verification screen (`/api/auth/verify-otp`) with 60-second cooldown resend mechanism (`/api/auth/resend-otp`).
+  - Live countdown redirect on successful email verification.
+- **Password Recovery (`/forgot-password`)**:
+  - Anti-enumeration email submission; triggers Supabase recovery email with magic link and 6-digit OTP without disclosing whether the email exists.
+  - Automatic redirect to `/reset-password` preserving the entered email.
+- **Password Reset (`/reset-password`)**:
+  - Dual-entry recovery: automatic token verification from query params (`?token_hash=…` or `?code=…`) or manual 6-digit OTP entry (`/api/auth/callback`).
+  - Stateful lifecycle phases (`verifying`, `code`, `ready`, `success`, `error`) with semantic `<h1>` headings and error guidance.
+  - Independent password and confirm password eye toggles, with immediate revocation of other active sessions on successful password update.
+- **Unified Auth Component Suite (`web/src/components/auth/`)**:
+  - `<AuthAside />`: Reusable branded sidebar with customizable quote and consistent 3-line contact footer (`123 Nguyễn Văn Cừ, Q.5, TP.HCM` | `Mở cửa 09:00 – 22:00` | `1900 6868`).
+  - `<PasswordField />`: Accessible password input with integrated eye toggle icon, `aria-pressed`, `aria-label`, and full-width input layout.
+  - `<OtpField />`: Accessible 6-digit numeric OTP input with `autoFocus`, numeric input mode, digit sanitization, and `aria-describedby` format hint.
+
+### 3. Admin Operations Portal (`/admin`)
 
 - **Dashboard (`/admin`)**: Real-time business metrics across active dishes, chefs, ingredients, and registered users, plus quick-action shortcuts.
 - **Meal CRUD (`/admin/dishes`)**:
@@ -29,15 +52,15 @@ A modern client-side rendered (CSR) web application for restaurant meal manageme
 - **Ingredients Inventory (`/admin/ingredients`)**: Track inventory quantities, units (`g`, `kg`, `ml`), unit wholesale prices, and availability status, with hybrid full-text/fuzzy search, unit/stock/availability/usage filters, sorting, and server pagination.
 - **User Role Management (`/admin/users`)**: Exclusively available to `ADMIN`. Hybrid full-text/fuzzy search, multi-select role filters, registration date range, server pagination, and role alteration with safety locks preventing self-demotion and ensuring the last remaining `ADMIN` cannot be demoted.
 
-### 3. Role-Based Access Control (RBAC)
+### 4. Role-Based Access Control (RBAC)
 
-| Capability                                | ADMIN | STAFF | CUSTOMER | Guest |
-| ----------------------------------------- | :---: | :---: | :------: | :---: |
-| Browse Menu & View Meal Details           |  ✅   |  ✅   |    ✅    |  ✅   |
-| Access Admin Dashboard (`/admin`)         |  ✅   |  ✅   |    ❌    |  ❌   |
-| Create, Edit, Soft-delete Meals & Recipes |  ✅   |  ✅   |    ❌    |  ❌   |
-| Manage Chefs & Ingredients Inventory      |  ✅   |  ✅   |    ❌    |  ❌   |
-| Change User Roles (`user:manage`)         |  ✅   |  ❌   |    ❌    |  ❌   |
+| Capability                                | ADMIN | STAFF | VIEWER / CUSTOMER | Guest |
+| ----------------------------------------- | :---: | :---: | :---------------: | :---: |
+| Browse Menu & View Meal Details           |  ✅   |  ✅   |        ✅         |  ✅   |
+| Access Admin Dashboard (`/admin`)         |  ✅   |  ✅   |        ❌         |  ❌   |
+| Create, Edit, Soft-delete Meals & Recipes |  ✅   |  ✅   |        ❌         |  ❌   |
+| Manage Chefs & Ingredients Inventory      |  ✅   |  ✅   |        ❌         |  ❌   |
+| Change User Roles (`user:manage`)         |  ✅   |  ❌   |        ❌         |  ❌   |
 
 ---
 
@@ -48,10 +71,12 @@ A modern client-side rendered (CSR) web application for restaurant meal manageme
 - **Framework**: [React 19](https://react.dev/) + [Vite](https://vitejs.dev/)
 - **Routing**: [React Router DOM v7](https://reactrouter.com/) (declarative client-side routing with layout wrappers)
 - **Styling**: Tailwind CSS v4 via `@tailwindcss/vite`, combined with hand-written CSS in `web/src/styles/public.css` and `web/src/styles/admin.css` (entry: `web/src/index.css`).
+- **Shared Auth Component Suite (`web/src/components/auth/`)**: Reusable `<AuthAside />`, `<PasswordField />`, and `<OtpField />` ensuring visual cohesion, input locking (`disabled={busy}`), and accessibility semantics.
 - **State & Context**:
   - `AuthProvider`: Session bootstrap via `GET /api/auth/me`, login, logout, and role-aware redirects.
   - `useTheme` (`ThemeSwitch.tsx`): Persistent light/dark mode switcher.
   - Page-level `useApi`: Local loading/error/data state; no global list/record store.
+- **Bot Protection**: Adaptive Google reCAPTCHA v2 (`<Recaptcha />`) dynamically requested based on failed attempt threshold.
 - **HTTP Client**: Typed wrapper `apiFetch<T>` with automatic CSRF token header (`x-csrf-token`) injection and standardized error unboxing.
 
 ### Backend (Decoupled REST API)
@@ -59,14 +84,15 @@ A modern client-side rendered (CSR) web application for restaurant meal manageme
 - **Runtime**: [Express 5](https://expressjs.com/) on Node.js (TypeScript, ES modules)
 - **Database / ORM**: PostgreSQL via Supabase + [Prisma ORM 7](https://www.prisma.io/) with `@prisma/adapter-pg`
 - **Full-Text & Fuzzy Search**: PostgreSQL `unaccent` and `pg_trgm` extensions with an immutable `public.f_unaccent(text)` wrapper (including Vietnamese `đ`/`Đ` folding), weighted generated `search_vector` (`tsvector`) columns, and both `tsvector` and `gin_trgm_ops` `GIN` indexes on dishes, chefs, ingredients, and profiles.
-- **Authentication**: Supabase Auth supporting `Authorization: Bearer <token>` header (primary for SPA / REST clients) and HTTP-only session cookies (`@supabase/ssr` fallback) + lazy `Profile` sync
+- **Authentication**: Supabase Auth supporting `Authorization: Bearer <token>` header (primary for SPA / REST clients) and HTTP-only session cookies (`@supabase/ssr` fallback), 6-digit email signup OTP verification, and dual-entry password recovery via link / OTP + lazy `Profile` sync
 - **Object Storage**: Supabase Storage (`images` bucket for meals, chefs, and ingredients)
 - **Security**:
   - `Authorization: Bearer <token>` support for REST API endpoints and CSRF-exempt header authentication.
   - Double-submit CSRF protection (`csrf-csrf`) for browser cookie sessions.
+  - Adaptive Google reCAPTCHA v2 verification with IP & email failed attempt tracking.
   - HTTP security headers (`helmet`).
   - CORS with an explicit `SPA_ORIGIN` allowlist and credentials; localhost/127.0.0.1 origins are allowed in development.
-  - Rate limiting with standardized `RATE_LIMITED` JSON error responses.
+  - Rate limiting with standardized `RATE_LIMITED` JSON error responses (including dedicated rate limiters for auth and OTP requests).
   - Request validation using [Zod](https://zod.dev/).
 - **SPA Fallback**: Express serves `dist/client/index.html` for non-API client routes in production.
 
@@ -104,7 +130,7 @@ The API distinguishes business errors from technical/security errors:
   ```
   These use the real HTTP status. Most omit `ok`; auth and rate-limit responses may still include `ok:false` as an out-of-contract exception.
 
-Common error codes include: `VALIDATION_FAILED`, `VALIDATION_ERROR`, `INVALID_CREDENTIALS`, `EMAIL_NOT_CONFIRMED`, `AUTH_ERROR`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `ALREADY_EXISTS`, `CONFLICT`, `SELF_ROLE_CHANGE`, `LAST_ADMIN`, `RATE_LIMITED`, `CSRF_INVALID`, `UPLOAD_LIMIT_EXCEEDED`, `INTERNAL_ERROR`.
+Common error codes include: `VALIDATION_FAILED`, `VALIDATION_ERROR`, `INVALID_CREDENTIALS`, `EMAIL_NOT_CONFIRMED`, `CAPTCHA_FAILED`, `INVALID_OTP`, `AUTH_ERROR`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `ALREADY_EXISTS`, `CONFLICT`, `SELF_ROLE_CHANGE`, `LAST_ADMIN`, `RATE_LIMITED`, `CSRF_INVALID`, `UPLOAD_LIMIT_EXCEEDED`, `INTERNAL_ERROR`.
 
 ---
 
@@ -117,10 +143,15 @@ Legacy `/api/admin/*` routes remain fully supported as backward-compatibility al
 | Route                             |         Method          |     Access     | Description                                                                    |
 | --------------------------------- | :---------------------: | :------------: | ------------------------------------------------------------------------------ |
 | `/api/auth/me`                    |           GET           |     Public     | Current profile and CSRF token                                                 |
-| `/api/auth/login`                 |          POST           |     Public     | Sign in with email and password (returns session token)                        |
-| `/api/auth/register`              |          POST           |     Public     | Register new account (returns session token)                                   |
+| `/api/auth/captcha`               |           GET           |     Public     | Public reCAPTCHA config & dynamic requirement status for IP/email              |
+| `/api/auth/login`                 |          POST           |     Public     | Sign in with email and password (supports adaptive reCAPTCHA)                  |
+| `/api/auth/register`              |          POST           |     Public     | Register new account with reCAPTCHA (initiates email OTP verification)         |
+| `/api/auth/verify-otp`            |          POST           |     Public     | Verify 6-digit email signup OTP token                                          |
+| `/api/auth/resend-otp`            |          POST           |     Public     | Resend email signup OTP with 60-second cooldown                                |
+| `/api/auth/forgot-password`       |          POST           |     Public     | Request password recovery link and 6-digit OTP (anti-enumeration)              |
+| `/api/auth/reset-password`        |          POST           | Authenticated  | Update password for recovery session or authenticated user                     |
 | `/api/auth/logout`                |          POST           | Authenticated  | Clear session cookies / invalidate session                                     |
-| `/api/auth/callback`              |        GET/POST         |     Public     | Supabase OAuth / email verification callback                                   |
+| `/api/auth/callback`              |        GET/POST         |     Public     | Supabase OAuth / email verification / magic-link / recovery callback           |
 | `/api/home`                       |           GET           |     Public     | Featured dishes for the home page                                              |
 | `/api/menu`                       |           GET           |     Public     | Full visible dish catalog with FTS, filters & sort (no pagination)             |
 | `/api/dishes/filter-options`      |           GET           |     Public     | Chefs, ingredients, categories and price range for public filter UI            |
@@ -145,12 +176,12 @@ Legacy `/api/admin/*` routes remain fully supported as backward-compatibility al
 
 All list endpoints accept `page` (default `1`), `pageSize` (default `20`, max `100`), and optional `fuzzy` (`true`/`false`, default `true` to enable typo-tolerant trigram search via PostgreSQL `pg_trgm`). Multi-value filters accept comma-separated values, e.g. `?category=main,dessert`. Invalid values on recognized keys return `VALIDATION_FAILED` with `error.fields`; unknown keys are ignored. When no filters/search are active, list totals come from the record-counter cache instead of a fresh `COUNT`.
 
-| Resource                              | Search (`q`, optional `fuzzy`)                                                                                        | Filters                                                                                                                                                                                                 | Sort (`sort`)                                                                                                                                                     |
-| :------------------------------------ | :-------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Resource                              | Search (`q`, optional `fuzzy`)                                                                                       | Filters                                                                                                                                                                                                 | Sort (`sort`)                                                                                                                                                     |
+| :------------------------------------ | :------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Dish** (`/api/dishes`, `/api/menu`) | Hybrid FTS (`search_vector`) + `pg_trgm` fuzzy matching (`name`, `description`, linked `chef`, linked `ingredients`) | `category` (CSV), `chefId` (CSV), `withIngredients` (CSV IDs), `withoutIngredients` (CSV IDs), `available`, `featured`, `minPrice`, `maxPrice`, `maxPrepTime`, `unassignedChef`, `deleted` (staff only) | `name-asc`, `name-desc`, `price-asc`, `price-desc`, `newest`, `updated`, `prep-asc`, `ingredients-asc`, `ingredients-desc`, `relevance` (default when `q` is set) |
-| **Chef** (`/api/chefs`)               | Hybrid FTS + `pg_trgm` fuzzy matching (`name`, `specialty`, `bio`)                                                    | `specialty` (CSV), `isActive`, `minExperience`, `hasActiveDishes`                                                                                                                                       | `experience-asc`, `experience-desc`, `dishes-desc`, `name-asc`, `newest`, `updated`, `relevance` (default when `q` is set)                                        |
+| **Chef** (`/api/chefs`)               | Hybrid FTS + `pg_trgm` fuzzy matching (`name`, `specialty`, `bio`)                                                   | `specialty` (CSV), `isActive`, `minExperience`, `hasActiveDishes`                                                                                                                                       | `experience-asc`, `experience-desc`, `dishes-desc`, `name-asc`, `newest`, `updated`, `relevance` (default when `q` is set)                                        |
 | **Ingredient** (`/api/ingredients`)   | Hybrid FTS + `pg_trgm` fuzzy matching (`name`, `unit`)                                                               | `unit` (CSV), `isAvailable`, `stock` (`in`/`out`), `usage` (`unused`/`activeDishes`)                                                                                                                    | `name-asc`, `stock-asc`, `stock-desc`, `price-asc`, `price-desc`, `usage-desc`, `updated`, `relevance` (default when `q` is set)                                  |
-| **Profile / User** (`/api/users`)     | Hybrid FTS + `pg_trgm` fuzzy matching (`display_name`, `email`)                                                       | `role` (CSV: `CUSTOMER,STAFF,ADMIN`), `createdFrom`, `createdTo` (ISO dates)                                                                                                                            | Newest first; ranked by relevance when `q` is set                                                                                                                 |
+| **Profile / User** (`/api/users`)     | Hybrid FTS + `pg_trgm` fuzzy matching (`display_name`, `email`)                                                      | `role` (CSV: `CUSTOMER,STAFF,ADMIN`), `createdFrom`, `createdTo` (ISO dates)                                                                                                                            | Newest first; ranked by relevance when `q` is set                                                                                                                 |
 
 ---
 
@@ -176,6 +207,7 @@ Fill in the values in `.env`:
 - `NODE_ENV`: `development`, `production`, or `test`
 - `PORT`: API server port (default `3000`)
 - `APP_URL`: public server URL used by Supabase auth redirects
+- `EMAIL_REDIRECT_ORIGIN`: origin the SPA is browsable on (e.g. `http://localhost:5173`); auth emails link users here
 - `DATABASE_URL`: Supabase Transaction Pooler URL (port `6543`)
 - `DIRECT_URL`: Supabase Session / Direct connection URL (port `5432`)
 - `SUPABASE_URL`: Your Supabase project URL (`https://<project-ref>.supabase.co`)
@@ -184,6 +216,8 @@ Fill in the values in `.env`:
 - `STORAGE_BUCKET`: `images` (auto-created by seed script if missing)
 - `CSRF_SECRET`: 32+ character random string (e.g. `openssl rand -hex 32`)
 - `SPA_ORIGIN`: Allowed browser origin(s) for CORS, comma-separated (e.g. `http://localhost:5173`); dev localhost/127.0.0.1 origins are allowed automatically
+- `CAPTCHA_SITE_KEY`: Google reCAPTCHA v2 site key ("I'm not a robot" checkbox)
+- `CAPTCHA_SECRET_KEY`: Google reCAPTCHA v2 secret key for server verification
 - `SEED_ADMIN_EMAIL`: Initial admin email
 - `SEED_ADMIN_PASSWORD`: Initial admin password
 
@@ -239,7 +273,7 @@ npm run dev:server  # Express API server on port 3000 (tsx watch)
 
 ## 🧪 Testing & Code Quality
 
-Run Vitest unit test suite (13 test suites, 94 test cases covering HTTP envelopes, Bearer token auth, CSRF bypass, business/technical error contracts, CORS, validation, rate limiting, RBAC, hybrid full-text/fuzzy search & filter builders, and server pagination):
+Run Vitest unit test suite (14 test suites, 98 test cases covering HTTP envelopes, Bearer token auth, CSRF bypass, business/technical error contracts, CORS, validation, rate limiting, signup & recovery OTP verification, RBAC, hybrid full-text/fuzzy search & filter builders, and server pagination):
 
 ```bash
 npm test
