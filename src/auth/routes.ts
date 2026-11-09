@@ -6,6 +6,17 @@ import { prisma } from '../lib/prisma.js';
 import { createSupabaseForRequest } from '../lib/supabase.js';
 import { safeNext, sendOk, sendError } from '../lib/http.js';
 import { toFieldErrors } from '../lib/validation.js';
+import { verifyCaptcha, captchaErrorMessage } from '../lib/captcha.js';
+import {
+  attemptKeys,
+  clearLoginAttempts,
+  emailKey,
+  getLoginAttemptState,
+  ipKey,
+  isCaptchaRequired,
+  registerFailedLogin,
+} from './login-attempts.js';
+import { normalizeEmail } from './email.js';
 import { can } from './permissions.js';
 import { authRateLimit } from '../middleware/rate-limit.js';
 import { generateCsrfToken } from '../middleware/security.js';
@@ -52,11 +63,31 @@ router.get('/me', (req, res) => {
   });
 });
 
+/** Public captcha config and whether the current email/IP must solve it. */
+router.get('/captcha', (req, res) => {
+  const email = typeof req.query.email === 'string' ? normalizeEmail(req.query.email) : '';
+  const state = getLoginAttemptState(email ? attemptKeys(email, req.ip) : ipKey(req.ip));
+  return sendOk(res, {
+    siteKey: env.CAPTCHA_SITE_KEY,
+    required: isCaptchaRequired(state),
+  });
+});
+
 router.post('/login', authRateLimit(), async (req, res) => {
   const next = req.body?.next;
   const parsed = LoginSchema.safeParse(req.body);
   if (!parsed.success) {
     return sendError(res, 422, 'VALIDATION_ERROR', 'Dữ liệu đăng nhập không hợp lệ', toFieldErrors(parsed.error));
+  }
+
+  const email = normalizeEmail(parsed.data.email);
+  const keys = attemptKeys(email, req.ip);
+
+  if (isCaptchaRequired(getLoginAttemptState(keys))) {
+    const captcha = await verifyCaptcha(req.body?.['g-recaptcha-response'], req.ip);
+    if (!captcha.ok) {
+      return sendError(res, 422, 'CAPTCHA_FAILED', captchaErrorMessage(captcha.reason));
+    }
   }
 
   const supabase = createSupabaseForRequest(req, res);
@@ -65,8 +96,11 @@ router.post('/login', authRateLimit(), async (req, res) => {
     if (error?.code === 'email_not_confirmed') {
       return sendError(res, 401, 'EMAIL_NOT_CONFIRMED', 'Vui lòng xác nhận địa chỉ email trước.');
     }
+    registerFailedLogin(keys);
     return sendError(res, 401, 'INVALID_CREDENTIALS', 'Email hoặc mật khẩu không đúng.');
   }
+
+  clearLoginAttempts(emailKey(email));
 
   const redirectTo = await landingFor(data.user.id, data.user.email ?? parsed.data.email, next);
   const profile = await prisma.profile.findUnique({ where: { id: data.user.id } });
@@ -85,6 +119,11 @@ router.post('/register', authRateLimit(), async (req, res) => {
   const parsed = RegisterSchema.safeParse(req.body);
   if (!parsed.success) {
     return sendError(res, 422, 'VALIDATION_ERROR', 'Dữ liệu đăng ký không hợp lệ', toFieldErrors(parsed.error));
+  }
+
+  const captcha = await verifyCaptcha(req.body?.['g-recaptcha-response'], req.ip);
+  if (!captcha.ok) {
+    return sendError(res, 422, 'CAPTCHA_FAILED', captchaErrorMessage(captcha.reason));
   }
 
   const { email, password, displayName } = parsed.data;

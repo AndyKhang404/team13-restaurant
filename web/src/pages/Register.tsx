@@ -1,10 +1,11 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { authApi } from '../lib/resources';
 import { ApiError, HttpError, type ApiFieldErrors } from '../lib/api';
 import { useAuth } from '../auth/AuthProvider';
 import { canAccessAdmin } from '../auth/roles';
 import { FormError } from '../components/FieldError';
+import Recaptcha from '../components/Recaptcha';
 
 export default function Register() {
   const { user, refresh } = useAuth();
@@ -17,9 +18,30 @@ export default function Register() {
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [siteKey, setSiteKey] = useState('');
+  const [captchaToken, setCaptchaToken] = useState('');
+  const [captchaReset, setCaptchaReset] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+    authApi
+      .captcha()
+      .then((config) => {
+        if (active) setSiteKey(config.siteKey);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, []);
 
   if (user) {
     return <Navigate to={canAccessAdmin(user) ? '/admin/dishes' : '/'} replace />;
+  }
+
+  function resetCaptcha() {
+    setCaptchaToken('');
+    setCaptchaReset((value) => value + 1);
   }
 
   async function onSubmit(e: FormEvent) {
@@ -30,14 +52,21 @@ export default function Register() {
       setError('Mật khẩu nhập lại không khớp.');
       return;
     }
+    if (!captchaToken) {
+      setError('Vui lòng xác nhận bạn không phải robot.');
+      return;
+    }
     setBusy(true);
     try {
-      const result = await authApi.register({
-        displayName: displayName.trim() || undefined,
-        email,
-        password,
-        confirmPassword: confirm,
-      });
+      const result = await authApi.register(
+        {
+          displayName: displayName.trim() || undefined,
+          email,
+          password,
+          confirmPassword: confirm,
+        },
+        captchaToken,
+      );
       if (result.requiresEmailConfirmation) {
         setSent(true);
         return;
@@ -56,6 +85,7 @@ export default function Register() {
       } else {
         setError('Đăng ký thất bại.');
       }
+      resetCaptcha();
       setBusy(false);
     }
   }
@@ -168,6 +198,16 @@ export default function Register() {
               onChange={(e) => setConfirm(e.target.value)}
             />
           </div>
+
+          {siteKey ? (
+            <div className="field">
+              <Recaptcha
+                siteKey={siteKey}
+                onToken={setCaptchaToken}
+                resetSignal={captchaReset}
+              />
+            </div>
+          ) : null}
 
           <button type="submit" className="btn btn-solid btn-lg" disabled={busy}>
             {busy ? 'Đang tạo…' : 'Tạo tài khoản'}

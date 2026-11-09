@@ -25,6 +25,9 @@ const EnvSchema = z.object({
   SPA_ORIGIN: z.string().optional(),
 
   CSRF_SECRET: z.string().min(32, 'CSRF_SECRET must be at least 32 characters'),
+
+  CAPTCHA_SITE_KEY: z.string().min(1, 'CAPTCHA_SITE_KEY is required'),
+  CAPTCHA_SECRET_KEY: z.string().min(1, 'CAPTCHA_SECRET_KEY is required'),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

@@ -266,13 +266,26 @@ export interface RegisterResult {
   message?: string;
 }
 
+export interface CaptchaConfig {
+  siteKey: string;
+  required: boolean;
+}
+
 export const authApi = {
   me: () => loadSession(),
-  login: async (email: string, password: string) => {
+  captcha: (email?: string) =>
+    apiFetch<CaptchaConfig>(
+      `/auth/captcha${email ? `?email=${encodeURIComponent(email)}` : ''}`,
+    ),
+  login: async (email: string, password: string, captchaToken?: string) => {
     await loadSession();
     const result = await apiFetch<LoginResult>('/auth/login', {
       method: 'POST',
-      body: { email, password },
+      body: {
+        email,
+        password,
+        ...(captchaToken ? { 'g-recaptcha-response': captchaToken } : {}),
+      },
     });
     const token = result.token ?? result.accessToken;
     if (token) {
@@ -280,16 +293,22 @@ export const authApi = {
     }
     return result;
   },
-  register: async (input: {
-    displayName?: string;
-    email: string;
-    password: string;
-    confirmPassword: string;
-  }) => {
+  register: async (
+    input: {
+      displayName?: string;
+      email: string;
+      password: string;
+      confirmPassword: string;
+    },
+    captchaToken?: string,
+  ) => {
     await loadSession();
     const result = await apiFetch<RegisterResult>('/auth/register', {
       method: 'POST',
-      body: input,
+      body: {
+        ...input,
+        ...(captchaToken ? { 'g-recaptcha-response': captchaToken } : {}),
+      },
     });
     const token = result.token ?? result.accessToken;
     if (token) {

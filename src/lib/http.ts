@@ -14,6 +14,7 @@ export type ApiErrorCode =
   | 'SELF_ROLE_CHANGE'
   | 'LAST_ADMIN'
   | 'RATE_LIMITED'
+  | 'CAPTCHA_FAILED'
   | 'CSRF_INVALID'
   | 'UPLOAD_LIMIT_EXCEEDED'
   | 'INTERNAL_ERROR';

@@ -1,10 +1,11 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { authApi } from '../lib/resources';
 import { ApiError, HttpError } from '../lib/api';
 import { useAuth } from '../auth/AuthProvider';
 import { canAccessAdmin } from '../auth/roles';
 import { FormError } from '../components/FieldError';
+import Recaptcha from '../components/Recaptcha';
 
 interface LocationState {
   from?: string;
@@ -20,18 +21,57 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [siteKey, setSiteKey] = useState('');
+  const [captchaRequired, setCaptchaRequired] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState('');
+  const [captchaReset, setCaptchaReset] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+    authApi
+      .captcha()
+      .then((config) => {
+        if (!active) return;
+        setSiteKey(config.siteKey);
+        setCaptchaRequired(config.required);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, []);
 
   if (user) {
     return <Navigate to={canAccessAdmin(user) ? '/admin/dishes' : '/'} replace />;
   }
 
+  function resetCaptcha() {
+    setCaptchaToken('');
+    setCaptchaReset((value) => value + 1);
+  }
+
+  async function refreshCaptcha() {
+    try {
+      const config = await authApi.captcha(email);
+      setSiteKey(config.siteKey);
+      setCaptchaRequired(config.required);
+      if (config.required) resetCaptcha();
+    } catch {
+      // ignore; the next login attempt will surface the server error
+    }
+  }
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (busy) return;
-    setBusy(true);
     setError(null);
+    if (captchaRequired && !captchaToken) {
+      setError('Vui lòng xác nhận bạn không phải robot.');
+      return;
+    }
+    setBusy(true);
     try {
-      const result = await authApi.login(email, password);
+      const result = await authApi.login(email, password, captchaToken || undefined);
       await refresh();
       const target = canAccessAdmin(result.user)
         ? (state.from ?? result.redirectTo ?? '/admin/dishes')
@@ -46,6 +86,12 @@ export default function Login() {
               ? 'Email hoặc mật khẩu không đúng.'
               : err.message,
         );
+        if (err.code === 'CAPTCHA_FAILED') {
+          setCaptchaRequired(true);
+          resetCaptcha();
+        } else {
+          await refreshCaptcha();
+        }
       } else if (err instanceof HttpError) {
         setError(err.message);
       } else {
@@ -105,6 +151,16 @@ export default function Login() {
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
+
+          {captchaRequired && siteKey ? (
+            <div className="field">
+              <Recaptcha
+                siteKey={siteKey}
+                onToken={setCaptchaToken}
+                resetSignal={captchaReset}
+              />
+            </div>
+          ) : null}
 
           <button type="submit" className="btn btn-solid btn-lg" disabled={busy}>
             {busy ? 'Đang đăng nhập…' : 'Đăng nhập'}
