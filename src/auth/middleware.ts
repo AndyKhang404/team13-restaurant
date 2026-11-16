@@ -58,6 +58,7 @@ async function loadProfile(
       id: userId,
       email: email ?? '',
       displayName: displayName ?? null,
+      status: ProfileStatus.ACTIVE,
     },
     update: {},
   });

@@ -283,7 +283,7 @@ const emailRedirectOrigin = () => env.EMAIL_REDIRECT_ORIGIN ?? env.APP_URL;
 async function landingFor(userId: string, email: string, next: unknown): Promise<string> {
   const profile = await prisma.profile.upsert({
     where: { id: userId },
-    create: { id: userId, email },
+    create: { id: userId, email, status: ProfileStatus.ACTIVE },
     update: {},
   });
   const fallback = canMutate(profile, 'admin:access') ? '/admin' : '/';
@@ -499,7 +499,12 @@ async function handleRegister(req: Request, res: Response) {
   if (data.user) {
     await prisma.profile.upsert({
       where: { id: data.user.id },
-      create: { id: data.user.id, email, displayName: cleanName },
+      create: {
+        id: data.user.id,
+        email,
+        displayName: cleanName,
+        status: ProfileStatus.PENDING,
+      },
       update: {},
     });
   }
@@ -550,8 +555,11 @@ async function handleVerifyOtp(req: Request, res: Response) {
       id: data.user.id,
       email: data.user.email ?? email,
       displayName,
+      status: ProfileStatus.ACTIVE,
     },
-    update: {},
+    update: {
+      status: ProfileStatus.ACTIVE,
+    },
   });
 
   // Slide 17 & 29: Kích hoạt không trả accessToken; người dùng đăng nhập tại /login

@@ -3,6 +3,7 @@ import request from 'supertest';
 import { createApp } from '../src/app.js';
 import { prisma } from '../src/lib/prisma.js';
 import * as supabaseLib from '../src/lib/supabase.js';
+import { ProfileStatus } from '../src/generated/prisma/enums.js';
 
 describe('Signup OTP Verification Endpoints (/api/auth/verify-otp & /api/auth/resend-otp)', () => {
   const app = createApp();
@@ -38,6 +39,7 @@ describe('Signup OTP Verification Endpoints (/api/auth/verify-otp & /api/auth/re
       id: 'user-new-uuid',
       email: 'newuser@example.com',
       displayName: 'New Customer',
+      status: ProfileStatus.ACTIVE,
     } as any);
 
     const res = await request(app)
@@ -61,7 +63,12 @@ describe('Signup OTP Verification Endpoints (/api/auth/verify-otp & /api/auth/re
       token: '123456',
       type: 'signup',
     });
-    expect(upsertSpy).toHaveBeenCalledOnce();
+    expect(upsertSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({ status: ProfileStatus.ACTIVE }),
+        update: expect.objectContaining({ status: ProfileStatus.ACTIVE }),
+      }),
+    );
     expect(signOutMock).toHaveBeenCalledOnce();
   });
 

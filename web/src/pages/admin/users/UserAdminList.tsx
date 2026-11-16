@@ -9,8 +9,19 @@ import { PaginationFooter, PaginationToolbar } from '../../../components/Paginat
 import { formatDateTime } from '../../../lib/format';
 
 const ROLES: UserRole[] = ['ADMIN', 'STAFF', 'VIEWER'];
-const STATUSES: ProfileStatus[] = ['ACTIVE', 'SUSPENDED'];
+const STATUSES: ProfileStatus[] = ['ACTIVE', 'PENDING', 'SUSPENDED'];
 const FILTER_KEYS = ['q', 'fuzzy', 'role', 'status', 'createdFrom', 'createdTo'];
+
+function statusBadge(status?: ProfileStatus): { label: string; tone: string } {
+  switch (status) {
+    case 'SUSPENDED':
+      return { label: 'Đã khóa', tone: 'danger' };
+    case 'PENDING':
+      return { label: 'Chờ kích hoạt', tone: 'warn' };
+    default:
+      return { label: 'Hoạt động', tone: 'ok' };
+  }
+}
 
 function splitCsv(val: string): string[] {
   return val
@@ -246,7 +257,7 @@ export default function UserAdminList() {
                       className={`filter-chip${active ? ' active' : ''}`}
                       onClick={() => setFilter('status', toggleCsvItem(status, item))}
                     >
-                      {item === 'ACTIVE' ? 'Hoạt động' : 'Đã khóa'}
+                      {statusBadge(item).label}
                     </button>
                   );
                 })}
@@ -349,11 +360,10 @@ export default function UserAdminList() {
                       )}
                     </td>
                     <td>
-                      {isSuspended ? (
-                        <span className="badge danger">Đã khóa</span>
-                      ) : (
-                        <span className="badge ok">Hoạt động</span>
-                      )}
+                      {(() => {
+                        const sb = statusBadge(user.status);
+                        return <span className={`badge ${sb.tone}`}>{sb.label}</span>;
+                      })()}
                     </td>
                     <td>
                       <div className="row-actions">
