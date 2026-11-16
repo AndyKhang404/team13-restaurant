@@ -506,6 +506,7 @@ export const authApi = {
   resetPassword: async (input: {
     password: string;
     confirmPassword: string;
+    currentPassword?: string;
     token?: string;
     token_hash?: string;
     code?: string;

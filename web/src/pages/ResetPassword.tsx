@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { ApiError, HttpError } from '../lib/api';
 import { authApi } from '../lib/resources';
 import { useAuth } from '../auth/AuthProvider';
 import { FormError } from '../components/FieldError';
@@ -14,12 +15,13 @@ type Phase = 'code' | 'ready' | 'success' | 'error';
 function authErrorToMessage(err: unknown, fallback: string): string {
   const raw = err instanceof Error ? err.message : '';
   if (/INVALID_RESET_TOKEN|not found|invalid|expired/i.test(raw)) {
-    return 'Token hoặc mã đặt lại mật khẩu không hợp lệ hoặc đã hết hạn. Vui lòng yêu cầu lại.';
+    return 'Liên kết hoặc mã đặt lại mật khẩu không hợp lệ hoặc đã hết hạn. Vui lòng yêu cầu lại.';
   }
   if (/over_email_send_rate_limit|too many|rate/i.test(raw)) {
     return 'Bạn vừa gửi yêu cầu gần đây. Vui lòng đợi một phút rồi thử lại.';
   }
-  return raw || fallback;
+  if (err instanceof ApiError || err instanceof HttpError) return err.message;
+  return fallback;
 }
 
 /**
@@ -30,7 +32,7 @@ function authErrorToMessage(err: unknown, fallback: string): string {
  * - Token errors return HTTP 200 INVALID_RESET_TOKEN.
  */
 export default function ResetPassword() {
-  const { user, signOut } = useAuth();
+  const { user, loading, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [params] = useSearchParams();
@@ -40,9 +42,11 @@ export default function ResetPassword() {
   const stateEmail = ((location.state ?? {}) as { email?: string }).email ?? '';
 
   // Slide 18: Opening the page renders the form directly without consuming token
-  const [phase, setPhase] = useState<Phase>(hasToken ? 'ready' : user ? 'ready' : 'code');
+  const [phase, setPhase] = useState<Phase>(hasToken || user ? 'ready' : 'code');
+  const [manualCodeMode, setManualCodeMode] = useState(false);
   const [email, setEmail] = useState(stateEmail);
   const [otp, setOtp] = useState('');
+  const [currentPassword, setCurrentPassword] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -51,6 +55,8 @@ export default function ResetPassword() {
   const [resending, setResending] = useState(false);
   const [cooldown, setCooldown] = useState(stateEmail ? RESEND_COOLDOWN_SECONDS : 0);
 
+  const requiresCurrentPassword = Boolean(user) && !hasToken && !otp && !manualCodeMode;
+
   useEffect(() => {
     if (cooldown <= 0) return;
     const timer = window.setInterval(() => {
@@ -58,6 +64,11 @@ export default function ResetPassword() {
     }, 1000);
     return () => window.clearInterval(timer);
   }, [cooldown]);
+
+  useEffect(() => {
+    if (loading || hasToken || manualCodeMode || !user) return;
+    setPhase((current) => (current === 'code' ? 'ready' : current));
+  }, [loading, hasToken, manualCodeMode, user]);
 
   useEffect(() => {
     if (phase !== 'success') return;
@@ -76,6 +87,7 @@ export default function ResetPassword() {
   function toCodePhase() {
     setError(null);
     setInfo(null);
+    setManualCodeMode(true);
     setPhase('code');
   }
 
@@ -114,6 +126,10 @@ export default function ResetPassword() {
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (busy) return;
+    if (requiresCurrentPassword && !currentPassword) {
+      setError('Vui lòng nhập mật khẩu hiện tại.');
+      return;
+    }
     if (password.length < 6) {
       setError('Mật khẩu tối thiểu 6 ký tự.');
       return;
@@ -133,6 +149,7 @@ export default function ResetPassword() {
       await authApi.resetPassword({
         password,
         confirmPassword,
+        currentPassword: requiresCurrentPassword ? currentPassword : undefined,
         token: params.get('token') ?? undefined,
         token_hash: params.get('token_hash') ?? undefined,
         code: params.get('code') ?? undefined,
@@ -147,6 +164,10 @@ export default function ResetPassword() {
     } finally {
       setBusy(false);
     }
+  }
+
+  if (loading && !hasToken) {
+    return <div className="empty">Đang tải…</div>;
   }
 
   if (phase === 'error') {
@@ -178,7 +199,7 @@ export default function ResetPassword() {
           <h1>Đổi mật khẩu thành công</h1>
           <div className="alert">
             <b>Thành công</b>
-            <span>Mọi phiên đăng nhập cũ đã bị thu hồi. Vui lòng đăng nhập bằng mật khẩu mới.</span>
+            <span>Các thiết bị khác đã được đăng xuất. Vui lòng đăng nhập bằng mật khẩu mới.</span>
           </div>
           <button
             type="button"
@@ -281,12 +302,29 @@ export default function ResetPassword() {
       <AuthAside quote="Chọn mật khẩu mới cho tài khoản của bạn." />
 
       <div className="auth-body">
-        <h1>Đặt lại mật khẩu</h1>
-        <p className="lead">Nhập mật khẩu mới của bạn, tối thiểu 6 ký tự.</p>
+        <h1>{requiresCurrentPassword ? 'Đổi mật khẩu' : 'Đặt lại mật khẩu'}</h1>
+        <p className="lead">
+          {requiresCurrentPassword
+            ? 'Nhập mật khẩu hiện tại và mật khẩu mới của bạn.'
+            : 'Nhập mật khẩu mới của bạn, tối thiểu 6 ký tự.'}
+        </p>
 
         <FormError message={error} />
 
         <form onSubmit={onSubmit}>
+          {requiresCurrentPassword ? (
+            <PasswordField
+              id="currentPassword"
+              label="Mật khẩu hiện tại"
+              required
+              autoComplete="current-password"
+              placeholder="Nhập mật khẩu hiện tại"
+              value={currentPassword}
+              onChange={setCurrentPassword}
+              disabled={busy}
+            />
+          ) : null}
+
           <PasswordField
             id="password"
             label="Mật khẩu mới"
@@ -317,6 +355,12 @@ export default function ResetPassword() {
             {busy ? 'Đang lưu…' : 'Đặt lại mật khẩu'}
           </button>
         </form>
+
+        {requiresCurrentPassword ? (
+          <div className="auth-alt">
+            Quên mật khẩu hiện tại? <Link to="/forgot-password">Đặt lại bằng email</Link>
+          </div>
+        ) : null}
 
         <div className="auth-alt">
           <Link

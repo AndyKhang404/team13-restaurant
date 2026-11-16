@@ -35,6 +35,8 @@ function makeClient() {
       setSession: vi.fn().mockResolvedValue({ data: { session: null }, error: null }),
       signInWithPassword: vi.fn(),
       signOut: vi.fn().mockResolvedValue({ error: null }),
+      updateUser: vi.fn().mockResolvedValue({ data: { user: { id: userId } }, error: null }),
+      verifyOtp: vi.fn(),
       mfa: {
         listFactors: vi.fn(),
         enroll: vi.fn(),
@@ -540,6 +542,125 @@ describe('Supabase MFA status and AAL enforcement', () => {
     expect(res.status).toBe(200);
     expect(res.body.data.user.mfaEnabled).toBe(true);
     expect(res.body.data.mfaRequired).toBe(false);
+  });
+});
+
+describe('Authenticated password change', () => {
+  it('requires the current password when the user is already signed in', async () => {
+    const requestClient = makeClient();
+    requestClient.auth.getClaims.mockResolvedValue(claims('aal1'));
+    vi.spyOn(supabaseLib, 'createSupabaseForRequest').mockReturnValue(requestClient as never);
+    vi.spyOn(prisma.profile, 'findUnique').mockResolvedValue({
+      ...baseProfile,
+      mfaState: null,
+    } as never);
+
+    const updateUser = vi
+      .spyOn(supabaseLib.supabaseAdmin.auth.admin, 'updateUserById')
+      .mockResolvedValue({ data: { user: { id: userId } }, error: null } as never);
+
+    const res = await request(app)
+      .post('/api/auth/reset-password')
+      .set('Authorization', 'Bearer access-token')
+      .send({ password: 'newpass123', confirmPassword: 'newpass123' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.error.code).toBe('CURRENT_PASSWORD_REQUIRED');
+    expect(updateUser).not.toHaveBeenCalled();
+  });
+
+  it('rejects a wrong current password without changing the password', async () => {
+    const requestClient = makeClient();
+    requestClient.auth.getClaims.mockResolvedValue(claims('aal1'));
+    vi.spyOn(supabaseLib, 'createSupabaseForRequest').mockReturnValue(requestClient as never);
+    vi.spyOn(prisma.profile, 'findUnique').mockResolvedValue({
+      ...baseProfile,
+      mfaState: null,
+    } as never);
+
+    const stateless = makeClient();
+    stateless.auth.signInWithPassword.mockResolvedValue({
+      data: { user: null, session: null },
+      error: { code: 'invalid_credentials', message: 'Invalid credentials' },
+    });
+    vi.spyOn(supabaseLib, 'createStatelessClient').mockReturnValue(stateless as never);
+
+    const updateUser = vi
+      .spyOn(supabaseLib.supabaseAdmin.auth.admin, 'updateUserById')
+      .mockResolvedValue({ data: { user: { id: userId } }, error: null } as never);
+
+    const res = await request(app)
+      .post('/api/auth/reset-password')
+      .set('Authorization', 'Bearer access-token')
+      .send({
+        currentPassword: 'wrong-password',
+        password: 'newpass123',
+        confirmPassword: 'newpass123',
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.error.code).toBe('INVALID_CURRENT_PASSWORD');
+    expect(updateUser).not.toHaveBeenCalled();
+  });
+
+  it('changes the password when the current password is correct', async () => {
+    const requestClient = makeClient();
+    requestClient.auth.getClaims.mockResolvedValue(claims('aal1'));
+    vi.spyOn(supabaseLib, 'createSupabaseForRequest').mockReturnValue(requestClient as never);
+    vi.spyOn(prisma.profile, 'findUnique').mockResolvedValue({
+      ...baseProfile,
+      mfaState: null,
+    } as never);
+
+    const stateless = makeClient();
+    stateless.auth.signInWithPassword.mockResolvedValue({
+      data: {
+        user: { id: userId },
+        session: { access_token: 'pw-token', refresh_token: 'pw-refresh' },
+      },
+      error: null,
+    });
+    vi.spyOn(supabaseLib, 'createStatelessClient').mockReturnValue(stateless as never);
+    const updateUser = vi
+      .spyOn(supabaseLib.supabaseAdmin.auth.admin, 'updateUserById')
+      .mockResolvedValue({ data: { user: { id: userId } }, error: null } as never);
+
+    const res = await request(app)
+      .post('/api/auth/reset-password')
+      .set('Authorization', 'Bearer access-token')
+      .send({
+        currentPassword: 'correct-password',
+        password: 'newpass123',
+        confirmPassword: 'newpass123',
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.message).toBe('Đổi mật khẩu thành công.');
+    expect(updateUser).toHaveBeenCalledWith(userId, { password: 'newpass123' });
+    expect(requestClient.auth.signOut).toHaveBeenCalledWith({ scope: 'others' });
+  });
+
+  it('does not require the current password for an email + OTP recovery flow', async () => {
+    const requestClient = makeClient();
+    requestClient.auth.verifyOtp.mockResolvedValue({
+      data: { user: { id: userId } },
+      error: null,
+    });
+    vi.spyOn(supabaseLib, 'createSupabaseForRequest').mockReturnValue(requestClient as never);
+    const updateUser = vi
+      .spyOn(supabaseLib.supabaseAdmin.auth.admin, 'updateUserById')
+      .mockResolvedValue({ data: { user: { id: userId } }, error: null } as never);
+
+    const res = await request(app).post('/api/auth/reset-password').send({
+      email: 'user@example.com',
+      otp: '123456',
+      password: 'newpass123',
+      confirmPassword: 'newpass123',
+    });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.message).toBe('Đổi mật khẩu thành công.');
+    expect(updateUser).toHaveBeenCalledWith(userId, { password: 'newpass123' });
   });
 });
 

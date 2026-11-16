@@ -100,6 +100,7 @@ const ResetPasswordSchema = z
       .min(6, 'Mật khẩu phải ít nhất 6 ký tự')
       .max(72, 'Mật khẩu tối đa 72 ký tự'),
     confirmPassword: z.string(),
+    currentPassword: z.string().optional(),
     token: z.string().optional(),
     token_hash: z.string().optional(),
     code: z.string().optional(),
@@ -123,7 +124,7 @@ const TotpCodeSchema = z
   });
 
 const MfaEnrollVerifySchema = z.object({
-  factorId: z.string().min(1, 'Thiếu mã yếu tố xác thực'),
+  factorId: z.string().min(1, 'Thiếu thông tin xác thực hai lớp'),
   code: TotpCodeSchema,
 });
 
@@ -670,6 +671,35 @@ async function handleResetPassword(req: Request, res: Response) {
   const token = parsed.data.token;
   const email = parsed.data.email;
   const otp = parsed.data.otp;
+  const hasRecoveryProof = Boolean(code || tokenHash || token || (email && otp));
+
+  // Changing a password from an already authenticated session (e.g. Profile →
+  // Đổi mật khẩu) must prove knowledge of the current password. Recovery
+  // links/OTPs are already proof of mailbox ownership, so they skip this.
+  if (req.user && !hasRecoveryProof) {
+    const currentPassword = parsed.data.currentPassword;
+    if (!currentPassword) {
+      return sendBusinessError(
+        res,
+        'CURRENT_PASSWORD_REQUIRED',
+        'Vui lòng nhập mật khẩu hiện tại.',
+      );
+    }
+
+    const passwordCheck = createStatelessClient();
+    const { error: passwordError } = await passwordCheck.auth.signInWithPassword({
+      email: req.user.email,
+      password: currentPassword,
+    });
+    if (passwordError) {
+      return sendBusinessError(
+        res,
+        'INVALID_CURRENT_PASSWORD',
+        'Mật khẩu hiện tại không đúng.',
+      );
+    }
+    await passwordCheck.auth.signOut({ scope: 'local' });
+  }
 
   // Resolve session if not already logged in
   if (!userId) {
@@ -756,24 +786,35 @@ async function handleResetPassword(req: Request, res: Response) {
     }
   }
 
-  // Update password in Supabase Auth
-  const { error: updateError } = await supabase.auth.updateUser({
+  if (!userId) {
+    return sendBusinessError(
+      res,
+      'INVALID_RESET_TOKEN',
+      'Không xác định được tài khoản cần đổi mật khẩu.',
+    );
+  }
+
+  // Admin update works for both cookie sessions and Bearer-only clients:
+  // Supabase's user-scoped updateUser requires a stored session.
+  const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
     password: parsed.data.password,
   });
 
   if (updateError) {
     return sendBusinessError(
       res,
-      'INVALID_RESET_TOKEN',
-      'Không thể cập nhật mật khẩu: ' + updateError.message,
+      'AUTH_ERROR',
+      'Không thể cập nhật mật khẩu. Vui lòng thử lại.',
     );
   }
 
   // Slide 22 & 29: Invalidate previously issued JWTs immediately
-  if (userId) {
-    recordPasswordReset(userId);
+  recordPasswordReset(userId);
+  try {
+    await supabase.auth.signOut({ scope: 'others' });
+  } catch {
+    // Best-effort: recordPasswordReset already blocks pre-reset access tokens.
   }
-  await supabase.auth.signOut({ scope: 'others' });
 
   // Slide 18 & 29: Reset không trả accessToken và không tự đăng nhập
   return sendOk(res, { message: 'Đổi mật khẩu thành công.' });
@@ -1157,7 +1198,7 @@ async function handleMfaVerify(req: Request, res: Response) {
     return sendBusinessError(
       res,
       'MFA_NOT_ENABLED',
-      'Tài khoản chỉ có thể xác thực bằng mã khôi phục.',
+      'Tài khoản này chỉ có thể đăng nhập bằng mã khôi phục.',
     );
   }
 

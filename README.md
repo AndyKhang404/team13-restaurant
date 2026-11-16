@@ -32,6 +32,8 @@ A modern client-side rendered (CSR) web application for restaurant meal manageme
   - Anti-enumeration email submission; triggers Supabase recovery email with magic link and 6-digit OTP without disclosing whether the email exists.
   - Automatic redirect to `/reset-password` preserving the entered email.
 - **Password Reset (`/reset-password`)**:
+  - Changing a password from an authenticated session requires the **current password** plus the new password and confirmation.
+  - Recovery links/OTP are proof of mailbox ownership, so they do not require the old password.
   - Dual-entry recovery: automatic token verification from query params (`?token_hash=…` or `?code=…`) or manual 6-digit OTP entry (`/api/auth/callback`).
   - Stateful lifecycle phases (`verifying`, `code`, `ready`, `success`, `error`) with semantic `<h1>` headings and error guidance.
   - Independent password and confirm password eye toggles, with immediate revocation of other active sessions on successful password update.
