@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthProvider';
 import { canAccessAdmin } from '../auth/roles';
+import { displayUsername } from '../pages/Profile';
+import { Avatar } from './Avatar';
 import { ThemeSwitch, ThemeToggle, useTheme } from './ThemeSwitch';
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
@@ -71,15 +73,31 @@ export function Layout() {
                 </Link>
               ) : null}
               {user ? (
-                <button
-                  type="button"
-                  className="btn btn-solid"
-                  onClick={() => void onLogout()}
-                  disabled={loggingOut}
-                  aria-busy={loggingOut}
-                >
-                  {loggingOut ? 'Đang xuất…' : 'Đăng xuất'}
-                </button>
+                <>
+                  <Link
+                    className="btn btn-quiet nav-profile-link"
+                    to="/profile"
+                    title="Tài khoản cá nhân"
+                  >
+                    <Avatar
+                      url={null}
+                      name={displayUsername(user.displayName, user.email)}
+                      size={24}
+                    />
+                    <span className="nav-profile-name">
+                      {displayUsername(user.displayName, user.email)}
+                    </span>
+                  </Link>
+                  <button
+                    type="button"
+                    className="btn btn-solid"
+                    onClick={() => void onLogout()}
+                    disabled={loggingOut}
+                    aria-busy={loggingOut}
+                  >
+                    {loggingOut ? 'Đang xuất…' : 'Đăng xuất'}
+                  </button>
+                </>
               ) : (
                 <>
                   <Link className="btn btn-quiet" to="/login">

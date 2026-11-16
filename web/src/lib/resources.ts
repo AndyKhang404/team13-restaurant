@@ -350,6 +350,16 @@ export const authApi = {
     }
     return loadSession();
   },
+  deleteAccount: async (email: string) => {
+    await loadSession();
+    const res = await apiFetch<{ message: string }>('/auth/me', {
+      method: 'DELETE',
+      body: { email },
+      timeoutMs: 30_000,
+    });
+    setAuthToken(null);
+    return res;
+  },
   callback: async (search: string) => {
     const result = await apiFetch<LoginResult>(`/auth/callback${search}`, { timeoutMs: 30_000 }, false);
     const token = result.token ?? result.accessToken;

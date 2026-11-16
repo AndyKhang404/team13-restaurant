@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { dishesApi } from '../lib/resources';
 import { useApi } from '../lib/useApi';
 import { useAuth } from '../auth/AuthProvider';
@@ -175,12 +175,33 @@ function FeaturedCarousel({ items }: { items: Dish[] }) {
 
 export default function Home() {
   const { user } = useAuth();
+  const location = useLocation();
+  const stateMessage = ((location.state ?? {}) as { message?: string }).message ?? null;
+  const [flashMessage, setFlashMessage] = useState<string | null>(stateMessage);
   const { data, loading, error, reload } = useApi(() => dishesApi.featured(), []);
   const featured = (data ?? []).filter((d) => d.isFeatured);
   const hero = featured[0];
 
+  useEffect(() => {
+    if (stateMessage) setFlashMessage(stateMessage);
+  }, [stateMessage]);
+
   return (
     <div>
+      {flashMessage ? (
+        <div className="alert" role="status">
+          <b>Thông báo</b>
+          <span>{flashMessage}</span>
+          <button
+            type="button"
+            className="alert-dismiss"
+            onClick={() => setFlashMessage(null)}
+            aria-label="Đóng thông báo"
+          >
+            ×
+          </button>
+        </div>
+      ) : null}
       <section className="hero hero-split">
         <div className="hero-text">
           <div className="eyebrow">Bếp mở cửa 09:00 — 22:00 mỗi ngày</div>

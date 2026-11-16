@@ -9,6 +9,7 @@ import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import AuthCallback from './pages/AuthCallback';
+import Profile from './pages/Profile';
 import DishList from './pages/dishes/DishList';
 import DishDetail from './pages/dishes/DishDetail';
 import DishAdminList from './pages/admin/dishes/DishAdminList';
@@ -34,6 +35,14 @@ export function App() {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
+        <Route
+          path="/profile"
+          element={
+            <RequireAuth>
+              <Profile />
+            </RequireAuth>
+          }
+        />
         <Route path="*" element={<NotFoundState message="Trang không tồn tại." />} />
       </Route>
 

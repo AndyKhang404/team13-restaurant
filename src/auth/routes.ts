@@ -1,9 +1,10 @@
 import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 import type { EmailOtpType } from '@supabase/supabase-js';
+import { Role } from '../generated/prisma/enums.js';
 import { env, isProd } from '../config/env.js';
 import { prisma } from '../lib/prisma.js';
-import { createSupabaseForRequest, getBearerToken } from '../lib/supabase.js';
+import { createSupabaseForRequest, getBearerToken, supabaseAdmin } from '../lib/supabase.js';
 import { safeNext, sendOk, sendError, sendBusinessError } from '../lib/http.js';
 import { toFieldErrors } from '../lib/validation.js';
 import { verifyCaptcha, captchaErrorMessage } from '../lib/captcha.js';
@@ -18,6 +19,7 @@ import {
 } from './login-attempts.js';
 import { normalizeEmail } from './email.js';
 import { can } from './permissions.js';
+import { requireAuth } from './middleware.js';
 import { authRateLimit, otpRateLimit } from '../middleware/rate-limit.js';
 import { generateCsrfToken } from '../middleware/security.js';
 import { recordPasswordReset } from './token-revocation.js';
@@ -79,6 +81,10 @@ const ResetPasswordSchema = z
     path: ['confirmPassword'],
     message: 'Mật khẩu nhập lại không khớp',
   });
+
+const DeleteAccountSchema = z.object({
+  email: z.email('Email không hợp lệ').trim(),
+});
 
 /** Origin embedded in auth emails so links land on the browsable SPA. */
 const emailRedirectOrigin = () => env.EMAIL_REDIRECT_ORIGIN ?? env.APP_URL;
@@ -584,7 +590,67 @@ async function handleAuthCallback(req: Request, res: Response) {
   });
 }
 
+/**
+ * DELETE /api/auth/me
+ * Permanently deletes the authenticated user's account after verifying email confirmation.
+ * Order: delete Supabase Auth user first so an upstream failure keeps the Profile intact,
+ * then remove Profile idempotently via deleteMany, revoke existing JWTs, and sign out cookies.
+ */
+async function handleDeleteAccount(req: Request, res: Response) {
+  const user = req.user;
+  if (!user) {
+    return sendError(res, 401, 'UNAUTHENTICATED', 'Vui lòng đăng nhập để tiếp tục.');
+  }
+
+  const parsed = DeleteAccountSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return sendBusinessError(
+      res,
+      'VALIDATION_ERROR',
+      'Dữ liệu không hợp lệ',
+      toFieldErrors(parsed.error),
+    );
+  }
+
+  if (normalizeEmail(parsed.data.email) !== normalizeEmail(user.email)) {
+    return sendBusinessError(
+      res,
+      'EMAIL_MISMATCH',
+      'Email xác nhận không khớp với tài khoản hiện tại.',
+      { email: 'Email xác nhận không khớp với tài khoản hiện tại.' },
+    );
+  }
+
+  if (user.role === Role.ADMIN) {
+    const otherAdmins = await prisma.profile.count({
+      where: { role: Role.ADMIN, id: { not: user.id } },
+    });
+    if (otherAdmins === 0) {
+      return sendBusinessError(
+        res,
+        'LAST_ADMIN',
+        'Không thể xóa tài khoản quản trị viên cuối cùng.',
+      );
+    }
+  }
+
+  const { error: deleteAuthError } = await supabaseAdmin.auth.admin.deleteUser(user.id);
+  if (deleteAuthError) {
+    return sendError(res, 500, 'AUTH_ERROR', 'Không thể xóa tài khoản. Vui lòng thử lại sau.');
+  }
+
+  await prisma.profile.deleteMany({ where: { id: user.id } });
+  recordPasswordReset(user.id);
+
+  const supabase = createSupabaseForRequest(req, res);
+  await supabase.auth.signOut();
+
+  return sendOk(res, { message: 'Tài khoản đã được xóa.' });
+}
+
 // Routes and Aliases conforming to Deck (Slide 15, 16, 17, 18, 28, 29)
+router.delete('/me', authRateLimit(), requireAuth, handleDeleteAccount);
+
 router.post('/login', authRateLimit(), handleLogin);
 router.post('/register', authRateLimit(), handleRegister);
 

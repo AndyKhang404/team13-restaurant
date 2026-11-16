@@ -2901,3 +2901,224 @@ input:focus-visible {
     height: 24px;
   }
 }
+
+/* ---------- header profile link & alert dismiss ---------- */
+.nav-profile-link {
+  gap: 8px;
+  padding: 0 12px;
+}
+.nav-profile-name {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.alert-dismiss {
+  margin-left: auto;
+  background: none;
+  border: 0;
+  color: inherit;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+/* ---------- danger button & modal scroll containment ---------- */
+.btn-danger {
+  border-color: var(--danger);
+  color: var(--danger);
+  background: transparent;
+}
+.btn-danger:hover:not(:disabled) {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: var(--surface);
+}
+.btn-danger:disabled,
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+.theme-toggle:checked ~ .page .btn-danger:hover:not(:disabled) {
+  color: #14100d;
+}
+dialog:modal {
+  overscroll-behavior: contain;
+}
+dialog::backdrop {
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+/* ---------- profile page & delete dialog ---------- */
+.profile-page {
+  max-width: 720px;
+  margin: 56px auto 88px;
+  animation: fade-up 0.7s var(--ease) both;
+}
+.profile-card {
+  margin-top: 16px;
+  background: var(--surface);
+  border: 1px solid var(--ink);
+  padding: 36px;
+}
+.profile-header {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  padding-bottom: 26px;
+  border-bottom: 1px solid var(--line);
+}
+.profile-identity {
+  min-width: 0;
+}
+.profile-name-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.profile-identity h1 {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: clamp(26px, 4vw, 34px);
+  line-height: 1.2;
+  margin: 0;
+  word-break: break-word;
+}
+.profile-email {
+  margin: 6px 0 0;
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--ink-2);
+  word-break: break-all;
+}
+.profile-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 9px;
+  border: 1px solid var(--line);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+.profile-badge.is-danger {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+.profile-badge.is-warn {
+  border-color: var(--warn);
+  color: var(--warn);
+}
+.profile-fields {
+  margin: 0;
+  padding: 10px 0 4px;
+}
+.profile-field {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+.profile-field dt {
+  font-family: var(--mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--ink-2);
+  align-self: center;
+}
+.profile-field dd {
+  margin: 0;
+  word-break: break-word;
+}
+.profile-field dd.mono {
+  font-family: var(--mono);
+  font-size: 13.5px;
+}
+.profile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 28px;
+}
+.profile-dialog {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  border: 1px solid var(--ink);
+  background: var(--surface);
+  color: var(--ink);
+  padding: 0;
+  width: min(480px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+}
+.profile-dialog::backdrop {
+  background: rgba(20, 16, 12, 0.6);
+}
+.profile-dialog-card {
+  padding: 32px;
+}
+.profile-dialog-card h2 {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 26px;
+  line-height: 1.25;
+  margin: 0 0 12px;
+  color: var(--danger);
+}
+.profile-dialog-warn {
+  margin: 0 0 20px;
+  font-size: 14.5px;
+  color: var(--ink-2);
+}
+.profile-dialog-card .field b {
+  font-weight: 600;
+  color: var(--ink);
+  text-transform: none;
+  letter-spacing: 0;
+}
+.profile-dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+@media (max-width: 640px) {
+  .nav-profile-name {
+    display: none;
+  }
+  .nav-profile-link {
+    padding: 0 8px;
+  }
+  .profile-page {
+    margin: 34px auto 60px;
+  }
+  .profile-card {
+    padding: 24px 18px;
+  }
+  .profile-header {
+    gap: 14px;
+  }
+  .profile-field {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+  .profile-actions .btn,
+  .profile-dialog-actions .btn {
+    flex: 1;
+    min-width: 140px;
+  }
+  .profile-dialog-card {
+    padding: 24px 18px;
+  }
+}
+

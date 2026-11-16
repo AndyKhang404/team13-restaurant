@@ -21,6 +21,7 @@ export type ApiErrorCode =
   | 'CONFLICT'
   | 'SELF_ROLE_CHANGE'
   | 'LAST_ADMIN'
+  | 'EMAIL_MISMATCH'
   | 'RATE_LIMITED'
   | 'CSRF_INVALID'
   | 'UPLOAD_LIMIT_EXCEEDED'
