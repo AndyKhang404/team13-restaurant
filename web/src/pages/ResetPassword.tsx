@@ -39,7 +39,13 @@ export default function ResetPassword() {
 
   const urlToken = params.get('token') || params.get('token_hash') || params.get('code');
   const hasToken = Boolean(urlToken);
-  const stateEmail = ((location.state ?? {}) as { email?: string }).email ?? '';
+  // The email never appears in the URL: it arrives via navigation state
+  // (set by ForgotPassword) and is mirrored into sessionStorage so a refresh
+  // does not lose it.
+  const stateEmail =
+    ((location.state ?? {}) as { email?: string }).email ??
+    (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('recovery_email') : null) ??
+    '';
 
   // Slide 18: Opening the page renders the form directly without consuming token
   const [phase, setPhase] = useState<Phase>(hasToken || user ? 'ready' : 'code');
@@ -58,6 +64,11 @@ export default function ResetPassword() {
   const requiresCurrentPassword = Boolean(user) && !hasToken && !otp && !manualCodeMode;
 
   useEffect(() => {
+    if (stateEmail) sessionStorage.setItem('recovery_email', stateEmail);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
     if (cooldown <= 0) return;
     const timer = window.setInterval(() => {
       setCooldown((prev) => (prev <= 1 ? 0 : prev - 1));
@@ -72,6 +83,7 @@ export default function ResetPassword() {
 
   useEffect(() => {
     if (phase !== 'success') return;
+    sessionStorage.removeItem('recovery_email');
     const timer = window.setTimeout(() => {
       navigate('/login', {
         replace: true,
@@ -225,6 +237,27 @@ export default function ResetPassword() {
   }
 
   if (phase === 'code') {
+    if (!email.trim()) {
+      // No address known (deep link / cleared storage): send the user back one step.
+      return (
+        <div className="auth-split">
+          <AuthAside quote="Kiểm tra hộp thư của bạn." />
+          <div className="auth-body">
+            <h1>Chưa có yêu cầu đặt lại mật khẩu</h1>
+            <p className="lead">
+              Bạn cần gửi yêu cầu trước để nhận liên kết và mã 6 số qua email.
+            </p>
+            <Link to="/forgot-password" className="btn btn-solid btn-lg" role="button">
+              Gửi yêu cầu đặt lại mật khẩu
+            </Link>
+            <div className="auth-alt">
+              <Link to="/login">Đăng nhập</Link>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="auth-split">
         <AuthAside quote="Kiểm tra hộp thư của bạn." />
@@ -232,9 +265,8 @@ export default function ResetPassword() {
         <div className="auth-body">
           <h1>Nhập mã xác nhận</h1>
           <p className="lead">
-            Chúng tôi đã gửi <b>liên kết và mã 6 số</b> đến{' '}
-            {email ? <b>{email}</b> : 'email của bạn'}. Nhập mã để tiếp tục nếu bạn không nhấn được
-            liên kết.
+            Chúng tôi đã gửi <b>liên kết và mã 6 số</b> đến <b>{email}</b>. Nhập mã để tiếp tục nếu
+            bạn không nhấn được liên kết.
           </p>
 
           {info && (
@@ -246,28 +278,19 @@ export default function ResetPassword() {
           <FormError message={error} />
 
           <form onSubmit={onCodeSubmit}>
-            <div className="field">
-              <label htmlFor="email">
-                Email <span className="req">*</span>
-              </label>
-              <input
-                id="email"
-                type="email"
-                required
-                autoComplete="email"
-                placeholder="ban@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={busy || resending}
-              />
-            </div>
-
-            <OtpField id="otp" value={otp} onChange={setOtp} disabled={busy || resending} />
+            <OtpField
+              id="otp"
+              label="Mã 6 số"
+              hint="Nhập mã gồm 6 chữ số được gửi tới hộp thư của bạn (kiểm tra cả thư mục Spam)."
+              value={otp}
+              onChange={setOtp}
+              disabled={busy || resending}
+            />
 
             <button
               type="submit"
               className="btn btn-solid btn-lg"
-              disabled={busy || resending || otp.length !== 6 || !email.trim()}
+              disabled={busy || resending || otp.length !== 6}
             >
               Tiếp tục đặt lại mật khẩu
             </button>
@@ -289,7 +312,6 @@ export default function ResetPassword() {
           </div>
 
           <div className="auth-alt">
-            Mã hết hạn? <Link to="/forgot-password">Gửi lại yêu cầu</Link> ·{' '}
             <Link to="/login">Đăng nhập</Link>
           </div>
         </div>
