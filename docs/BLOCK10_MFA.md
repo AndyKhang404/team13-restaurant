@@ -1,7 +1,7 @@
 # Block 10 — Supabase MFA (TOTP)
 
 Tài liệu này mô tả tính năng xác thực hai lớp (2FA) dùng **Supabase Auth MFA** trên nhánh
-`feat/mfa`. Factor và secret nằm trong Supabase Auth; app chỉ lưu trạng thái không bí mật
+`feat/block10`. Factor và secret nằm trong Supabase Auth; app chỉ lưu trạng thái không bí mật
 trong bảng `public.mfa_states`.
 
 ## 1. Phạm vi
@@ -81,16 +81,16 @@ RLS bật nhưng **không có policy**: chỉ Prisma/service role được truy 
 
 ## 4. Endpoints
 
-| Method | Endpoint                        | Auth          | Mô tả                                                  |
-| ------ | ------------------------------- | ------------- | ------------------------------------------------------ |
-| GET    | `/api/auth/mfa/status`          | AAL2          | Trạng thái bật, factor id, số recovery codes còn lại   |
-| POST   | `/api/auth/mfa/enroll`          | Đã đăng nhập  | Bắt đầu enroll, trả QR + secret                        |
-| POST   | `/api/auth/mfa/enroll/verify`   | Đã đăng nhập  | Xác nhận mã đầu tiên, trả recovery codes một lần       |
-| POST   | `/api/auth/mfa/verify`          | Public + CSRF | Hoàn tất login challenge bằng TOTP                     |
-| POST   | `/api/auth/mfa/verify-recovery` | Public + CSRF | Dùng recovery code để tắt MFA và yêu cầu đăng nhập lại |
-| POST   | `/api/auth/mfa/disable`         | AAL2          | Tắt 2FA (password + mã hiện tại)                       |
-| POST   | `/api/auth/mfa/recovery-codes`  | AAL2          | Tạo lại bộ recovery codes                              |
-| POST   | `/api/users/:id/mfa/reset`      | ADMIN         | Reset 2FA khi user mất thiết bị                        |
+| Method | Endpoint                        | Auth          | Mô tả                                                          |
+| ------ | ------------------------------- | ------------- | -------------------------------------------------------------- |
+| GET    | `/api/auth/mfa/status`          | AAL2          | Trạng thái bật, factor id, số recovery codes còn lại           |
+| POST   | `/api/auth/mfa/enroll`          | Đã đăng nhập  | Bắt đầu enroll, trả QR + secret                                |
+| POST   | `/api/auth/mfa/enroll/verify`   | Đã đăng nhập  | Xác nhận mã đầu tiên, trả recovery codes một lần               |
+| POST   | `/api/auth/mfa/verify`          | Public + CSRF | Hoàn tất login challenge bằng TOTP                             |
+| POST   | `/api/auth/mfa/verify-recovery` | Public + CSRF | Dùng recovery code để tắt MFA và yêu cầu đăng nhập lại         |
+| POST   | `/api/auth/mfa/disable`         | AAL2          | Tắt 2FA (password + mã hiện tại)                               |
+| POST   | `/api/auth/mfa/recovery-codes`  | AAL2          | Tạo lại bộ recovery codes (password + mã hiện tại)             |
+| POST   | `/api/users/:id/mfa/reset`      | ADMIN         | Reset 2FA khi user mất thiết bị (không áp dụng cho chính mình) |
 
 Business errors giữ contract `HTTP 200 + { ok:false, error:{ code, message } }`.
 
@@ -154,6 +154,22 @@ Khi **bật** MFA, server giữ session AAL2 hiện tại và chỉ `signOut({ s
 Khi **tắt** MFA, server gọi `recordPasswordReset` và `signOut({ scope: 'global' })` để huỷ
 mọi session cũ.
 
+### 7.1 Đổi mật khẩu và đặt lại mật khẩu
+
+`POST /api/auth/reset-password` phục vụ hai luồng tách biệt:
+
+1. **Reset bằng email (chưa đăng nhập):** chỉ chấp nhận đúng một bằng chứng sở hữu hộp thư
+   (`token_hash`, `email + otp`, hoặc `code`). Bằng chứng được xác minh bằng Supabase client
+   **stateless** nên không tạo cookie phiên; sau khi đổi mật khẩu server đăng xuất mọi thiết bị
+   (scope `global`) và xoá mọi auth cookie còn sót.
+2. **Đổi mật khẩu khi đang đăng nhập:** luôn yêu cầu `currentPassword` và xác minh bằng
+   stateless client. Nếu request có kèm token/OTP thì token đó vẫn phải xác minh hợp lệ —
+   token rác không thể dùng để bỏ qua bước mật khẩu hiện tại.
+
+Chặn vượt MFA: nếu tài khoản đã bật MFA mà request chỉ có token AAL1 (`req.mfaRequired`),
+API trả ngay `401 MFA_REQUIRED`. Bearer token không còn được chấp nhận như bằng chứng đặt lại
+mật khẩu, nên kẻ chỉ có mật khẩu không thể đổi mật khẩu để chiếm tài khoản.
+
 ## 8. Recovery codes (app-level)
 
 Supabase Auth trên project này chưa bật recovery codes, nên app tự quản lý:
@@ -175,7 +191,17 @@ Supabase Auth trên project này chưa bật recovery codes, nên app tự quả
 - Sai 5 lần → `mfa_states.locked_until = now + 15 phút`.
 - Login kiểm tra lock trước khi tạo challenge.
 - Challenge store cũng tự huỷ sau 5 lần hoặc 5 phút.
+- Sai **mã khôi phục** (ở bước login, ở `/mfa/disable` và khi tạo lại mã) cũng tăng
+  `failed_attempts` và khoá tài khoản, không chỉ mã TOTP.
+- `/mfa/disable` và `/mfa/recovery-codes` kiểm tra lock trước khi xác minh mã.
 - Rate limit bổ sung ở route (`authRateLimit`).
+
+### 9.1 Chống dùng lại mã (RFC 6238 §5.2)
+
+- Mã TOTP đã xác thực thành công được lưu hash (`last_code_hash`) + thời điểm (`last_code_at`).
+- Áp dụng cho `/mfa/verify`, `/mfa/disable` và `/mfa/recovery-codes`; mã cũ trong cửa sổ
+  90 giây bị từ chối với `INVALID_MFA_CODE`.
+- Mã khôi phục cấp app luôn dùng một lần (`used_at`).
 
 ## 10. Giới hạn đã biết
 
@@ -222,3 +248,61 @@ Manual QA:
 - TOTP MFA được bật mặc định trên các project Supabase.
 - Nếu dùng self-host: `MFA_TOTP_ENROLL_ENABLED=true`, `MFA_TOTP_VERIFY_ENABLED=true`.
 - Recovery codes do app quản lý nên không phụ thuộc tính năng experimental của Supabase.
+
+## 13. Nghiệm thu bằng request trực tiếp
+
+Deck yêu cầu nghiệm thu bằng request trực tiếp, không chỉ thao tác qua giao diện. Các lệnh
+dưới đây gọi API (Bearer token được miễn CSRF), thay `$BASE`, `$TOKEN`, `$DISH_ID` bằng giá
+trị thật.
+
+### 13.1 Bốn cổng phân quyền
+
+```bash
+# Cổng 1 — chưa biết người gọi
+curl -i "$BASE/api/stats"                        # 401 UNAUTHENTICATED
+
+# Cổng 2 — role không có quyền
+curl -i -H "Authorization: Bearer $VIEWER" "$BASE/api/stats"          # 403 FORBIDDEN
+curl -i -X DELETE -H "Authorization: Bearer $VIEWER" \
+  "$BASE/api/dishes/$DISH_ID"                                          # 403 FORBIDDEN
+
+# Cổng 3 — bản ghi không tồn tại
+curl -i -X DELETE -H "Authorization: Bearer $ADMIN" \
+  "$BASE/api/dishes/00000000-0000-4000-8000-000000000000"              # 404 NOT_FOUND
+
+# Cổng 4 — ABAC: STAFF sửa/xoá nội dung của người khác
+curl -i -X DELETE -H "Authorization: Bearer $STAFF" \
+  "$BASE/api/dishes/$DISH_OF_ANOTHER_STAFF"                             # 403 NOT_OWNER
+```
+
+Gửi kèm `role` hoặc id giả trong body cũng không thay đổi kết quả: server lấy danh tính từ
+token và thuộc tính bản ghi từ database.
+
+### 13.2 MFA
+
+```bash
+# Đăng nhập tài khoản đã bật MFA: chỉ trả challenge, không token, không Set-Cookie
+curl -i -X POST "$BASE/api/auth/login" -H 'Content-Type: application/json' \
+  -d '{"email":"user@example.com","password":"..."}'
+# → { "mfaRequired": true, "challengeId": "...", "expiresIn": 300 }
+
+# Mã sai → INVALID_MFA_CODE kèm số lần còn lại
+curl -i -X POST "$BASE/api/auth/mfa/verify" -H 'Content-Type: application/json' \
+  -d '{"challengeId":"...","code":"000000"}'
+
+# Dùng lại đúng mã vừa đăng nhập thành công → INVALID_MFA_CODE (RFC 6238 §5.2)
+
+# Sai 5 lần → MFA_LOCKED (15 phút); mã khôi phục sai cũng bị khoá
+
+# Token AAL1 (chỉ có mật khẩu) không đổi được mật khẩu
+curl -i -X POST "$BASE/api/auth/reset-password" \
+  -H "Authorization: Bearer $AAL1_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"password":"newpass123","confirmPassword":"newpass123"}'       # 401 MFA_REQUIRED
+
+# Admin không tự reset MFA của mình (phải dùng /mfa/disable với password + mã)
+curl -i -X POST -H "Authorization: Bearer $ADMIN" \
+  "$BASE/api/users/$ADMIN_ID/mfa/reset"                                # 403 FORBIDDEN
+```
+
+Kiểm tra reset bằng email không tạo phiên: response không có `accessToken` và không có
+`Set-Cookie` chứa `sb-...-auth-token`.
