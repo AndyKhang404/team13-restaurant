@@ -44,10 +44,49 @@ model Profile {
   updatedAt    DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
   searchVector Unsupported("tsvector")? @map("search_vector")
 
+  mfaState          MfaState?
+  mfaRecoveryCodes  MfaRecoveryCode[]
+
   @@index([email])
   @@index([role])
   @@index([searchVector], map: "idx_profiles_search_vector", type: Gin)
   @@map("profiles")
+}
+
+/// App-side MFA status mirror for Supabase Auth TOTP factors.
+/// The factor secret lives in Supabase Auth; this table only tracks
+/// enablement, the active factor id, recovery-code availability and lockout.
+model MfaState {
+  userId               String    @id @map("user_id") @db.Uuid
+  factorId             String?   @map("factor_id")
+  enabledAt            DateTime? @map("enabled_at") @db.Timestamptz(6)
+  recoveryCodesEnabled Boolean   @default(false) @map("recovery_codes_enabled")
+  failedAttempts       Int       @default(0) @map("failed_attempts")
+  lockedUntil          DateTime? @map("locked_until") @db.Timestamptz(6)
+  lastCodeHash         String?   @map("last_code_hash")
+  lastCodeAt           DateTime? @map("last_code_at") @db.Timestamptz(6)
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("mfa_states")
+}
+
+/// App-level single-use recovery codes. We store only an HMAC-SHA256 digest;
+/// the plaintext codes are returned once during enrollment/regeneration.
+model MfaRecoveryCode {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  codeHash  String    @map("code_hash")
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, codeHash])
+  @@index([userId])
+  @@map("mfa_recovery_codes")
 }
 
 /// Đầu bếp — one chef cooks many dishes.

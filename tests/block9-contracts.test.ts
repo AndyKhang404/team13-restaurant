@@ -4,7 +4,6 @@ import { createApp } from '../src/app.js';
 import { prisma } from '../src/lib/prisma.js';
 import * as supabaseLib from '../src/lib/supabase.js';
 import { recordPasswordReset, clearRevocationState } from '../src/auth/token-revocation.js';
-import { clearLoginAttempts } from '../src/auth/login-attempts.js';
 
 describe('Block 9 Deck Contracts (Bài 1)', () => {
   const app = createApp();
@@ -142,7 +141,7 @@ describe('Block 9 Deck Contracts (Bài 1)', () => {
 
   describe('TC10: Login with pending/unactivated account', () => {
     it('returns HTTP 200 with ACCOUNT_NOT_ACTIVATED and no accessToken', async () => {
-      vi.spyOn(supabaseLib, 'createSupabaseForRequest').mockReturnValue({
+      vi.spyOn(supabaseLib, 'createStatelessClient').mockReturnValue({
         auth: {
           signInWithPassword: vi.fn().mockResolvedValue({
             data: { user: null, session: null },
@@ -169,7 +168,7 @@ describe('Block 9 Deck Contracts (Bài 1)', () => {
     });
 
     it('returns HTTP 200 with INVALID_CREDENTIALS on wrong password', async () => {
-      vi.spyOn(supabaseLib, 'createSupabaseForRequest').mockReturnValue({
+      vi.spyOn(supabaseLib, 'createStatelessClient').mockReturnValue({
         auth: {
           signInWithPassword: vi.fn().mockResolvedValue({
             data: { user: null, session: null },

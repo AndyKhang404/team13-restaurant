@@ -2,7 +2,7 @@ import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 import { Role } from '../../generated/prisma/enums.js';
 import { prisma } from '../../lib/prisma.js';
-import { badRequest, notFound, sendOk } from '../../lib/http.js';
+import { badRequest, forbidden, notFound, sendError, sendOk } from '../../lib/http.js';
 import { buildPagination, skipFor } from '../../lib/pagination.js';
 import { paramId } from '../../lib/admin.js';
 import {
@@ -13,6 +13,9 @@ import {
   sortEntitiesByIds,
 } from '../../lib/search.js';
 import { requirePermission } from '../../auth/middleware.js';
+import { can } from '../../auth/permissions.js';
+import { recordPasswordReset } from '../../auth/token-revocation.js';
+import { supabaseAdmin } from '../../lib/supabase.js';
 
 const router = Router();
 
@@ -104,7 +107,49 @@ async function handleUpdateRole(req: Request, res: Response) {
   });
 }
 
+/**
+ * POST /api/users/:id/mfa/reset
+ * Admin-only escape hatch for a user who lost their authenticator and backup
+ * codes. Removes every Supabase MFA factor and the local mirror.
+ */
+async function handleResetMfa(req: Request, res: Response) {
+  if (!can(req.user, 'user:manage')) {
+    throw forbidden('Chỉ quản trị viên mới có quyền reset xác thực hai lớp.');
+  }
+
+  const targetId = paramId(req.params.id);
+  const target = await prisma.profile.findUnique({ where: { id: targetId } });
+  if (!target) throw notFound('Người dùng');
+
+  const { data, error } = await supabaseAdmin.auth.admin.mfa.listFactors({
+    userId: targetId,
+  });
+  if (error) {
+    return sendError(res, 500, 'AUTH_ERROR', 'Không thể đọc yếu tố xác thực của người dùng.');
+  }
+
+  for (const factor of data?.factors ?? []) {
+    const removed = await supabaseAdmin.auth.admin.mfa.deleteFactor({
+      userId: targetId,
+      id: factor.id,
+    });
+    if (removed.error && removed.error.code !== 'mfa_factor_not_found') {
+      return sendError(res, 500, 'AUTH_ERROR', 'Không thể xoá yếu tố xác thực của người dùng.');
+    }
+  }
+
+  await prisma.mfaRecoveryCode.deleteMany({ where: { userId: targetId } });
+  await prisma.mfaState.deleteMany({ where: { userId: targetId } });
+  recordPasswordReset(targetId);
+
+  return sendOk(res, {
+    message: `Đã reset xác thực hai lớp cho ${target.email}.`,
+    userId: targetId,
+  });
+}
+
 router.patch('/:id/role', requirePermission('user:manage'), handleUpdateRole);
 router.post('/:id/role', requirePermission('user:manage'), handleUpdateRole);
+router.post('/:id/mfa/reset', requirePermission('user:manage'), handleResetMfa);
 
 export default router;

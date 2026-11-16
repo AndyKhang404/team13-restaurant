@@ -15,6 +15,8 @@ declare global {
       tokenExpired?: boolean;
       /** True if the Bearer token was revoked prior to expiry. */
       tokenRevoked?: boolean;
+      /** True when the user has MFA enabled but the token is still AAL1. */
+      mfaRequired?: boolean;
       /** Queue a one-time message shown on the next rendered page. */
       flash(type: FlashType, message: string): void;
     }
