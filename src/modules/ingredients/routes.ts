@@ -15,9 +15,21 @@ import {
 } from '../../lib/search.js';
 import { requiredText, decimal, checkbox, toFieldErrors } from '../../lib/validation.js';
 import { fileFor, validateImage, saveWithImage, type UploadedFile } from '../../lib/storage.js';
-import { requirePermission } from '../../auth/middleware.js';
+import { requireOwnership, requirePermission } from '../../auth/middleware.js';
+import { withRowPermissions } from '../../auth/policy.js';
 
 const router = Router();
+
+const loadIngredientOwner = (req: import('express').Request) =>
+  prisma.ingredient.findUnique({
+    where: { id: paramId(req.params.id) },
+    select: { createdBy: true, deletedAt: true },
+  });
+
+const loadActiveIngredientOwner = async (req: import('express').Request) => {
+  const row = await loadIngredientOwner(req);
+  return row && row.deletedAt === null ? row : null;
+};
 
 export const IngredientSchema = z.object({
   name: requiredText('Tên nguyên liệu', 120),
@@ -94,7 +106,7 @@ router.get('/', requirePermission('ingredient:create'), async (req, res) => {
   const units = distinctUnits.map((r) => r.unit?.trim()).filter((u): u is string => Boolean(u));
 
   return sendOk(res, {
-    ingredients,
+    ingredients: ingredients.map((i) => withRowPermissions('ingredient', i, req.user)),
     units,
     pagination: buildPagination(parsed.page, total, parsed.filters, parsed.pageSize),
     q: parsed.q,
@@ -119,7 +131,7 @@ router.get('/:id', requirePermission('ingredient:update'), async (req, res) => {
   const id = paramId(req.params.id);
   const ingredient = await prisma.ingredient.findUnique({ where: { id } });
   if (!ingredient) throw notFound('Nguyên liệu');
-  return sendOk(res, { ingredient });
+  return sendOk(res, { ingredient: withRowPermissions('ingredient', ingredient, req.user) });
 });
 
 router.post('/', requirePermission('ingredient:create'), async (req, res) => {
@@ -150,6 +162,7 @@ router.post('/', requirePermission('ingredient:create'), async (req, res) => {
         stockQuantity: data.stockQuantity,
         pricePerUnit: data.pricePerUnit,
         isAvailable: data.isAvailable,
+        createdBy: req.user!.id,
         ...(imageUrl !== undefined ? { imageUrl } : {}),
       };
       createdIngredient = clash
@@ -164,7 +177,9 @@ router.post('/', requirePermission('ingredient:create'), async (req, res) => {
     bumpVisibleRecordCount('ingredient', 1);
 
     return sendOk(res, {
-      ingredient: createdIngredient,
+      ingredient: createdIngredient
+        ? withRowPermissions('ingredient', createdIngredient, req.user)
+        : null,
       message: `Đã tạo nguyên liệu "${data.name}".`,
     });
   } catch (e) {
@@ -223,7 +238,9 @@ async function handleUpdateIngredient(
     );
 
     return sendOk(res, {
-      ingredient: updatedIngredient,
+      ingredient: updatedIngredient
+        ? withRowPermissions('ingredient', updatedIngredient, req.user)
+        : null,
       message: `Đã cập nhật nguyên liệu "${data.name}".`,
     });
   } catch (e) {
@@ -234,42 +251,65 @@ async function handleUpdateIngredient(
   }
 }
 
-router.patch('/:id', requirePermission('ingredient:update'), handleUpdateIngredient);
-router.put('/:id', requirePermission('ingredient:update'), handleUpdateIngredient);
+router.patch(
+  '/:id',
+  requirePermission('ingredient:update'),
+  requireOwnership('ingredient:update', loadIngredientOwner),
+  handleUpdateIngredient,
+);
+router.put(
+  '/:id',
+  requirePermission('ingredient:update'),
+  requireOwnership('ingredient:update', loadIngredientOwner),
+  handleUpdateIngredient,
+);
 
-router.delete('/:id', requirePermission('ingredient:delete'), async (req, res) => {
-  const id = paramId(req.params.id);
-  try {
-    const existing = await prisma.ingredient.findUnique({ where: { id } });
-    if (!existing || existing.deletedAt !== null) throw notFound('Nguyên liệu');
-    await prisma.ingredient.update({
-      where: { id },
-      data: { deletedAt: new Date() },
-    });
-    bumpVisibleRecordCount('ingredient', -1);
-    return sendOk(res, null);
-  } catch (e) {
-    if (isNotFound(e)) throw notFound('Nguyên liệu');
-    throw e;
-  }
-});
+router.delete(
+  '/:id',
+  requirePermission('ingredient:delete'),
+  requireOwnership('ingredient:delete', loadActiveIngredientOwner),
+  async (req, res) => {
+    const id = paramId(req.params.id);
+    try {
+      const existing = await prisma.ingredient.findUnique({ where: { id } });
+      if (!existing || existing.deletedAt !== null) throw notFound('Nguyên liệu');
+      await prisma.ingredient.update({
+        where: { id },
+        data: { deletedAt: new Date() },
+      });
+      bumpVisibleRecordCount('ingredient', -1);
+      return sendOk(res, null);
+    } catch (e) {
+      if (isNotFound(e)) throw notFound('Nguyên liệu');
+      throw e;
+    }
+  },
+);
 
-router.post('/:id/restore', requirePermission('ingredient:update'), async (req, res) => {
-  const id = paramId(req.params.id);
-  try {
-    const existing = await prisma.ingredient.findUnique({ where: { id } });
-    if (!existing) throw notFound('Nguyên liệu');
-    const wasDeleted = existing.deletedAt !== null;
-    const ingredient = await prisma.ingredient.update({
-      where: { id },
-      data: { deletedAt: null },
-    });
-    if (wasDeleted) bumpVisibleRecordCount('ingredient', 1);
-    return sendOk(res, { ingredient, message: `Đã khôi phục nguyên liệu "${ingredient.name}".` });
-  } catch (e) {
-    if (isNotFound(e)) throw notFound('Nguyên liệu');
-    throw e;
-  }
-});
+router.post(
+  '/:id/restore',
+  requirePermission('ingredient:update'),
+  requireOwnership('ingredient:update', loadIngredientOwner),
+  async (req, res) => {
+    const id = paramId(req.params.id);
+    try {
+      const existing = await prisma.ingredient.findUnique({ where: { id } });
+      if (!existing) throw notFound('Nguyên liệu');
+      const wasDeleted = existing.deletedAt !== null;
+      const ingredient = await prisma.ingredient.update({
+        where: { id },
+        data: { deletedAt: null },
+      });
+      if (wasDeleted) bumpVisibleRecordCount('ingredient', 1);
+      return sendOk(res, {
+        ingredient: withRowPermissions('ingredient', ingredient, req.user),
+        message: `Đã khôi phục nguyên liệu "${ingredient.name}".`,
+      });
+    } catch (e) {
+      if (isNotFound(e)) throw notFound('Nguyên liệu');
+      throw e;
+    }
+  },
+);
 
 export default router;

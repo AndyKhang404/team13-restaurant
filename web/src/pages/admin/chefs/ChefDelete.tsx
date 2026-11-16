@@ -5,6 +5,7 @@ import { useApi } from '../../../lib/useApi';
 import { ApiError } from '../../../lib/api';
 import { ErrorState, Loading, NotFoundState } from '../../../components/StateViews';
 import { FormError } from '../../../components/FieldError';
+import { NOT_OWNER_TOOLTIP } from '../../../auth/roles';
 import { Avatar } from '../../../components/Avatar';
 
 export default function ChefDelete() {
@@ -24,9 +25,10 @@ export default function ChefDelete() {
   if (!chef)
     return <NotFoundState title="Không tìm thấy đầu bếp" message="Đầu bếp này không tồn tại." />;
   const targetId = chef.id;
+  const canDelete = chef.permissions ? chef.permissions.canDelete : true;
 
   async function onDelete() {
-    if (busy) return;
+    if (busy || !canDelete) return;
     setBusy(true);
     setDelError(null);
     try {
@@ -50,7 +52,7 @@ export default function ChefDelete() {
       </div>
 
       <div className="delx-body">
-        <FormError message={delError} />
+        <FormError message={delError ?? (!canDelete ? NOT_OWNER_TOOLTIP : null)} />
 
         <div className="delx-warn" role="alert">
           <span className="mark" aria-hidden="true">
@@ -98,7 +100,8 @@ export default function ChefDelete() {
           className="btn btn-danger"
           type="button"
           onClick={() => void onDelete()}
-          disabled={busy}
+          disabled={busy || !canDelete}
+          title={!canDelete ? NOT_OWNER_TOOLTIP : undefined}
           aria-busy={busy}
         >
           {busy ? 'Đang xóa…' : 'Xác nhận xóa'}

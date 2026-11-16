@@ -1,7 +1,8 @@
 import { Role } from '../generated/prisma/enums.js';
 
 /**
- * RBAC: roles map to permissions here; code checks permissions, never role names.
+ * RBAC base gate: roles map to coarse permissions here; code checks permissions, never role names.
+ * Resource-level and account-status ABAC rules restrict on top of RBAC in `src/auth/policy.ts`.
  * Add a permission to the union, then grant it to roles below.
  */
 export type Permission =

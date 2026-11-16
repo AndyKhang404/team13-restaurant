@@ -5,6 +5,7 @@ import { useApi } from '../../../lib/useApi';
 import { ApiError, HttpError, type ApiFieldErrors } from '../../../lib/api';
 import { ErrorState, Loading, NotFoundState } from '../../../components/StateViews';
 import { FieldError, FormError } from '../../../components/FieldError';
+import { NOT_OWNER_TOOLTIP } from '../../../auth/roles';
 import { Avatar } from '../../../components/Avatar';
 import type { ChefInput } from '../../../lib/types';
 
@@ -102,6 +103,8 @@ export default function ChefForm({ mode }: { mode: 'new' | 'edit' }) {
     return <ErrorState error={chefState.error} onRetry={chefState.reload} />;
   }
 
+  const canEdit = editing && chefState.data?.permissions ? chefState.data.permissions.canUpdate : true;
+
   return (
     <section className="panel form-card">
       <div className="panel-head">
@@ -113,7 +116,7 @@ export default function ChefForm({ mode }: { mode: 'new' | 'edit' }) {
         </div>
       </div>
 
-      <FormError message={formError} />
+      <FormError message={formError ?? (!canEdit ? NOT_OWNER_TOOLTIP : null)} />
 
       <form onSubmit={onSubmit}>
         <div className="form-grid">
@@ -246,7 +249,12 @@ export default function ChefForm({ mode }: { mode: 'new' | 'edit' }) {
           <Link className="btn btn-quiet" to="/admin/chefs">
             Hủy
           </Link>
-          <button className="btn btn-primary" type="submit" disabled={saving}>
+          <button
+            className="btn btn-primary"
+            type="submit"
+            disabled={saving || !canEdit}
+            title={!canEdit ? NOT_OWNER_TOOLTIP : undefined}
+          >
             {saving ? 'Đang lưu…' : editing ? 'Lưu thay đổi' : 'Tạo đầu bếp'}
           </button>
         </div>

@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
-import { Role } from '../../generated/prisma/enums.js';
+import { ProfileStatus, Role } from '../../generated/prisma/enums.js';
 import { prisma } from '../../lib/prisma.js';
 import { badRequest, notFound, sendOk } from '../../lib/http.js';
 import { buildPagination, skipFor } from '../../lib/pagination.js';
@@ -13,6 +13,13 @@ import {
   sortEntitiesByIds,
 } from '../../lib/search.js';
 import { requirePermission } from '../../auth/middleware.js';
+import {
+  assertNotLastActiveAdmin,
+  assertNotSelfModify,
+  LAST_ADMIN_ROLE_MESSAGE,
+  LAST_ADMIN_STATUS_MESSAGE,
+} from '../../auth/user-guards.js';
+import { recordPasswordReset } from '../../auth/token-revocation.js';
 
 const router = Router();
 
@@ -20,7 +27,12 @@ const UpdateRoleSchema = z.object({
   role: z.nativeEnum(Role, { error: 'Vai trò được chọn không hợp lệ.' }),
 });
 
+const UpdateStatusSchema = z.object({
+  status: z.nativeEnum(ProfileStatus, { error: 'Trạng thái tài khoản không hợp lệ.' }),
+});
+
 const ROLES = Object.values(Role);
+const STATUSES = Object.values(ProfileStatus);
 
 router.get('/', requirePermission('user:manage'), async (req, res) => {
   const parsed = parseProfileListQuery(req.query as Record<string, unknown>);
@@ -62,6 +74,7 @@ router.get('/', requirePermission('user:manage'), async (req, res) => {
   return sendOk(res, {
     users,
     roles: ROLES,
+    statuses: STATUSES,
     pagination: buildPagination(parsed.page, total, parsed.filters, parsed.pageSize),
     q: parsed.q,
   });
@@ -69,12 +82,7 @@ router.get('/', requirePermission('user:manage'), async (req, res) => {
 
 async function handleUpdateRole(req: Request, res: Response) {
   const targetId = paramId(req.params.id);
-  const currentUserId = req.user?.id;
-
-  // Safeguard 1: Cannot change own role
-  if (targetId === currentUserId) {
-    throw badRequest('Bạn không thể đổi vai trò của chính mình.', 'SELF_ROLE_CHANGE');
-  }
+  assertNotSelfModify(req.user?.id, targetId, 'role');
 
   const parsed = UpdateRoleSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -82,29 +90,75 @@ async function handleUpdateRole(req: Request, res: Response) {
   }
 
   const newRole = parsed.data.role;
-  const targetUser = await prisma.profile.findUnique({ where: { id: targetId } });
-  if (!targetUser) throw notFound('Người dùng');
+  const updatedUser = await prisma.$transaction(async (tx) => {
+    const targetUser = await tx.profile.findUnique({ where: { id: targetId } });
+    if (!targetUser) throw notFound('Người dùng');
 
-  // Safeguard 2: Cannot demote the last ADMIN
-  if (targetUser.role === Role.ADMIN && newRole !== Role.ADMIN) {
-    const adminCount = await prisma.profile.count({ where: { role: Role.ADMIN } });
-    if (adminCount <= 1) {
-      throw badRequest('Không thể hạ quyền ADMIN cuối cùng còn lại.', 'LAST_ADMIN');
+    if (
+      targetUser.role === Role.ADMIN &&
+      targetUser.status === ProfileStatus.ACTIVE &&
+      newRole !== Role.ADMIN
+    ) {
+      await assertNotLastActiveAdmin(tx, targetId, LAST_ADMIN_ROLE_MESSAGE);
     }
-  }
 
-  const updatedUser = await prisma.profile.update({
-    where: { id: targetId },
-    data: { role: newRole },
+    return tx.profile.update({
+      where: { id: targetId },
+      data: { role: newRole },
+    });
   });
 
   return sendOk(res, {
     user: updatedUser,
-    message: `Đã đổi vai trò của ${targetUser.email} thành ${newRole}.`,
+    message: `Đã đổi vai trò của ${updatedUser.email} thành ${newRole}.`,
+  });
+}
+
+async function handleUpdateStatus(req: Request, res: Response) {
+  const targetId = paramId(req.params.id);
+  assertNotSelfModify(req.user?.id, targetId, 'status');
+
+  const parsed = UpdateStatusSchema.safeParse(req.body);
+  if (!parsed.success) {
+    throw badRequest('Trạng thái tài khoản không hợp lệ.', 'VALIDATION_FAILED');
+  }
+
+  const newStatus = parsed.data.status;
+  const updatedUser = await prisma.$transaction(async (tx) => {
+    const targetUser = await tx.profile.findUnique({ where: { id: targetId } });
+    if (!targetUser) throw notFound('Người dùng');
+
+    if (
+      targetUser.role === Role.ADMIN &&
+      targetUser.status === ProfileStatus.ACTIVE &&
+      newStatus === ProfileStatus.SUSPENDED
+    ) {
+      await assertNotLastActiveAdmin(tx, targetId, LAST_ADMIN_STATUS_MESSAGE);
+    }
+
+    return tx.profile.update({
+      where: { id: targetId },
+      data: { status: newStatus },
+    });
+  });
+
+  if (newStatus === ProfileStatus.SUSPENDED) {
+    // Invalidate pre-suspension JWTs so they cannot be reused even if reactivated later.
+    recordPasswordReset(targetId);
+  }
+
+  return sendOk(res, {
+    user: updatedUser,
+    message:
+      newStatus === ProfileStatus.SUSPENDED
+        ? `Đã tạm khóa tài khoản ${updatedUser.email}.`
+        : `Đã kích hoạt lại tài khoản ${updatedUser.email}.`,
   });
 }
 
 router.patch('/:id/role', requirePermission('user:manage'), handleUpdateRole);
 router.post('/:id/role', requirePermission('user:manage'), handleUpdateRole);
+router.patch('/:id/status', requirePermission('user:manage'), handleUpdateStatus);
+router.post('/:id/status', requirePermission('user:manage'), handleUpdateStatus);
 
 export default router;

@@ -1,4 +1,11 @@
 export type UserRole = 'ADMIN' | 'STAFF' | 'VIEWER';
+export type ProfileStatus = 'ACTIVE' | 'SUSPENDED';
+
+export interface RowPermissions {
+  canUpdate: boolean;
+  canDelete: boolean;
+  canRestore: boolean;
+}
 
 export type PagingMode = 'infinite' | 'loadMore' | 'pages';
 
@@ -23,6 +30,7 @@ export interface AuthUser {
   email: string;
   displayName: string | null;
   role: UserRole;
+  status?: ProfileStatus;
   createdAt: string;
   updatedAt: string;
 }
@@ -32,6 +40,7 @@ export interface UserItem {
   email: string;
   displayName: string | null;
   role: UserRole;
+  status?: ProfileStatus;
   createdAt: string;
   updatedAt: string;
 }
@@ -62,6 +71,8 @@ export interface Dish {
   isFeatured: boolean;
   prepTimeMinutes: number | null;
   chefId: string | null;
+  createdBy?: string | null;
+  permissions?: RowPermissions;
   createdAt: string;
   updatedAt: string;
   chef: DishChef | null;
@@ -77,6 +88,8 @@ export interface Chef {
   experienceYears: number;
   phone: string | null;
   isActive: boolean;
+  createdBy?: string | null;
+  permissions?: RowPermissions;
   createdAt: string;
   updatedAt: string;
 }
@@ -89,6 +102,8 @@ export interface Ingredient {
   pricePerUnit: number;
   imageUrl: string | null;
   isAvailable: boolean;
+  createdBy?: string | null;
+  permissions?: RowPermissions;
   createdAt: string;
   updatedAt: string;
 }
@@ -202,6 +217,7 @@ export interface UserQueryParams {
   page?: number;
   pageSize?: number;
   role?: string;
+  status?: string;
   createdFrom?: string;
   createdTo?: string;
 }

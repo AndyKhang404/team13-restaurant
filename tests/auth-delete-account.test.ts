@@ -6,13 +6,13 @@ import type { Profile } from '../src/generated/prisma/client.js';
 const {
   mockDeleteUser,
   mockSignOut,
-  mockProfileCount,
+  mockQueryRaw,
   mockProfileDeleteMany,
   mockRecordPasswordReset,
 } = vi.hoisted(() => ({
   mockDeleteUser: vi.fn(),
   mockSignOut: vi.fn(),
-  mockProfileCount: vi.fn(),
+  mockQueryRaw: vi.fn(),
   mockProfileDeleteMany: vi.fn(),
   mockRecordPasswordReset: vi.fn(),
 }));
@@ -36,16 +36,25 @@ vi.mock('../src/config/env.js', () => ({
   },
 }));
 
-vi.mock('../src/lib/prisma.js', () => ({
-  prisma: {
+vi.mock('../src/lib/prisma.js', () => {
+  const tx = {
+    $queryRaw: mockQueryRaw,
     profile: {
-      count: mockProfileCount,
       deleteMany: mockProfileDeleteMany,
-      findUnique: vi.fn(),
-      upsert: vi.fn(),
     },
-  },
-}));
+  };
+  return {
+    prisma: {
+      $transaction: vi.fn((fn: (client: typeof tx) => Promise<unknown>) => fn(tx)),
+      $queryRaw: mockQueryRaw,
+      profile: {
+        deleteMany: mockProfileDeleteMany,
+        findUnique: vi.fn(),
+        upsert: vi.fn(),
+      },
+    },
+  };
+});
 
 vi.mock('../src/lib/supabase.js', () => ({
   getBearerToken: () => null,
@@ -83,6 +92,7 @@ function makeUser(overrides: Partial<Profile> = {}): Profile {
     email: 'viewer@example.com',
     displayName: 'Viewer User',
     role: 'VIEWER',
+    status: 'ACTIVE',
     createdAt: now,
     updatedAt: now,
     ...overrides,
@@ -108,7 +118,7 @@ describe('DELETE /api/auth/me', () => {
     mockDeleteUser.mockResolvedValue({ data: { user: null }, error: null });
     mockSignOut.mockResolvedValue({ error: null });
     mockProfileDeleteMany.mockResolvedValue({ count: 1 });
-    mockProfileCount.mockResolvedValue(0);
+    mockQueryRaw.mockResolvedValue([]);
   });
 
   it('returns 401 when unauthenticated', async () => {
@@ -139,10 +149,10 @@ describe('DELETE /api/auth/me', () => {
     expect(mockProfileDeleteMany).not.toHaveBeenCalled();
   });
 
-  it('blocks deletion with LAST_ADMIN when user is the only ADMIN', async () => {
+  it('blocks deletion with LAST_ADMIN when user is the only active ADMIN', async () => {
     const admin = makeUser({ id: 'admin-1', email: 'admin@example.com', role: 'ADMIN' });
     const app = buildTestApp(admin);
-    mockProfileCount.mockResolvedValue(0);
+    mockQueryRaw.mockResolvedValue([{ id: 'admin-1' }]);
 
     const res = await request(app).delete('/api/auth/me').send({ email: 'admin@example.com' });
 
@@ -151,9 +161,7 @@ describe('DELETE /api/auth/me', () => {
       ok: false,
       error: { code: 'LAST_ADMIN' },
     });
-    expect(mockProfileCount).toHaveBeenCalledWith({
-      where: { role: 'ADMIN', id: { not: 'admin-1' } },
-    });
+    expect(mockQueryRaw).toHaveBeenCalledTimes(1);
     expect(mockDeleteUser).not.toHaveBeenCalled();
     expect(mockProfileDeleteMany).not.toHaveBeenCalled();
   });
@@ -175,10 +183,10 @@ describe('DELETE /api/auth/me', () => {
     expect(mockSignOut).toHaveBeenCalled();
   });
 
-  it('allows an ADMIN to self-delete when another ADMIN exists', async () => {
+  it('allows an ADMIN to self-delete when another active ADMIN exists', async () => {
     const admin = makeUser({ id: 'admin-1', email: 'admin@example.com', role: 'ADMIN' });
     const app = buildTestApp(admin);
-    mockProfileCount.mockResolvedValue(1);
+    mockQueryRaw.mockResolvedValue([{ id: 'admin-1' }, { id: 'admin-2' }]);
 
     const res = await request(app).delete('/api/auth/me').send({ email: 'admin@example.com' });
 

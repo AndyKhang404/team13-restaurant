@@ -50,17 +50,23 @@ A modern client-side rendered (CSR) web application for restaurant meal manageme
   - Hybrid full-text + fuzzy search (`fuzzy` toggle) plus multi-filter/sort toolbar (categories, chefs, included/excluded ingredients, featured, availability, price range, prep time, assigned chef, deleted records) with server pagination.
 - **Chefs Management (`/admin/chefs`)**: Manage chef profiles, culinary specialties, biographies, and portrait uploads, with hybrid full-text/fuzzy search, multi-select specialty filters, active/has-dishes filters, sorting, and server pagination.
 - **Ingredients Inventory (`/admin/ingredients`)**: Track inventory quantities, units (`g`, `kg`, `ml`), unit wholesale prices, and availability status, with hybrid full-text/fuzzy search, unit/stock/availability/usage filters, sorting, and server pagination.
-- **User Role Management (`/admin/users`)**: Exclusively available to `ADMIN`. Hybrid full-text/fuzzy search, multi-select role filters, registration date range, server pagination, and role alteration with safety locks preventing self-demotion and ensuring the last remaining `ADMIN` cannot be demoted.
+- **User & Status Management (`/admin/users`)**: Exclusively available to `ADMIN`. Hybrid full-text/fuzzy search, multi-select role/status filters, registration date range, server pagination, role alteration, and account suspension (`ACTIVE` / `SUSPENDED`) with transactional safety locks preventing self-modification and ensuring the last active `ADMIN` cannot be demoted, suspended, or deleted.
 
-### 4. Role-Based Access Control (RBAC)
+### 4. Access Control (RBAC + ABAC)
+
+RBAC (`src/auth/permissions.ts`) serves as the coarse permission gate, restricted by an attribute-based deny-overrides policy layer (`src/auth/policy.ts`):
 
 | Capability                                | ADMIN | STAFF | VIEWER / CUSTOMER | Guest |
 | ----------------------------------------- | :---: | :---: | :---------------: | :---: |
 | Browse Menu & View Meal Details           |  ✅   |  ✅   |        ✅         |  ✅   |
 | Access Admin Dashboard (`/admin`)         |  ✅   |  ✅   |        ❌         |  ❌   |
-| Create, Edit, Soft-delete Meals & Recipes |  ✅   |  ✅   |        ❌         |  ❌   |
-| Manage Chefs & Ingredients Inventory      |  ✅   |  ✅   |        ❌         |  ❌   |
-| Change User Roles (`user:manage`)         |  ✅   |  ❌   |        ❌         |  ❌   |
+| Create Meals, Chefs, Ingredients          |  ✅   |  ✅   |        ❌         |  ❌   |
+| Edit / Soft-delete / Restore Content      |  ✅ (All) | ✅ (Own `createdBy` only) | ❌ | ❌ |
+| Manage Users & Status (`user:manage`)     |  ✅   |  ❌   |        ❌         |  ❌   |
+
+- **Account Status (`Profile.status`)**: `SUSPENDED` accounts are denied login and all authenticated/admin endpoints (`403 ACCOUNT_SUSPENDED`), with pre-suspension tokens revoked immediately.
+- **Content Ownership (`createdBy`)**: `STAFF` can update, soft-delete, or restore only content they created; legacy rows with `createdBy = NULL` are mutable by `ADMIN` only (`403 NOT_OWNER`). Admin list/detail APIs return per-row `permissions` flags for the UI.
+- **Admin Guards**: Admins cannot change their own role (`SELF_ROLE_CHANGE`) or suspend themselves (`403 SELF_MODIFY`), and transactional `FOR UPDATE` locks block demoting, suspending, or deleting the last active `ADMIN` (`LAST_ADMIN`).
 
 ---
 

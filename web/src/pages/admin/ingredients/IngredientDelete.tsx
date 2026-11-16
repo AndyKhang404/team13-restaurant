@@ -5,6 +5,7 @@ import { useApi } from '../../../lib/useApi';
 import { ApiError } from '../../../lib/api';
 import { ErrorState, Loading, NotFoundState } from '../../../components/StateViews';
 import { FormError } from '../../../components/FieldError';
+import { NOT_OWNER_TOOLTIP } from '../../../auth/roles';
 import { formatVnd } from '../../../lib/format';
 
 export default function IngredientDelete() {
@@ -28,9 +29,10 @@ export default function IngredientDelete() {
       <NotFoundState title="Không tìm thấy nguyên liệu" message="Nguyên liệu này không tồn tại." />
     );
   const targetId = ing.id;
+  const canDelete = ing.permissions ? ing.permissions.canDelete : true;
 
   async function onDelete() {
-    if (busy) return;
+    if (busy || !canDelete) return;
     setBusy(true);
     setDelError(null);
     try {
@@ -54,7 +56,7 @@ export default function IngredientDelete() {
       </div>
 
       <div className="delx-body">
-        <FormError message={delError} />
+        <FormError message={delError ?? (!canDelete ? NOT_OWNER_TOOLTIP : null)} />
 
         <div className="delx-warn" role="alert">
           <span className="mark" aria-hidden="true">
@@ -108,7 +110,8 @@ export default function IngredientDelete() {
           className="btn btn-danger"
           type="button"
           onClick={() => void onDelete()}
-          disabled={busy}
+          disabled={busy || !canDelete}
+          title={!canDelete ? NOT_OWNER_TOOLTIP : undefined}
           aria-busy={busy}
         >
           {busy ? 'Đang xóa…' : 'Xác nhận xóa'}

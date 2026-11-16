@@ -1,5 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../../../auth/AuthProvider';
+import { canDeleteRow, canEditRow, NOT_OWNER_TOOLTIP } from '../../../auth/roles';
 import { dishesApi } from '../../../lib/resources';
 import { useApi } from '../../../lib/useApi';
 import { useListParams } from '../../../lib/useListParams';
@@ -53,6 +55,7 @@ function toggleCsvItem(current: string, item: string): string {
 }
 
 export default function DishAdminList() {
+  const { user: currentUser } = useAuth();
   const {
     q,
     category,
@@ -477,15 +480,37 @@ export default function DishAdminList() {
                   </td>
                   <td>
                     <div className="row-actions">
-                      <Link className="btn btn-sm btn-quiet" to={`/admin/dishes/${dish.id}/edit`}>
-                        Sửa
-                      </Link>
-                      <Link
-                        className="btn btn-sm btn-danger"
-                        to={`/admin/dishes/${dish.id}/delete`}
-                      >
-                        Xóa
-                      </Link>
+                      {canEditRow(dish, currentUser) ? (
+                        <Link className="btn btn-sm btn-quiet" to={`/admin/dishes/${dish.id}/edit`}>
+                          Sửa
+                        </Link>
+                      ) : (
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-quiet"
+                          disabled
+                          title={NOT_OWNER_TOOLTIP}
+                        >
+                          Sửa
+                        </button>
+                      )}
+                      {canDeleteRow(dish, currentUser) ? (
+                        <Link
+                          className="btn btn-sm btn-danger"
+                          to={`/admin/dishes/${dish.id}/delete`}
+                        >
+                          Xóa
+                        </Link>
+                      ) : (
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-danger"
+                          disabled
+                          title={NOT_OWNER_TOOLTIP}
+                        >
+                          Xóa
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

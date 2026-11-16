@@ -1,4 +1,4 @@
-import { DishCategory, Role } from '../generated/prisma/enums.js';
+import { DishCategory, ProfileStatus, Role } from '../generated/prisma/enums.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { prisma } from './prisma.js';
 import { badRequest } from './http.js';
@@ -7,6 +7,7 @@ import { UUID_RE, type FieldErrors } from './validation.js';
 
 const DISH_CATEGORIES = Object.values(DishCategory);
 const ROLES = Object.values(Role);
+const PROFILE_STATUSES = Object.values(ProfileStatus);
 
 export const DISH_SORT_VALUES = [
   '',
@@ -856,6 +857,7 @@ export interface ProfileListQuery {
   page: number;
   pageSize: number;
   roles?: Role[];
+  statuses?: ProfileStatus[];
   createdFrom?: Date;
   createdTo?: Date;
   filters: Record<string, string | undefined>;
@@ -881,6 +883,17 @@ export function parseProfileListQuery(rawQuery: Record<string, unknown>): Profil
     }
   }
 
+  let statuses: ProfileStatus[] | undefined;
+  const statusList = splitCommaList(rawQuery['status']);
+  if (statusList) {
+    const invalid = statusList.filter((s) => !PROFILE_STATUSES.includes(s as ProfileStatus));
+    if (invalid.length > 0) {
+      errors['status'] = 'Trạng thái lọc không hợp lệ';
+    } else {
+      statuses = Array.from(new Set(statusList as ProfileStatus[]));
+    }
+  }
+
   const createdFrom = parseIsoDate(
     rawQuery['createdFrom'],
     'createdFrom',
@@ -901,6 +914,7 @@ export function parseProfileListQuery(rawQuery: Record<string, unknown>): Profil
     q: q || undefined,
     fuzzy: fuzzy !== undefined ? String(fuzzy) : undefined,
     role: roles?.join(','),
+    status: statuses?.join(','),
     createdFrom: rawString(rawQuery['createdFrom']),
     createdTo: rawString(rawQuery['createdTo']),
     ...(pageSize !== PAGE_SIZE ? { pageSize: String(pageSize) } : {}),
@@ -912,6 +926,7 @@ export function parseProfileListQuery(rawQuery: Record<string, unknown>): Profil
     page,
     pageSize,
     roles,
+    statuses,
     createdFrom,
     createdTo,
     filters,
@@ -931,6 +946,14 @@ export function buildProfileWhere(
   if (parsed.roles && parsed.roles.length > 0) {
     andConditions.push(
       parsed.roles.length === 1 ? { role: parsed.roles[0] } : { role: { in: parsed.roles } },
+    );
+  }
+
+  if (parsed.statuses && parsed.statuses.length > 0) {
+    andConditions.push(
+      parsed.statuses.length === 1
+        ? { status: parsed.statuses[0] }
+        : { status: { in: parsed.statuses } },
     );
   }
 

@@ -3,13 +3,14 @@ import { useAuth } from '../../../auth/AuthProvider';
 import { usersApi } from '../../../lib/resources';
 import { useListParams } from '../../../lib/useListParams';
 import { usePagedList } from '../../../lib/usePagedList';
-import type { UserItem, UserRole } from '../../../lib/types';
+import type { ProfileStatus, UserItem, UserRole } from '../../../lib/types';
 import { ErrorState, NotFoundState, SkeletonRows } from '../../../components/StateViews';
 import { PaginationFooter, PaginationToolbar } from '../../../components/Pagination';
 import { formatDateTime } from '../../../lib/format';
 
 const ROLES: UserRole[] = ['ADMIN', 'STAFF', 'VIEWER'];
-const FILTER_KEYS = ['q', 'fuzzy', 'role', 'createdFrom', 'createdTo'];
+const STATUSES: ProfileStatus[] = ['ACTIVE', 'SUSPENDED'];
+const FILTER_KEYS = ['q', 'fuzzy', 'role', 'status', 'createdFrom', 'createdTo'];
 
 function splitCsv(val: string): string[] {
   return val
@@ -41,6 +42,7 @@ export default function UserAdminList() {
 
   const fuzzy = getFilter('fuzzy');
   const role = getFilter('role');
+  const status = getFilter('status');
   const createdFrom = getFilter('createdFrom');
   const createdTo = getFilter('createdTo');
 
@@ -54,7 +56,7 @@ export default function UserAdminList() {
     setInput(q);
   }, [q]);
 
-  const filtersKey = [q, fuzzy, role, createdFrom, createdTo, pageSize].join('|');
+  const filtersKey = [q, fuzzy, role, status, createdFrom, createdTo, pageSize].join('|');
 
   const list = usePagedList<UserItem>({
     loadPage: (targetPage) =>
@@ -62,6 +64,7 @@ export default function UserAdminList() {
         q: q || undefined,
         fuzzy: fuzzy || undefined,
         role: role || undefined,
+        status: status || undefined,
         createdFrom: createdFrom || undefined,
         createdTo: createdTo || undefined,
         page: targetPage,
@@ -120,8 +123,34 @@ export default function UserAdminList() {
     }
   }
 
+  async function handleStatusToggle(user: UserItem) {
+    const currentStatus = user.status ?? 'ACTIVE';
+    const nextStatus: ProfileStatus = currentStatus === 'SUSPENDED' ? 'ACTIVE' : 'SUSPENDED';
+    const promptText =
+      nextStatus === 'SUSPENDED'
+        ? `Bạn có chắc muốn tạm khóa tài khoản ${user.email}?`
+        : `Bạn có chắc muốn kích hoạt lại tài khoản ${user.email}?`;
+    if (!window.confirm(promptText)) return;
+
+    setSavingId(user.id);
+    setActionError(null);
+    setActionSuccess(null);
+
+    try {
+      const result = await usersApi.updateStatus(user.id, nextStatus);
+      setActionSuccess(result.message);
+      list.reload();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Không thể cập nhật trạng thái.';
+      setActionError(message);
+    } finally {
+      setSavingId(null);
+    }
+  }
+
   const selectedRoleFilters = splitCsv(role);
-  const activeFilterCount = [role, createdFrom, createdTo].filter(Boolean).length;
+  const selectedStatusFilters = splitCsv(status);
+  const activeFilterCount = [role, status, createdFrom, createdTo].filter(Boolean).length;
   const rows = list.items;
   const total = list.pagination?.total ?? 0;
 
@@ -184,6 +213,25 @@ export default function UserAdminList() {
             </div>
 
             <div className="filter-group">
+              <span className="filter-group-label">Trạng thái</span>
+              <div className="filter-chips">
+                {STATUSES.map((item) => {
+                  const active = selectedStatusFilters.includes(item);
+                  return (
+                    <button
+                      key={item}
+                      type="button"
+                      className={`filter-chip${active ? ' active' : ''}`}
+                      onClick={() => setFilter('status', toggleCsvItem(status, item))}
+                    >
+                      {item === 'ACTIVE' ? 'Hoạt động' : 'Đã khóa'}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="filter-group">
               <span className="filter-group-label">Ngày đăng ký (Từ – Đến)</span>
               <div className="filter-range-row">
                 <input
@@ -238,13 +286,14 @@ export default function UserAdminList() {
               <th>Người dùng</th>
               <th>Ngày đăng ký</th>
               <th>Vai trò</th>
-              <th style={{ textAlign: 'right' }}>Cấp vai trò</th>
+              <th>Trạng thái</th>
+              <th style={{ textAlign: 'right' }}>Quản lý</th>
             </tr>
           </thead>
           <tbody className="fade-late">
             {list.error && rows.length === 0 ? (
               <tr>
-                <td colSpan={4}>
+                <td colSpan={5}>
                   <ErrorState error={list.error} onRetry={list.reload} />
                 </td>
               </tr>
@@ -253,6 +302,7 @@ export default function UserAdminList() {
                 const effectiveRole = selectedRoles[user.id] ?? user.role;
                 const isChanged = effectiveRole !== user.role;
                 const isSaving = savingId === user.id;
+                const isSuspended = user.status === 'SUSPENDED';
 
                 return (
                   <tr key={user.id}>
@@ -276,9 +326,16 @@ export default function UserAdminList() {
                       )}
                     </td>
                     <td>
+                      {isSuspended ? (
+                        <span className="badge danger">Đã khóa</span>
+                      ) : (
+                        <span className="badge ok">Hoạt động</span>
+                      )}
+                    </td>
+                    <td>
                       <div className="row-actions">
                         {user.id === currentUser?.id ? (
-                          <span className="count">Không tự đổi vai trò của mình</span>
+                          <span className="count">Không tự thao tác trên mình</span>
                         ) : (
                           <div style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
                             <select
@@ -303,6 +360,14 @@ export default function UserAdminList() {
                               onClick={() => void handleRoleChange(user)}
                             >
                               {isSaving ? 'Đang lưu…' : 'Lưu'}
+                            </button>
+                            <button
+                              type="button"
+                              className={`btn btn-sm ${isSuspended ? 'btn-quiet' : 'btn-danger'}`}
+                              disabled={isSaving}
+                              onClick={() => void handleStatusToggle(user)}
+                            >
+                              {isSuspended ? 'Mở khóa' : 'Khóa'}
                             </button>
                           </div>
                         )}
@@ -340,7 +405,8 @@ export default function UserAdminList() {
           unit="bản ghi"
         />
         <p className="muted small">
-          Bạn không thể tự đổi vai trò của mình; hệ thống chặn trường hợp hạ ADMIN cuối cùng.
+          Bạn không thể tự đổi vai trò hay tạm khóa chính mình; hệ thống chặn hạ quyền hoặc khóa
+          ADMIN hoạt động cuối cùng.
         </p>
       </div>
     </section>

@@ -23,6 +23,13 @@ enum Role {
   @@map("role")
 }
 
+enum ProfileStatus {
+  ACTIVE
+  SUSPENDED
+
+  @@map("profile_status")
+}
+
 enum DishCategory {
   appetizer
   main
@@ -40,12 +47,18 @@ model Profile {
   email        String
   displayName  String?                  @map("display_name")
   role         Role                     @default(VIEWER)
+  status       ProfileStatus            @default(ACTIVE)
   createdAt    DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt    DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
   searchVector Unsupported("tsvector")? @map("search_vector")
 
+  createdDishes      Dish[]       @relation("DishCreator")
+  createdChefs       Chef[]       @relation("ChefCreator")
+  createdIngredients Ingredient[] @relation("IngredientCreator")
+
   @@index([email])
   @@index([role])
+  @@index([status], map: "idx_profiles_status")
   @@index([searchVector], map: "idx_profiles_search_vector", type: Gin)
   @@map("profiles")
 }
@@ -60,13 +73,16 @@ model Chef {
   experienceYears Int                      @default(0) @map("experience_years")
   phone           String?
   isActive        Boolean                  @default(true) @map("is_active")
+  createdBy       String?                  @map("created_by") @db.Uuid
   createdAt       DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt       DateTime?                @map("deleted_at") @db.Timestamptz(6)
   searchVector    Unsupported("tsvector")? @map("search_vector")
 
-  dishes Dish[]
+  creator Profile? @relation("ChefCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+  dishes  Dish[]
 
+  @@index([createdBy], map: "idx_chefs_created_by")
   @@index([searchVector], map: "idx_chefs_search_vector", type: Gin)
   @@map("chefs")
 }
@@ -80,13 +96,16 @@ model Ingredient {
   pricePerUnit  Decimal                  @default(0) @map("price_per_unit") @db.Decimal(12, 2)
   imageUrl      String?                  @map("image_url")
   isAvailable   Boolean                  @default(true) @map("is_available")
+  createdBy     String?                  @map("created_by") @db.Uuid
   createdAt     DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt     DateTime?                @map("deleted_at") @db.Timestamptz(6)
   searchVector  Unsupported("tsvector")? @map("search_vector")
 
-  dishes DishIngredient[]
+  creator Profile?         @relation("IngredientCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+  dishes  DishIngredient[]
 
+  @@index([createdBy], map: "idx_ingredients_created_by")
   @@index([searchVector], map: "idx_ingredients_search_vector", type: Gin)
   @@map("ingredients")
 }
@@ -104,15 +123,18 @@ model Dish {
   isFeatured      Boolean                  @default(false) @map("is_featured") // shown on home page
   prepTimeMinutes Int?                     @map("prep_time_minutes")
   chefId          String?                  @map("chef_id") @db.Uuid
+  createdBy       String?                  @map("created_by") @db.Uuid
   createdAt       DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt       DateTime?                @map("deleted_at") @db.Timestamptz(6)
   searchVector    Unsupported("tsvector")? @map("search_vector")
 
+  creator     Profile?         @relation("DishCreator", fields: [createdBy], references: [id], onDelete: SetNull)
   chef        Chef?            @relation(fields: [chefId], references: [id], onDelete: SetNull)
   ingredients DishIngredient[]
 
   @@index([chefId], map: "idx_dishes_chef")
+  @@index([createdBy], map: "idx_dishes_created_by")
   @@index([category], map: "idx_dishes_category")
   @@index([isAvailable], map: "idx_dishes_available")
   @@index([searchVector], map: "idx_dishes_search_vector", type: Gin)

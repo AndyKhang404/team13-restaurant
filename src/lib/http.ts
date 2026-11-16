@@ -20,7 +20,10 @@ export type ApiErrorCode =
   | 'ALREADY_EXISTS'
   | 'CONFLICT'
   | 'SELF_ROLE_CHANGE'
+  | 'SELF_MODIFY'
   | 'LAST_ADMIN'
+  | 'ACCOUNT_SUSPENDED'
+  | 'NOT_OWNER'
   | 'EMAIL_MISMATCH'
   | 'RATE_LIMITED'
   | 'CSRF_INVALID'
@@ -77,8 +80,10 @@ export const tokenExpired = (
   msg = 'Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại.',
 ) => new HttpError(401, msg, 'TOKEN_EXPIRED');
 
-export const forbidden = (msg = 'Bạn không có quyền thực hiện thao tác này') =>
-  new HttpError(403, msg, 'FORBIDDEN');
+export const forbidden = (
+  msg = 'Bạn không có quyền thực hiện thao tác này',
+  code: ApiErrorCode | string = 'FORBIDDEN',
+) => new HttpError(403, msg, code);
 
 export const notFound = (what = 'Tài nguyên') =>
   new HttpError(404, `${what} không tồn tại`, 'NOT_FOUND', undefined, true);

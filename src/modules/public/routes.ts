@@ -12,6 +12,7 @@ import {
   orderIdsByFtsRank,
   sortEntitiesByIds,
 } from '../../lib/search.js';
+import { stripCreatedBy } from '../../auth/policy.js';
 
 const router = Router();
 
@@ -21,11 +22,12 @@ const visibleDish: Prisma.DishWhereInput = { deletedAt: null };
 const CATEGORIES = Object.values(DishCategory);
 
 const getHomeFeatured = async () => {
-  return prisma.dish.findMany({
+  const rows = await prisma.dish.findMany({
     where: { ...visibleDish, isFeatured: true },
     orderBy: [{ isAvailable: 'desc' }, { updatedAt: 'desc' }],
     take: 8,
   });
+  return rows.map(stripCreatedBy);
 };
 
 router.get('/', async (_req, res) => {
@@ -46,24 +48,31 @@ router.get('/menu', async (req, res) => {
   const where = buildDishWhere(parsed, { hasStaffPerm: false, ftsIds });
   const orderBy = buildDishOrderBy(parsed.effectiveSort);
 
-  let dishes: Awaited<ReturnType<typeof prisma.dish.findMany>>;
+  let rawRows: Prisma.DishGetPayload<{ include: { chef: true } }>[];
   if (parsed.effectiveSort === 'relevance' && ftsHits) {
     const matchingRows = await prisma.dish.findMany({ where, select: { id: true } });
     const orderedIds = orderIdsByFtsRank(
       matchingRows.map((r) => r.id),
       ftsHits,
     );
-    const rawDishes = orderedIds.length
+    const fetched = orderedIds.length
       ? await prisma.dish.findMany({ where: { id: { in: orderedIds } }, include: { chef: true } })
       : [];
-    dishes = sortEntitiesByIds(rawDishes, orderedIds);
+    rawRows = sortEntitiesByIds(fetched, orderedIds);
   } else {
-    dishes = await prisma.dish.findMany({
+    rawRows = await prisma.dish.findMany({
       where,
       include: { chef: true },
       orderBy,
     });
   }
+  const dishes = rawRows.map((row) => {
+    const { chef, ...rest } = stripCreatedBy(row);
+    return {
+      ...rest,
+      chef: chef ? stripCreatedBy(chef) : null,
+    };
+  });
 
   const flat = Boolean(parsed.q) || parsed.sort !== '';
   const selectedCats = parsed.categories;

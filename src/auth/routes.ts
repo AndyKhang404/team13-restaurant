@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 import type { EmailOtpType } from '@supabase/supabase-js';
-import { Role } from '../generated/prisma/enums.js';
+import { ProfileStatus, Role } from '../generated/prisma/enums.js';
 import { env, isProd } from '../config/env.js';
 import { prisma } from '../lib/prisma.js';
 import { createSupabaseForRequest, getBearerToken, supabaseAdmin } from '../lib/supabase.js';
@@ -19,6 +19,8 @@ import {
 } from './login-attempts.js';
 import { normalizeEmail } from './email.js';
 import { can } from './permissions.js';
+import { ACCOUNT_SUSPENDED_MESSAGE } from './policy.js';
+import { hasOtherActiveAdmin } from './user-guards.js';
 import { requireAuth } from './middleware.js';
 import { authRateLimit, otpRateLimit } from '../middleware/rate-limit.js';
 import { generateCsrfToken } from '../middleware/security.js';
@@ -177,8 +179,15 @@ async function handleLogin(req: Request, res: Response) {
 
   clearLoginAttempts(emailKey(email));
 
+  const existingProfile = await prisma.profile.findUnique({ where: { id: data.user.id } });
+  if (existingProfile?.status === ProfileStatus.SUSPENDED) {
+    await supabase.auth.signOut();
+    return sendError(res, 403, 'ACCOUNT_SUSPENDED', ACCOUNT_SUSPENDED_MESSAGE);
+  }
+
   const redirectTo = await landingFor(data.user.id, data.user.email ?? parsed.data.email, next);
-  const profile = await prisma.profile.findUnique({ where: { id: data.user.id } });
+  const profile =
+    existingProfile ?? (await prisma.profile.findUnique({ where: { id: data.user.id } }));
 
   return sendOk(res, {
     user: profile,
@@ -577,8 +586,15 @@ async function handleAuthCallback(req: Request, res: Response) {
     );
   }
 
+  const existingProfile = await prisma.profile.findUnique({ where: { id: data.user.id } });
+  if (existingProfile?.status === ProfileStatus.SUSPENDED) {
+    await supabase.auth.signOut();
+    return sendError(res, 403, 'ACCOUNT_SUSPENDED', ACCOUNT_SUSPENDED_MESSAGE);
+  }
+
   const redirectTo = await landingFor(data.user.id, data.user.email ?? '', next);
-  const profile = await prisma.profile.findUnique({ where: { id: data.user.id } });
+  const profile =
+    existingProfile ?? (await prisma.profile.findUnique({ where: { id: data.user.id } }));
 
   return sendOk(res, {
     user: profile,
@@ -593,8 +609,9 @@ async function handleAuthCallback(req: Request, res: Response) {
 /**
  * DELETE /api/auth/me
  * Permanently deletes the authenticated user's account after verifying email confirmation.
- * Order: delete Supabase Auth user first so an upstream failure keeps the Profile intact,
- * then remove Profile idempotently via deleteMany, revoke existing JWTs, and sign out cookies.
+ * Order: lock active ADMIN rows in transaction, delete Supabase Auth user first so an
+ * upstream failure keeps the Profile intact, then remove Profile idempotently via deleteMany,
+ * revoke existing JWTs, and sign out cookies.
  */
 async function handleDeleteAccount(req: Request, res: Response) {
   const user = req.user;
@@ -621,25 +638,34 @@ async function handleDeleteAccount(req: Request, res: Response) {
     );
   }
 
-  if (user.role === Role.ADMIN) {
-    const otherAdmins = await prisma.profile.count({
-      where: { role: Role.ADMIN, id: { not: user.id } },
-    });
-    if (otherAdmins === 0) {
-      return sendBusinessError(
-        res,
-        'LAST_ADMIN',
-        'Không thể xóa tài khoản quản trị viên cuối cùng.',
-      );
+  const outcome = await prisma.$transaction(async (tx) => {
+    if (user.role === Role.ADMIN) {
+      const otherExists = await hasOtherActiveAdmin(tx, user.id);
+      if (!otherExists) {
+        return 'LAST_ADMIN' as const;
+      }
     }
-  }
 
-  const { error: deleteAuthError } = await supabaseAdmin.auth.admin.deleteUser(user.id);
-  if (deleteAuthError) {
+    const { error: deleteAuthError } = await supabaseAdmin.auth.admin.deleteUser(user.id);
+    if (deleteAuthError) {
+      return 'AUTH_ERROR' as const;
+    }
+
+    await tx.profile.deleteMany({ where: { id: user.id } });
+    return 'OK' as const;
+  });
+
+  if (outcome === 'LAST_ADMIN') {
+    return sendBusinessError(
+      res,
+      'LAST_ADMIN',
+      'Không thể xóa tài khoản quản trị viên cuối cùng.',
+    );
+  }
+  if (outcome === 'AUTH_ERROR') {
     return sendError(res, 500, 'AUTH_ERROR', 'Không thể xóa tài khoản. Vui lòng thử lại sau.');
   }
 
-  await prisma.profile.deleteMany({ where: { id: user.id } });
   recordPasswordReset(user.id);
 
   const supabase = createSupabaseForRequest(req, res);

@@ -15,6 +15,7 @@ import type {
   IngredientQueryParams,
   Paged,
   Pagination,
+  ProfileStatus,
   UserItem,
   UserQueryParams,
   UserRole,
@@ -421,5 +422,10 @@ export const usersApi = {
     apiFetch<{ user: UserItem; message: string }>(`/users/${id}/role`, {
       method: 'PATCH',
       body: { role },
+    }),
+  updateStatus: (id: string, status: ProfileStatus) =>
+    apiFetch<{ user: UserItem; message: string }>(`/users/${id}/status`, {
+      method: 'PATCH',
+      body: { status },
     }),
 };
