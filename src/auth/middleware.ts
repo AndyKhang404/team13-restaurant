@@ -2,7 +2,7 @@ import type { RequestHandler } from 'express';
 import { prisma } from '../lib/prisma.js';
 import { createSupabaseForRequest, getBearerToken, hasAuthCookie } from '../lib/supabase.js';
 import { sendError } from '../lib/http.js';
-import type { Permission } from './permissions.js';
+import { can, type Permission } from './permissions.js';
 import { isTokenRevoked } from './token-revocation.js';
 
 interface JwtPayloadSummary {
@@ -143,16 +143,20 @@ export const requireAuth: RequestHandler = (req, res, next) => {
 };
 
 /**
- * Slide 30: "Mọi tài khoản đã kích hoạt dùng được CRUD; role chưa dùng để phân quyền ở bài này"
- * Checks authentication for protected endpoints.
+ * Enforces route-level RBAC:
+ * - 401 UNAUTHENTICATED / TOKEN_EXPIRED if no valid user session.
+ * - 403 FORBIDDEN if authenticated user lacks the required permission.
  */
-export function requirePermission(_permission: Permission): RequestHandler {
+export function requirePermission(permission: Permission): RequestHandler {
   return (req, res, next) => {
     if (!req.user) {
       if (req.tokenExpired) {
         return sendError(res, 401, 'TOKEN_EXPIRED', 'Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại.');
       }
       return sendError(res, 401, 'UNAUTHENTICATED', 'Vui lòng đăng nhập để tiếp tục.');
+    }
+    if (!can(req.user, permission)) {
+      return sendError(res, 403, 'FORBIDDEN', 'Bạn không có quyền thực hiện thao tác này.');
     }
     next();
   };
