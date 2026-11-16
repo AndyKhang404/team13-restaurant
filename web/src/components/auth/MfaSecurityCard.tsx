@@ -269,9 +269,9 @@ export function MfaSecurityCard() {
     <div className="profile-card profile-security">
       <div className="profile-security-head">
         <div>
-          <h2>Xác thực hai lớp (2FA)</h2>
+          <h2>Xác thực hai lớp</h2>
           <p className="muted small">
-            Dùng ứng dụng xác thực (Google Authenticator, Authy…) để bảo vệ tài khoản.
+            Dùng ứng dụng xác thực trên điện thoại để bảo vệ tài khoản.
           </p>
         </div>
         <span className={`profile-badge ${enabled ? 'is-success' : 'is-neutral'}`}>
@@ -286,14 +286,14 @@ export function MfaSecurityCard() {
           <dl className="profile-fields">
             <div className="profile-field">
               <dt>Trạng thái</dt>
-              <dd>Đang bảo vệ tài khoản bằng TOTP</dd>
+              <dd>Tài khoản đang được bảo vệ bằng xác thực hai lớp.</dd>
             </div>
             <div className="profile-field">
               <dt>Bật lúc</dt>
               <dd className="mono">{formatDateTime(status?.enabledAt) || '—'}</dd>
             </div>
             <div className="profile-field">
-              <dt>Mã khôi phục còn lại</dt>
+              <dt>Số mã khôi phục còn lại</dt>
               <dd>
                 {status?.recoveryCodesEnabled
                   ? (status?.recoveryCodesRemaining ?? 'Không xác định')
@@ -445,7 +445,7 @@ export function MfaSecurityCard() {
                 </>
               ) : (
                 <p className="muted small">
-                  Không có mã khôi phục. Nếu mất thiết bị, hãy liên hệ quản trị viên để reset.
+                  Không có mã khôi phục. Nếu mất thiết bị, hãy liên hệ quản trị viên để được hỗ trợ.
                 </p>
               )}
               <div className="profile-dialog-actions">

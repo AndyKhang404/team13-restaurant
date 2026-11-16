@@ -353,7 +353,7 @@ export default function Login() {
                   <OtpField
                     id="mfa-code"
                     label="Mã xác thực"
-                    hint="Nhập mã 6 chữ số từ Google Authenticator, Authy hoặc ứng dụng tương tự."
+                    hint="Mở ứng dụng xác thực trên điện thoại và nhập mã 6 chữ số."
                     value={mfaCode}
                     onChange={setMfaCode}
                     disabled={busy}

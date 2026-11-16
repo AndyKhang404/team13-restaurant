@@ -139,7 +139,7 @@ export function mapMfaError(
     case 'mfa_factor_not_found':
       return {
         code: 'MFA_NOT_ENABLED',
-        message: 'Không tìm thấy yếu tố xác thực hai lớp trên tài khoản.',
+        message: 'Tài khoản chưa bật xác thực hai lớp.',
         status,
       };
     case 'insufficient_aal':
@@ -151,7 +151,7 @@ export function mapMfaError(
     case 'mfa_totp_enroll_not_enabled':
       return {
         code: 'MFA_UNAVAILABLE',
-        message: 'Xác thực TOTP chưa được bật trên hệ thống.',
+        message: 'Tính năng xác thực hai lớp hiện chưa khả dụng.',
         status,
       };
     case 'mfa_verified_factor_exists':
@@ -163,7 +163,7 @@ export function mapMfaError(
     case 'mfa_factor_name_conflict':
       return {
         code: 'MFA_ERROR',
-        message: 'Tên yếu tố xác thực đã tồn tại. Vui lòng thử lại.',
+        message: 'Không thể tạo xác thực hai lớp lúc này. Vui lòng thử lại.',
         status,
       };
     case 'mfa_recovery_codes_locked':
@@ -178,7 +178,7 @@ export function mapMfaError(
     case 'mfa_recovery_codes_not_found':
       return {
         code: 'MFA_RECOVERY_UNAVAILABLE',
-        message: 'Mã khôi phục chưa được bật trên hệ thống.',
+        message: 'Tính năng mã khôi phục hiện chưa khả dụng. Vui lòng liên hệ quản trị viên.',
         status,
       };
     case 'over_request_rate_limit':
@@ -190,7 +190,7 @@ export function mapMfaError(
     default:
       return {
         code: fallbackCode,
-        message: error?.message || 'Không thể xử lý xác thực hai lớp. Vui lòng thử lại.',
+        message: 'Không thể xử lý xác thực hai lớp. Vui lòng thử lại.',
         status,
       };
   }

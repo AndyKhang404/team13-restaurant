@@ -151,7 +151,7 @@ export default function UserAdminList() {
 
   async function handleResetMfa(user: UserItem) {
     const ok = window.confirm(
-      `Reset xác thực hai lớp cho ${user.email}? Họ sẽ đăng nhập lại chỉ bằng mật khẩu và có thể bật lại 2FA sau đó.`,
+      `Đặt lại xác thực hai lớp cho ${user.email}? Người dùng sẽ đăng nhập lại chỉ bằng mật khẩu và có thể bật lại sau đó.`,
     );
     if (!ok) return;
 
@@ -163,7 +163,7 @@ export default function UserAdminList() {
       const result = await usersApi.resetMfa(user.id);
       setActionSuccess(result.message);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Không thể reset xác thực hai lớp.';
+      const message = err instanceof Error ? err.message : 'Không thể đặt lại xác thực hai lớp.';
       setActionError(message);
     } finally {
       setResettingMfaId(null);
@@ -396,9 +396,11 @@ export default function UserAdminList() {
                               className="btn btn-sm btn-quiet"
                               disabled={resettingMfaId === user.id}
                               onClick={() => void handleResetMfa(user)}
-                              title="Xoá toàn bộ yếu tố xác thực hai lớp của người dùng này"
+                              title="Tắt xác thực hai lớp cho người dùng này"
                             >
-                              {resettingMfaId === user.id ? 'Đang reset…' : 'Reset 2FA'}
+                              {resettingMfaId === user.id
+                                ? 'Đang đặt lại…'
+                                : 'Đặt lại xác thực hai lớp'}
                             </button>
                           </div>
                         )}

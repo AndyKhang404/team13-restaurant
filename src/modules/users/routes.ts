@@ -165,7 +165,7 @@ async function handleUpdateStatus(req: Request, res: Response) {
  */
 async function handleResetMfa(req: Request, res: Response) {
   if (!can(req.user, 'user:manage')) {
-    throw forbidden('Chỉ quản trị viên mới có quyền reset xác thực hai lớp.');
+    throw forbidden('Chỉ quản trị viên mới có quyền đặt lại xác thực hai lớp.');
   }
 
   const targetId = paramId(req.params.id);
@@ -176,7 +176,7 @@ async function handleResetMfa(req: Request, res: Response) {
     userId: targetId,
   });
   if (error) {
-    return sendError(res, 500, 'AUTH_ERROR', 'Không thể đọc yếu tố xác thực của người dùng.');
+    return sendError(res, 500, 'AUTH_ERROR', 'Không thể đặt lại xác thực hai lớp cho người dùng.');
   }
 
   for (const factor of data?.factors ?? []) {
@@ -185,7 +185,7 @@ async function handleResetMfa(req: Request, res: Response) {
       id: factor.id,
     });
     if (removed.error && removed.error.code !== 'mfa_factor_not_found') {
-      return sendError(res, 500, 'AUTH_ERROR', 'Không thể xoá yếu tố xác thực của người dùng.');
+      return sendError(res, 500, 'AUTH_ERROR', 'Không thể đặt lại xác thực hai lớp cho người dùng.');
     }
   }
 
@@ -194,7 +194,7 @@ async function handleResetMfa(req: Request, res: Response) {
   recordPasswordReset(targetId);
 
   return sendOk(res, {
-    message: `Đã reset xác thực hai lớp cho ${target.email}.`,
+    message: `Đã đặt lại xác thực hai lớp cho ${target.email}.`,
     userId: targetId,
   });
 }
