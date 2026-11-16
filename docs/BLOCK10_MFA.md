@@ -6,9 +6,11 @@ trong bảng `public.mfa_states`.
 
 ## 1. Phạm vi
 
+- Triển khai trên bản **CSR + REST API** (`feat/block10`); bốn cổng phân quyền và MFA được
+  nghiệm thu bằng request trực tiếp tới API (mục 13).
 - Mọi tài khoản đã đăng nhập đều có thể tự bật/tắt 2FA từ `/profile`.
 - Bật 2FA là tuỳ chọn, không bắt buộc theo role.
-- Admin có thể reset 2FA cho user mất thiết bị từ `/admin/users`.
+- Admin có thể reset 2FA cho user mất thiết bị từ `/admin/users` (không áp dụng cho chính mình).
 
 ## 2. Kiến trúc
 
