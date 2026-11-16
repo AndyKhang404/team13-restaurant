@@ -3092,6 +3092,120 @@ dialog::backdrop {
   gap: 10px;
   margin-top: 20px;
 }
+.profile-badge.is-success {
+  border-color: var(--ok);
+  color: var(--ok);
+}
+.profile-badge.is-neutral {
+  border-color: var(--line);
+  color: var(--ink-2);
+}
+
+/* ---------- MFA (2FA) ---------- */
+.profile-security {
+  margin-top: 22px;
+}
+.profile-security-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+.profile-security-head h2 {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 23px;
+  line-height: 1.25;
+  margin: 0 0 4px;
+}
+.profile-security-head p {
+  margin: 0;
+}
+.mfa-dialog-card {
+  max-height: inherit;
+}
+.mfa-qr {
+  width: 210px;
+  height: 210px;
+  margin: 18px auto;
+  padding: 10px;
+  background: #fff;
+  border: 1px solid var(--line);
+}
+.mfa-secret {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 8px;
+}
+.mfa-secret code {
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  word-break: break-all;
+}
+.mfa-codes {
+  margin: 16px 0 4px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  font-family: var(--mono);
+  font-size: 14px;
+  line-height: 1.9;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.mfa-confirm {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin-top: 18px;
+  font-size: 14px;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.mfa-confirm input {
+  margin-top: 4px;
+  accent-color: var(--accent);
+}
+.mfa-switch {
+  margin: 2px 0 18px;
+}
+.mfa-countdown {
+  margin: 0 0 18px;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  font-family: var(--mono);
+  font-size: 12.5px;
+  letter-spacing: 0.05em;
+  color: var(--ink-2);
+}
+.mfa-countdown.is-expired {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+.link-button {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.link-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 @media (max-width: 640px) {
   .nav-profile-name {
     display: none;

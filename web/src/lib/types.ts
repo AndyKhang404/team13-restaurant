@@ -33,6 +33,8 @@ export interface AuthUser {
   status?: ProfileStatus;
   createdAt: string;
   updatedAt: string;
+  /** True when the account has a verified Supabase MFA factor. */
+  mfaEnabled: boolean;
 }
 
 export interface UserItem {

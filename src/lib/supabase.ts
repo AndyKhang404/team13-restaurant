@@ -40,6 +40,21 @@ export function createSupabaseForRequest(req: Request, res: Response) {
 }
 
 /**
+ * In-memory Supabase client used while a login is still at AAL1.
+ * It never writes cookies, so a failed MFA challenge cannot leak an
+ * authenticated (but not yet MFA-verified) session to the browser.
+ */
+export function createStatelessClient() {
+  return createClient(env.SUPABASE_URL, env.SUPABASE_PUBLISHABLE_KEY, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+  });
+}
+
+/**
  * Secret client (service_role) — bypasses RLS. Server-only: storage uploads and seeding.
  * Never pass this client (or its key) to views.
  */
@@ -51,5 +66,24 @@ export const supabaseAdmin = createClient(env.SUPABASE_URL, env.SUPABASE_SECRET_
 export function hasAuthCookie(req: Request): boolean {
   const header = req.headers.cookie ?? '';
   return /(?:^|;\s*)sb-[^=]+-auth-token/.test(header);
+}
+
+/**
+ * Defensive fallback for flows that must not leave an AAL1 session cookie
+ * behind (MFA challenge/callback). `signOut({ scope: 'local' })` normally
+ * removes these, but explicitly clearing request cookies also covers stale
+ * chunks from previous deployments/scopes.
+ */
+export function clearSupabaseAuthCookies(req: Request, res: Response): void {
+  for (const name of Object.keys(req.cookies ?? {})) {
+    if (/^sb-.*-auth-token(\.\d+)?$/.test(name)) {
+      res.clearCookie(name, {
+        path: '/',
+        sameSite: 'lax',
+        secure: isProd,
+        httpOnly: true,
+      });
+    }
+  }
 }
 

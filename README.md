@@ -22,6 +22,8 @@ A modern client-side rendered (CSR) web application for restaurant meal manageme
   - Adaptive Google reCAPTCHA v2 verification triggered automatically after repeated failed login attempts (`CAPTCHA_SITE_KEY`).
   - Accessible password eye visibility toggle (`<PasswordField />`) with keyboard navigation and ARIA attributes.
   - Left-aligned password recovery link leading directly to `/forgot-password`.
+  - **Supabase MFA (TOTP)**: opt-in from `/profile`; password login then requires a 6-digit authenticator code (or one of 10 single-use app-managed recovery codes). No AAL1 token/cookie is issued before MFA succeeds, and 5 wrong codes lock the account for 15 minutes. TOTP codes are replay-protected; using a recovery code disables MFA and requires signing in again with the password, then re-enabling 2FA from `/profile`.
+  - **Admin 2FA reset**: `/admin/users` can remove every MFA factor for a user who lost their authenticator and backup codes.
 - **Sign Up with 6-Digit Email OTP (`/register`)**:
   - Account creation with display name, email, password strength/confirmation validation (6–72 characters), and CAPTCHA challenge.
   - Automatic transition to 6-digit OTP verification screen (`/api/auth/verify-otp`) with 60-second cooldown resend mechanism (`/api/auth/resend-otp`).
@@ -158,6 +160,14 @@ Legacy `/api/admin/*` routes remain fully supported as backward-compatibility al
 | `/api/auth/reset-password`        |          POST           | Authenticated  | Update password for recovery session or authenticated user                     |
 | `/api/auth/logout`                |          POST           | Authenticated  | Clear session cookies / invalidate session                                     |
 | `/api/auth/callback`              |        GET/POST         |     Public     | Supabase OAuth / email verification / magic-link / recovery callback           |
+| `/api/auth/mfa/status`            |           GET           | Authenticated  | MFA enabled state, factor id, and remaining recovery codes                     |
+| `/api/auth/mfa/enroll`            |          POST           | Authenticated  | Start Supabase TOTP enrollment (returns QR code + secret)                      |
+| `/api/auth/mfa/enroll/verify`     |          POST           | Authenticated  | Confirm the first TOTP code and return recovery codes once                     |
+| `/api/auth/mfa/verify`            |          POST           |     Public     | Complete a login challenge with a 6-digit TOTP code                            |
+| `/api/auth/mfa/verify-recovery`   |          POST           |     Public     | Use a single-use recovery code to disable MFA, then sign in again              |
+| `/api/auth/mfa/disable`           |          POST           | Authenticated  | Disable MFA (password + current TOTP/recovery code)                            |
+| `/api/auth/mfa/recovery-codes`    |          POST           | Authenticated  | Rotate the recovery-code set                                                   |
+| `/api/users/:id/mfa/reset`        |          POST           |   Admin only   | Remove all MFA factors + local mirror for a locked-out user                    |
 | `/api/home`                       |           GET           |     Public     | Featured dishes for the home page                                              |
 | `/api/menu`                       |           GET           |     Public     | Full visible dish catalog with FTS, filters & sort (no pagination)             |
 | `/api/dishes/filter-options`      |           GET           |     Public     | Chefs, ingredients, categories and price range for public filter UI            |

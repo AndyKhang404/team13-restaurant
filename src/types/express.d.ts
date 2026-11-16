@@ -17,6 +17,8 @@ declare global {
       tokenRevoked?: boolean;
       /** True if the authenticated profile has status SUSPENDED. */
       suspended?: boolean;
+      /** True when the user has MFA enabled but the token is still AAL1. */
+      mfaRequired?: boolean;
       /** Queue a one-time message shown on the next rendered page. */
       flash(type: FlashType, message: string): void;
     }

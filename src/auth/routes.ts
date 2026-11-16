@@ -2,12 +2,39 @@ import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 import type { EmailOtpType } from '@supabase/supabase-js';
 import { ProfileStatus, Role } from '../generated/prisma/enums.js';
-import { env, isProd } from '../config/env.js';
+import { env } from '../config/env.js';
 import { prisma } from '../lib/prisma.js';
-import { createSupabaseForRequest, getBearerToken, supabaseAdmin } from '../lib/supabase.js';
+import {
+  clearSupabaseAuthCookies,
+  createSupabaseForRequest,
+  createStatelessClient,
+  getBearerToken,
+  supabaseAdmin,
+} from '../lib/supabase.js';
 import { safeNext, sendOk, sendError, sendBusinessError } from '../lib/http.js';
 import { toFieldErrors } from '../lib/validation.js';
 import { verifyCaptcha, captchaErrorMessage } from '../lib/captcha.js';
+import {
+  MFA_MAX_ATTEMPTS,
+  findTotpFactor,
+  generateRecoveryCodes,
+  hasVerifiedMfa,
+  hashMfaCode,
+  hashRecoveryCode,
+  isMfaLocked,
+  isReplayedMfaCode,
+  mapMfaError,
+  mfaLockMinutes,
+  normalizeRecoveryCode,
+  registerMfaFailure,
+  type SupabaseAuthErrorLike,
+} from './mfa.js';
+import {
+  createMfaChallenge,
+  deleteMfaChallenge,
+  getMfaChallenge,
+  registerMfaChallengeFailure,
+} from './mfa-challenges.js';
 import {
   attemptKeys,
   clearLoginAttempts,
@@ -88,6 +115,166 @@ const DeleteAccountSchema = z.object({
   email: z.email('Email không hợp lệ').trim(),
 });
 
+const TotpCodeSchema = z
+  .string()
+  .transform((s) => s.replace(/\D/g, ''))
+  .refine((s) => /^\d{6}$/.test(s), {
+    message: 'Mã xác thực phải gồm đúng 6 chữ số',
+  });
+
+const MfaEnrollVerifySchema = z.object({
+  factorId: z.string().min(1, 'Thiếu mã yếu tố xác thực'),
+  code: TotpCodeSchema,
+});
+
+const MfaVerifySchema = z.object({
+  challengeId: z.string().min(1, 'Thiếu mã phiên xác thực'),
+  code: TotpCodeSchema,
+});
+
+const MfaRecoveryVerifySchema = z.object({
+  challengeId: z.string().min(1, 'Thiếu mã phiên xác thực'),
+  code: z.string().trim().min(1, 'Vui lòng nhập mã khôi phục'),
+});
+
+const MfaDisableSchema = z
+  .object({
+    password: z.string().min(1, 'Vui lòng nhập mật khẩu'),
+    code: z.string().optional(),
+    recoveryCode: z.string().optional(),
+  })
+  .refine((d) => Boolean(d.code?.trim() || d.recoveryCode?.trim()), {
+    path: ['code'],
+    message: 'Vui lòng nhập mã xác thực hoặc mã khôi phục',
+  });
+
+const MfaRecoveryCodesSchema = z.object({
+  code: TotpCodeSchema,
+});
+
+function withMfa<T extends object>(profile: T | null, mfaEnabled: boolean) {
+  return profile ? { ...profile, mfaEnabled } : null;
+}
+
+async function getMfaState(userId: string) {
+  return prisma.mfaState.findUnique({ where: { userId } });
+}
+
+/** Creates/updates the non-secret mirror of Supabase's verified factor. */
+async function ensureMfaState(userId: string, factorId: string | null) {
+  const existing = await getMfaState(userId);
+  if (!existing) {
+    return prisma.mfaState.create({
+      data: { userId, factorId, enabledAt: new Date() },
+    });
+  }
+  if (!existing.enabledAt || existing.factorId !== factorId) {
+    return prisma.mfaState.update({
+      where: { userId },
+      data: { factorId, enabledAt: existing.enabledAt ?? new Date() },
+    });
+  }
+  return existing;
+}
+
+async function markMfaFailure(userId: string) {
+  const state = await getMfaState(userId);
+  const next = registerMfaFailure(state?.failedAttempts ?? 0);
+  await prisma.mfaState.upsert({
+    where: { userId },
+    create: {
+      userId,
+      failedAttempts: next.failedAttempts,
+      lockedUntil: next.lockedUntil,
+    },
+    update: {
+      failedAttempts: next.failedAttempts,
+      lockedUntil: next.lockedUntil,
+    },
+  });
+  return next;
+}
+
+function sendMfaError(
+  res: Response,
+  error: SupabaseAuthErrorLike,
+  fields?: Record<string, string>,
+) {
+  const mapped = mapMfaError(error);
+  return sendBusinessError(res, mapped.code, mapped.message, fields);
+}
+
+function sendMfaLocked(res: Response, lockedUntil: Date) {
+  const minutes = mfaLockMinutes(lockedUntil);
+  return sendBusinessError(
+    res,
+    'MFA_LOCKED',
+    `Bạn đã nhập sai quá nhiều lần. Vui lòng thử lại sau ${minutes} phút.`,
+    { retryAfterMinutes: String(minutes) },
+  );
+}
+
+interface MfaChallengeSummary {
+  challengeId: string;
+  expiresIn: number;
+  recoveryOnly: boolean;
+}
+
+interface SupabaseUserLike {
+  id: string;
+  email?: string | null;
+  factors?: Array<{
+    id: string;
+    factor_type?: string;
+    status?: string;
+    friendly_name?: string;
+  }>;
+}
+
+/**
+ * Creates a login challenge for a verified MFA user. Returns `lockedUntil`
+ * when the account is temporarily locked.
+ */
+async function prepareMfaChallenge(
+  user: SupabaseUserLike,
+  session: { access_token: string; refresh_token?: string },
+  redirectTo: string,
+): Promise<MfaChallengeSummary | { lockedUntil: Date }> {
+  const totp = findTotpFactor(user);
+  const state = await ensureMfaState(user.id, totp?.id ?? null);
+  if (isMfaLocked(state.lockedUntil)) {
+    return { lockedUntil: state.lockedUntil! };
+  }
+
+  const challenge = createMfaChallenge({
+    userId: user.id,
+    factorId: totp?.id ?? null,
+    accessToken: session.access_token,
+    refreshToken: session.refresh_token ?? '',
+    email: user.email ?? '',
+    redirectTo,
+  });
+
+  return {
+    challengeId: challenge.id,
+    expiresIn: Math.round((challenge.expiresAt - Date.now()) / 1000),
+    recoveryOnly: !totp,
+  };
+}
+
+/** Copies a Supabase session into the httpOnly auth cookies. */
+async function attachSessionCookies(
+  req: Request,
+  res: Response,
+  session: { access_token: string; refresh_token?: string },
+) {
+  const supabase = createSupabaseForRequest(req, res);
+  return supabase.auth.setSession({
+    access_token: session.access_token,
+    refresh_token: session.refresh_token ?? '',
+  });
+}
+
 /** Origin embedded in auth emails so links land on the browsable SPA. */
 const emailRedirectOrigin = () => env.EMAIL_REDIRECT_ORIGIN ?? env.APP_URL;
 
@@ -106,8 +293,9 @@ async function landingFor(userId: string, email: string, next: unknown): Promise
 router.get('/me', (req, res) => {
   const csrf = generateCsrfToken(req, res);
   return sendOk(res, {
-    user: req.user,
+    user: withMfa(req.user, Boolean(res.locals.mfaEnabled)),
     csrfToken: csrf,
+    mfaRequired: Boolean(req.mfaRequired),
   });
 });
 
@@ -156,9 +344,9 @@ async function handleLogin(req: Request, res: Response) {
     }
   }
 
-  const supabase = createSupabaseForRequest(req, res);
-  const { data, error } = await supabase.auth.signInWithPassword(parsed.data);
-  if (error || !data.user) {
+  const auth = createStatelessClient();
+  const { data, error } = await auth.auth.signInWithPassword(parsed.data);
+  if (error || !data.user || !data.session) {
     if (
       error?.code === 'email_not_confirmed' ||
       error?.message?.toLowerCase().includes('email not confirmed')
@@ -181,19 +369,62 @@ async function handleLogin(req: Request, res: Response) {
 
   const existingProfile = await prisma.profile.findUnique({ where: { id: data.user.id } });
   if (existingProfile?.status === ProfileStatus.SUSPENDED) {
-    await supabase.auth.signOut();
+    await auth.auth.signOut({ scope: 'local' });
+    clearSupabaseAuthCookies(req, res);
     return sendError(res, 403, 'ACCOUNT_SUSPENDED', ACCOUNT_SUSPENDED_MESSAGE);
   }
 
   const redirectTo = await landingFor(data.user.id, data.user.email ?? parsed.data.email, next);
+
+  // Fail closed: without fresh factor data we must not issue an AAL1 token.
+  const { data: userData, error: userError } = await auth.auth.getUser(
+    data.session.access_token,
+  );
+  if (userError || !userData.user) {
+    return sendError(
+      res,
+      500,
+      'MFA_CHECK_FAILED',
+      'Không thể kiểm tra xác thực hai lớp. Vui lòng thử lại.',
+    );
+  }
+
+  if (hasVerifiedMfa(userData.user)) {
+    const challenge = await prepareMfaChallenge(userData.user, data.session, redirectTo);
+    if ('lockedUntil' in challenge) {
+      return sendMfaLocked(res, challenge.lockedUntil);
+    }
+    // The stateless login client never wrote session cookies; clear any stale
+    // AAL1 cookie from a previous session as a defensive measure.
+    clearSupabaseAuthCookies(req, res);
+    return sendOk(res, {
+      mfaRequired: true,
+      ...challenge,
+      message: 'Vui lòng nhập mã xác thực hai lớp.',
+    });
+  }
+
+  // No verified factor: clear a stale mirror, then issue the normal session.
+  await prisma.mfaState.deleteMany({ where: { userId: data.user.id } });
+
+  const { error: setSessionError } = await attachSessionCookies(req, res, data.session);
+  if (setSessionError) {
+    return sendError(
+      res,
+      500,
+      'AUTH_ERROR',
+      'Không thể tạo phiên đăng nhập. Vui lòng thử lại.',
+    );
+  }
+
   const profile =
     existingProfile ?? (await prisma.profile.findUnique({ where: { id: data.user.id } }));
 
   return sendOk(res, {
-    user: profile,
-    token: data.session?.access_token,
-    accessToken: data.session?.access_token,
-    expiresIn: data.session?.expires_in ?? 3600,
+    user: withMfa(profile, false),
+    token: data.session.access_token,
+    accessToken: data.session.access_token,
+    expiresIn: data.session.expires_in ?? 3600,
     session: data.session,
     redirectTo,
     message: 'Đăng nhập thành công.',
@@ -593,11 +824,45 @@ async function handleAuthCallback(req: Request, res: Response) {
   }
 
   const redirectTo = await landingFor(data.user.id, data.user.email ?? '', next);
+
+  if (data.session?.access_token) {
+    const { data: userData, error: userError } = await supabase.auth.getUser(
+      data.session.access_token,
+    );
+    if (userError || !userData.user) {
+      return sendError(
+        res,
+        500,
+        'MFA_CHECK_FAILED',
+        'Không thể kiểm tra xác thực hai lớp. Vui lòng thử lại.',
+      );
+    }
+
+    if (hasVerifiedMfa(userData.user)) {
+      const challenge = await prepareMfaChallenge(userData.user, data.session, redirectTo);
+      if ('lockedUntil' in challenge) {
+        return sendMfaLocked(res, challenge.lockedUntil);
+      }
+
+      // The challenge holds the session server-side; never leave AAL1 cookies.
+      await supabase.auth.signOut({ scope: 'local' });
+      clearSupabaseAuthCookies(req, res);
+
+      return sendOk(res, {
+        mfaRequired: true,
+        ...challenge,
+        message: 'Vui lòng nhập mã xác thực hai lớp.',
+      });
+    }
+
+    await prisma.mfaState.deleteMany({ where: { userId: data.user.id } });
+  }
+
   const profile =
     existingProfile ?? (await prisma.profile.findUnique({ where: { id: data.user.id } }));
 
   return sendOk(res, {
-    user: profile,
+    user: withMfa(profile, false),
     token: data.session?.access_token,
     accessToken: data.session?.access_token,
     session: data.session,
@@ -674,8 +939,573 @@ async function handleDeleteAccount(req: Request, res: Response) {
   return sendOk(res, { message: 'Tài khoản đã được xóa.' });
 }
 
+/** GET /api/auth/mfa/status — MFA mirror + recovery-code count. */
+async function handleMfaStatus(req: Request, res: Response) {
+  const user = req.user;
+  if (!user) {
+    return sendError(res, 401, 'UNAUTHENTICATED', 'Vui lòng đăng nhập để tiếp tục.');
+  }
+
+  const [state, recoveryCodesRemaining] = await Promise.all([
+    getMfaState(user.id),
+    prisma.mfaRecoveryCode.count({ where: { userId: user.id, usedAt: null } }),
+  ]);
+
+  return sendOk(res, {
+    enabled: Boolean(state?.enabledAt),
+    enabledAt: state?.enabledAt ?? null,
+    factorId: state?.factorId ?? null,
+    recoveryCodesEnabled: recoveryCodesRemaining > 0,
+    recoveryCodesRemaining,
+    lockedUntil: state?.lockedUntil ?? null,
+  });
+}
+
+/** POST /api/auth/mfa/enroll — start Supabase TOTP enrollment. */
+async function handleMfaEnroll(req: Request, res: Response) {
+  const user = req.user;
+  if (!user) {
+    return sendError(res, 401, 'UNAUTHENTICATED', 'Vui lòng đăng nhập để tiếp tục.');
+  }
+
+  const supabase = createSupabaseForRequest(req, res);
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError || !sessionData.session) {
+    return sendBusinessError(
+      res,
+      'MFA_SESSION_REQUIRED',
+      'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại để bật xác thực hai lớp.',
+    );
+  }
+
+  const { data: factors, error: listError } = await supabase.auth.mfa.listFactors();
+  if (listError) return sendMfaError(res, listError);
+
+  if ((factors?.totp ?? []).length > 0) {
+    return sendBusinessError(res, 'MFA_ALREADY_ENABLED', 'Tài khoản đã bật xác thực hai lớp.');
+  }
+
+  // Clean up abandoned unverified factors so they cannot exhaust the
+  // Supabase per-user factor limit. The admin API is used because user-level
+  // unenroll requires AAL2, which the user does not have yet.
+  for (const factor of factors?.all ?? []) {
+    // Unverified leftovers count toward the per-user factor limit. Supabase
+    // recovery_code factors are not used by this app, so drop them too.
+    if (factor.status !== 'verified' || factor.factor_type === 'recovery_code') {
+      try {
+        await supabaseAdmin.auth.admin.mfa.deleteFactor({
+          userId: user.id,
+          id: factor.id,
+        });
+      } catch {
+        // Ignore: a failed cleanup must not block enrollment.
+      }
+    }
+  }
+
+  const { data, error } = await supabase.auth.mfa.enroll({
+    factorType: 'totp',
+    friendlyName: 'Team13 Restaurant',
+    issuer: 'Team13 Restaurant',
+  });
+
+  if (error || !data) return sendMfaError(res, error);
+
+  return sendOk(res, {
+    factorId: data.id,
+    qrCode: data.totp?.qr_code ?? '',
+    secret: data.totp?.secret ?? '',
+    uri: data.totp?.uri ?? '',
+    issuer: 'Team13 Restaurant',
+    digits: 6,
+    period: 30,
+  });
+}
+
+/** POST /api/auth/mfa/enroll/verify — confirm the first TOTP code. */
+async function handleMfaEnrollVerify(req: Request, res: Response) {
+  const user = req.user;
+  if (!user) {
+    return sendError(res, 401, 'UNAUTHENTICATED', 'Vui lòng đăng nhập để tiếp tục.');
+  }
+
+  const parsed = MfaEnrollVerifySchema.safeParse(req.body);
+  if (!parsed.success) {
+    return sendBusinessError(
+      res,
+      'VALIDATION_ERROR',
+      'Dữ liệu xác thực không hợp lệ',
+      toFieldErrors(parsed.error),
+    );
+  }
+
+  const existing = await getMfaState(user.id);
+  if (existing?.enabledAt && existing.factorId) {
+    return sendBusinessError(res, 'MFA_ALREADY_ENABLED', 'Tài khoản đã bật xác thực hai lớp.');
+  }
+
+  const supabase = createSupabaseForRequest(req, res);
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError || !sessionData.session) {
+    return sendBusinessError(
+      res,
+      'MFA_SESSION_REQUIRED',
+      'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại để bật xác thực hai lớp.',
+    );
+  }
+
+  const { error } = await supabase.auth.mfa.challengeAndVerify({
+    factorId: parsed.data.factorId,
+    code: parsed.data.code,
+  });
+  if (error) return sendMfaError(res, error);
+
+  await ensureMfaState(user.id, parsed.data.factorId);
+
+  let recoveryCodes: string[] = [];
+  let recoveryCodesEnabled = false;
+  let warning: string | undefined;
+
+  try {
+    const codes = generateRecoveryCodes();
+    await prisma.mfaRecoveryCode.deleteMany({ where: { userId: user.id } });
+    await prisma.mfaRecoveryCode.createMany({
+      data: codes.map((code) => ({
+        userId: user.id,
+        codeHash: hashRecoveryCode(code),
+      })),
+      skipDuplicates: true,
+    });
+    await prisma.mfaState.update({
+      where: { userId: user.id },
+      data: { recoveryCodesEnabled: true },
+    });
+    recoveryCodes = codes;
+    recoveryCodesEnabled = true;
+  } catch {
+    await prisma.mfaRecoveryCode.deleteMany({ where: { userId: user.id } }).catch(() => undefined);
+    warning = 'Không thể tạo mã khôi phục. Bạn có thể tạo lại sau trong trang hồ sơ.';
+  }
+
+  // Enabling MFA must invalidate every pre-MFA session.
+  recordPasswordReset(user.id);
+  await supabase.auth.signOut({ scope: 'global' });
+  clearSupabaseAuthCookies(req, res);
+
+  return sendOk(res, {
+    enabled: true,
+    factorId: parsed.data.factorId,
+    recoveryCodes,
+    recoveryCodesEnabled,
+    warning,
+    reauthRequired: true,
+    message: 'Đã bật xác thực hai lớp. Vui lòng đăng nhập lại bằng mã từ ứng dụng xác thực.',
+  });
+}
+
+/** POST /api/auth/mfa/verify — finish a login challenge with a TOTP code. */
+async function handleMfaVerify(req: Request, res: Response) {
+  const parsed = MfaVerifySchema.safeParse(req.body);
+  if (!parsed.success) {
+    return sendBusinessError(
+      res,
+      'VALIDATION_ERROR',
+      'Dữ liệu xác thực không hợp lệ',
+      toFieldErrors(parsed.error),
+    );
+  }
+
+  const challenge = getMfaChallenge(parsed.data.challengeId);
+  if (!challenge) {
+    return sendBusinessError(
+      res,
+      'MFA_CHALLENGE_EXPIRED',
+      'Phiên xác thực đã hết hạn. Vui lòng đăng nhập lại.',
+    );
+  }
+
+  const state = await getMfaState(challenge.userId);
+  if (isMfaLocked(state?.lockedUntil)) {
+    return sendMfaLocked(res, state!.lockedUntil!);
+  }
+
+  if (!challenge.factorId) {
+    return sendBusinessError(
+      res,
+      'MFA_NOT_ENABLED',
+      'Tài khoản chỉ có thể xác thực bằng mã khôi phục.',
+    );
+  }
+
+  if (isReplayedMfaCode(state?.lastCodeHash, state?.lastCodeAt, parsed.data.code)) {
+    return sendBusinessError(
+      res,
+      'INVALID_MFA_CODE',
+      'Mã này đã được sử dụng. Vui lòng chờ mã mới từ ứng dụng xác thực.',
+    );
+  }
+
+  const mfa = createStatelessClient();
+  const { error: sessionError } = await mfa.auth.setSession({
+    access_token: challenge.accessToken,
+    refresh_token: challenge.refreshToken,
+  });
+  if (sessionError) {
+    deleteMfaChallenge(challenge.id);
+    return sendBusinessError(
+      res,
+      'MFA_CHALLENGE_EXPIRED',
+      'Phiên xác thực đã hết hạn. Vui lòng đăng nhập lại.',
+    );
+  }
+
+  const { data, error } = await mfa.auth.mfa.challengeAndVerify({
+    factorId: challenge.factorId,
+    code: parsed.data.code,
+  });
+
+  if (error) {
+    registerMfaChallengeFailure(challenge.id);
+    const failure = await markMfaFailure(challenge.userId);
+    if (failure.locked) {
+      return sendMfaLocked(res, failure.lockedUntil!);
+    }
+    const remaining = Math.max(0, MFA_MAX_ATTEMPTS - failure.failedAttempts);
+    return sendMfaError(res, error, { attempts: String(remaining) });
+  }
+
+  deleteMfaChallenge(challenge.id);
+  await prisma.mfaState.updateMany({
+    where: { userId: challenge.userId },
+    data: {
+      failedAttempts: 0,
+      lockedUntil: null,
+      lastCodeHash: hashMfaCode(parsed.data.code),
+      lastCodeAt: new Date(),
+    },
+  });
+
+  const { error: setSessionError } = await attachSessionCookies(req, res, data);
+  if (setSessionError) {
+    return sendError(res, 500, 'AUTH_ERROR', 'Không thể tạo phiên đăng nhập. Vui lòng thử lại.');
+  }
+
+  const profile = await prisma.profile.findUnique({ where: { id: challenge.userId } });
+
+  return sendOk(res, {
+    user: withMfa(profile, true),
+    token: data.access_token,
+    accessToken: data.access_token,
+    expiresIn: data.expires_in ?? 3600,
+    session: data,
+    redirectTo: challenge.redirectTo,
+    message: 'Đăng nhập thành công.',
+  });
+}
+
+/** POST /api/auth/mfa/verify-recovery — finish a login challenge with a backup code. */
+async function handleMfaVerifyRecovery(req: Request, res: Response) {
+  const parsed = MfaRecoveryVerifySchema.safeParse(req.body);
+  if (!parsed.success) {
+    return sendBusinessError(
+      res,
+      'VALIDATION_ERROR',
+      'Dữ liệu xác thực không hợp lệ',
+      toFieldErrors(parsed.error),
+    );
+  }
+
+  const challenge = getMfaChallenge(parsed.data.challengeId);
+  if (!challenge) {
+    return sendBusinessError(
+      res,
+      'MFA_CHALLENGE_EXPIRED',
+      'Phiên xác thực đã hết hạn. Vui lòng đăng nhập lại.',
+    );
+  }
+
+  const state = await getMfaState(challenge.userId);
+  if (isMfaLocked(state?.lockedUntil)) {
+    return sendMfaLocked(res, state!.lockedUntil!);
+  }
+
+  const normalized = normalizeRecoveryCode(parsed.data.code);
+  if (!normalized) {
+    return sendBusinessError(res, 'INVALID_RECOVERY_CODE', 'Mã khôi phục không hợp lệ.');
+  }
+
+  const codeHash = hashRecoveryCode(normalized);
+  const codeRow = await prisma.mfaRecoveryCode.findFirst({
+    where: { userId: challenge.userId, codeHash, usedAt: null },
+  });
+
+  if (!codeRow) {
+    registerMfaChallengeFailure(challenge.id);
+    return sendBusinessError(
+      res,
+      'INVALID_RECOVERY_CODE',
+      'Mã khôi phục không đúng hoặc đã được sử dụng.',
+    );
+  }
+
+  // Atomic one-time use: two concurrent requests cannot both consume it.
+  const consumed = await prisma.mfaRecoveryCode.updateMany({
+    where: { id: codeRow.id, usedAt: null },
+    data: { usedAt: new Date() },
+  });
+  if (consumed.count === 0) {
+    return sendBusinessError(
+      res,
+      'INVALID_RECOVERY_CODE',
+      'Mã khôi phục không đúng hoặc đã được sử dụng.',
+    );
+  }
+
+  // A recovery code proves ownership, then disables MFA. Deleting a verified
+  // factor also revokes the held AAL1 session, so the user signs in again.
+  const factors = await supabaseAdmin.auth.admin.mfa.listFactors({
+    userId: challenge.userId,
+  });
+  if (factors.error) {
+    return sendError(
+      res,
+      500,
+      'MFA_ERROR',
+      'Không thể tắt xác thực hai lớp. Vui lòng thử lại.',
+    );
+  }
+
+  for (const factor of factors.data?.factors ?? []) {
+    const removed = await supabaseAdmin.auth.admin.mfa.deleteFactor({
+      userId: challenge.userId,
+      id: factor.id,
+    });
+    if (removed.error && removed.error.code !== 'mfa_factor_not_found') {
+      return sendError(
+        res,
+        500,
+        'MFA_ERROR',
+        'Không thể tắt xác thực hai lớp. Vui lòng thử lại.',
+      );
+    }
+  }
+
+  await prisma.mfaRecoveryCode.deleteMany({ where: { userId: challenge.userId } });
+  await prisma.mfaState.deleteMany({ where: { userId: challenge.userId } });
+  deleteMfaChallenge(challenge.id);
+
+  // Deleting a verified factor revokes the held AAL1 session, so the user must
+  // sign in again with their password (MFA is now off).
+  return sendOk(res, {
+    recoveryUsed: true,
+    reauthRequired: true,
+    redirectTo: '/login',
+    message:
+      'Đã dùng mã khôi phục. Xác thực hai lớp đã tắt; vui lòng đăng nhập lại bằng mật khẩu.',
+  });
+}
+
+/** POST /api/auth/mfa/disable — password + current TOTP/recovery code. */
+async function handleMfaDisable(req: Request, res: Response) {
+  const user = req.user;
+  if (!user) {
+    return sendError(res, 401, 'UNAUTHENTICATED', 'Vui lòng đăng nhập để tiếp tục.');
+  }
+
+  const parsed = MfaDisableSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return sendBusinessError(
+      res,
+      'VALIDATION_ERROR',
+      'Dữ liệu xác thực không hợp lệ',
+      toFieldErrors(parsed.error),
+    );
+  }
+
+  const state = await getMfaState(user.id);
+  if (!state?.enabledAt || !state.factorId) {
+    return sendBusinessError(res, 'MFA_NOT_ENABLED', 'Tài khoản chưa bật xác thực hai lớp.');
+  }
+
+  const supabase = createSupabaseForRequest(req, res);
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError || !sessionData.session) {
+    return sendBusinessError(
+      res,
+      'MFA_SESSION_REQUIRED',
+      'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
+    );
+  }
+
+  const token = getBearerToken(req) ?? sessionData.session.access_token;
+  const { data: aal, error: aalError } =
+    await supabase.auth.mfa.getAuthenticatorAssuranceLevel(token);
+  if (aalError) return sendMfaError(res, aalError);
+  if (aal?.currentLevel !== 'aal2') {
+    return sendBusinessError(
+      res,
+      'MFA_REQUIRED',
+      'Vui lòng xác thực hai lớp trước khi tắt.',
+    );
+  }
+
+  // Re-check the password so an unattended session cannot disable MFA.
+  const passwordClient = createStatelessClient();
+  const { error: passwordError } = await passwordClient.auth.signInWithPassword({
+    email: user.email,
+    password: parsed.data.password,
+  });
+  if (passwordError) {
+    return sendBusinessError(res, 'INVALID_PASSWORD', 'Mật khẩu không đúng.');
+  }
+  await passwordClient.auth.signOut({ scope: 'local' });
+
+  if (parsed.data.recoveryCode?.trim()) {
+    const codeHash = hashRecoveryCode(parsed.data.recoveryCode);
+    const codeRow = await prisma.mfaRecoveryCode.findFirst({
+      where: { userId: user.id, codeHash, usedAt: null },
+    });
+    if (!codeRow) {
+      return sendBusinessError(
+        res,
+        'INVALID_RECOVERY_CODE',
+        'Mã khôi phục không đúng hoặc đã được sử dụng.',
+      );
+    }
+    const consumed = await prisma.mfaRecoveryCode.updateMany({
+      where: { id: codeRow.id, usedAt: null },
+      data: { usedAt: new Date() },
+    });
+    if (consumed.count === 0) {
+      return sendBusinessError(
+        res,
+        'INVALID_RECOVERY_CODE',
+        'Mã khôi phục không đúng hoặc đã được sử dụng.',
+      );
+    }
+  } else {
+    const verified = await supabase.auth.mfa.challengeAndVerify({
+      factorId: state.factorId,
+      code: parsed.data.code!.trim(),
+    });
+    if (verified.error) return sendMfaError(res, verified.error);
+  }
+
+  // Remove every factor (TOTP and any legacy Supabase recovery_code) so the
+  // account cannot be left in a half-enabled state.
+  const factors = await supabaseAdmin.auth.admin.mfa.listFactors({ userId: user.id });
+  if (factors.error) {
+    return sendError(res, 500, 'MFA_ERROR', 'Không thể tắt xác thực hai lớp. Vui lòng thử lại.');
+  }
+  for (const factor of factors.data?.factors ?? []) {
+    const removed = await supabaseAdmin.auth.admin.mfa.deleteFactor({
+      userId: user.id,
+      id: factor.id,
+    });
+    if (removed.error && removed.error.code !== 'mfa_factor_not_found') {
+      return sendError(
+        res,
+        500,
+        'MFA_ERROR',
+        'Không thể tắt xác thực hai lớp. Vui lòng thử lại.',
+      );
+    }
+  }
+
+  await prisma.mfaRecoveryCode.deleteMany({ where: { userId: user.id } });
+  await prisma.mfaState.deleteMany({ where: { userId: user.id } });
+  recordPasswordReset(user.id);
+  await supabase.auth.signOut({ scope: 'global' });
+  clearSupabaseAuthCookies(req, res);
+
+  return sendOk(res, {
+    message: 'Đã tắt xác thực hai lớp. Vui lòng đăng nhập lại.',
+    reauthRequired: true,
+  });
+}
+
+/** POST /api/auth/mfa/recovery-codes — rotate backup codes. */
+async function handleMfaRecoveryCodes(req: Request, res: Response) {
+  const user = req.user;
+  if (!user) {
+    return sendError(res, 401, 'UNAUTHENTICATED', 'Vui lòng đăng nhập để tiếp tục.');
+  }
+
+  const parsed = MfaRecoveryCodesSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return sendBusinessError(
+      res,
+      'VALIDATION_ERROR',
+      'Dữ liệu xác thực không hợp lệ',
+      toFieldErrors(parsed.error),
+    );
+  }
+
+  const state = await getMfaState(user.id);
+  if (!state?.enabledAt || !state.factorId) {
+    return sendBusinessError(res, 'MFA_NOT_ENABLED', 'Tài khoản chưa bật xác thực hai lớp.');
+  }
+
+  const supabase = createSupabaseForRequest(req, res);
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError || !sessionData.session) {
+    return sendBusinessError(
+      res,
+      'MFA_SESSION_REQUIRED',
+      'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
+    );
+  }
+
+  const verified = await supabase.auth.mfa.challengeAndVerify({
+    factorId: state.factorId,
+    code: parsed.data.code,
+  });
+  if (verified.error) return sendMfaError(res, verified.error);
+
+  const codes = generateRecoveryCodes();
+  await prisma.mfaRecoveryCode.deleteMany({ where: { userId: user.id } });
+  await prisma.mfaRecoveryCode.createMany({
+    data: codes.map((code) => ({
+      userId: user.id,
+      codeHash: hashRecoveryCode(code),
+    })),
+    skipDuplicates: true,
+  });
+  await prisma.mfaState.update({
+    where: { userId: user.id },
+    data: { recoveryCodesEnabled: true },
+  });
+
+  return sendOk(res, {
+    codes,
+    message: 'Đã tạo bộ mã khôi phục mới. Hãy lưu lại ngay.',
+  });
+}
+
 // Routes and Aliases conforming to Deck (Slide 15, 16, 17, 18, 28, 29)
 router.delete('/me', authRateLimit(), requireAuth, handleDeleteAccount);
+
+router.get('/mfa/status', requireAuth, handleMfaStatus);
+router.post('/mfa/enroll', authRateLimit({ windowMs: 15 * 60_000, max: 10 }), requireAuth, handleMfaEnroll);
+router.post(
+  '/mfa/enroll/verify',
+  authRateLimit({ windowMs: 15 * 60_000, max: 10 }),
+  requireAuth,
+  handleMfaEnrollVerify,
+);
+router.post('/mfa/verify', authRateLimit({ windowMs: 15 * 60_000, max: 20 }), handleMfaVerify);
+router.post(
+  '/mfa/verify-recovery',
+  authRateLimit({ windowMs: 15 * 60_000, max: 20 }),
+  handleMfaVerifyRecovery,
+);
+router.post('/mfa/disable', authRateLimit({ windowMs: 15 * 60_000, max: 10 }), requireAuth, handleMfaDisable);
+router.post(
+  '/mfa/recovery-codes',
+  authRateLimit({ windowMs: 15 * 60_000, max: 10 }),
+  requireAuth,
+  handleMfaRecoveryCodes,
+);
 
 router.post('/login', authRateLimit(), handleLogin);
 router.post('/register', authRateLimit(), handleRegister);

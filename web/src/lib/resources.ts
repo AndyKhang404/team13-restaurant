@@ -253,8 +253,53 @@ export interface LoginResult {
   user: AuthUser | null;
   token?: string | null;
   accessToken?: string | null;
-  redirectTo: string;
+  redirectTo?: string;
   message?: string;
+  mfaRequired?: boolean;
+  challengeId?: string;
+  expiresIn?: number;
+  recoveryOnly?: boolean;
+  recoveryUsed?: boolean;
+  reauthRequired?: boolean;
+}
+
+export interface MfaStatus {
+  enabled: boolean;
+  enabledAt: string | null;
+  factorId: string | null;
+  recoveryCodesEnabled: boolean;
+  recoveryCodesRemaining: number | null;
+  lockedUntil: string | null;
+}
+
+export interface MfaEnrollResult {
+  factorId: string;
+  qrCode: string;
+  secret: string;
+  uri: string;
+  issuer: string;
+  digits: number;
+  period: number;
+}
+
+export interface MfaEnrollVerifyResult {
+  enabled: boolean;
+  factorId: string;
+  recoveryCodes: string[];
+  recoveryCodesEnabled: boolean;
+  warning?: string;
+  reauthRequired: boolean;
+  message: string;
+}
+
+export interface MfaDisableResult {
+  message: string;
+  reauthRequired: boolean;
+}
+
+export interface MfaRecoveryCodesResult {
+  codes: string[];
+  message: string;
 }
 
 export interface RegisterResult {
@@ -361,6 +406,65 @@ export const authApi = {
     setAuthToken(null);
     return res;
   },
+  mfaStatus: async () => {
+    await loadSession();
+    return apiFetch<MfaStatus>('/auth/mfa/status');
+  },
+  mfaEnroll: async () => {
+    await loadSession();
+    return apiFetch<MfaEnrollResult>('/auth/mfa/enroll', {
+      method: 'POST',
+      timeoutMs: 30_000,
+    });
+  },
+  mfaEnrollVerify: async (factorId: string, code: string) => {
+    await loadSession();
+    const result = await apiFetch<MfaEnrollVerifyResult>('/auth/mfa/enroll/verify', {
+      method: 'POST',
+      body: { factorId, code },
+      timeoutMs: 30_000,
+    });
+    if (result.reauthRequired) setAuthToken(null);
+    return result;
+  },
+  mfaVerify: async (challengeId: string, code: string) => {
+    const result = await apiFetch<LoginResult>('/auth/mfa/verify', {
+      method: 'POST',
+      body: { challengeId, code },
+      timeoutMs: 30_000,
+    });
+    const token = result.token ?? result.accessToken;
+    if (token) setAuthToken(token);
+    return result;
+  },
+  mfaVerifyRecovery: async (challengeId: string, code: string) => {
+    const result = await apiFetch<LoginResult>('/auth/mfa/verify-recovery', {
+      method: 'POST',
+      body: { challengeId, code },
+      timeoutMs: 30_000,
+    });
+    const token = result.token ?? result.accessToken;
+    if (token) setAuthToken(token);
+    return result;
+  },
+  mfaDisable: async (input: { password: string; code?: string; recoveryCode?: string }) => {
+    await loadSession();
+    const result = await apiFetch<MfaDisableResult>('/auth/mfa/disable', {
+      method: 'POST',
+      body: input,
+      timeoutMs: 30_000,
+    });
+    if (result.reauthRequired) setAuthToken(null);
+    return result;
+  },
+  mfaRecoveryCodes: async (code: string) => {
+    await loadSession();
+    return apiFetch<MfaRecoveryCodesResult>('/auth/mfa/recovery-codes', {
+      method: 'POST',
+      body: { code },
+      timeoutMs: 30_000,
+    });
+  },
   callback: async (search: string) => {
     const result = await apiFetch<LoginResult>(`/auth/callback${search}`, { timeoutMs: 30_000 }, false);
     const token = result.token ?? result.accessToken;
@@ -427,5 +531,10 @@ export const usersApi = {
     apiFetch<{ user: UserItem; message: string }>(`/users/${id}/status`, {
       method: 'PATCH',
       body: { status },
+    }),
+  resetMfa: (id: string) =>
+    apiFetch<{ message: string; userId: string }>(`/users/${id}/mfa/reset`, {
+      method: 'POST',
+      timeoutMs: 30_000,
     }),
 };

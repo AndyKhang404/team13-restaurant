@@ -1,7 +1,8 @@
 import { useRef, useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthProvider';
 import { Avatar } from '../components/Avatar';
+import { MfaSecurityCard } from '../components/auth/MfaSecurityCard';
 import { FormError } from '../components/FieldError';
 import { ApiError, HttpError } from '../lib/api';
 import { formatDateTime } from '../lib/format';
@@ -29,6 +30,8 @@ export function displayUsername(displayName: string | null | undefined, email: s
 export default function Profile() {
   const { user, refresh } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const notice = (location.state as { message?: string } | null)?.message ?? null;
   const dialogRef = useRef<HTMLDialogElement>(null);
   const pointerDownOutsideRef = useRef(false);
 
@@ -98,6 +101,12 @@ export default function Profile() {
   return (
     <section className="profile-page">
       <div className="eyebrow">Tài khoản cá nhân</div>
+      {notice ? (
+        <div className="alert" style={{ marginTop: 16 }}>
+          <b>Thông báo</b>
+          <span>{notice}</span>
+        </div>
+      ) : null}
       <div className="profile-card">
         <div className="profile-header">
           <Avatar url={null} name={username} size={72} />
@@ -140,6 +149,8 @@ export default function Profile() {
           </button>
         </div>
       </div>
+
+      <MfaSecurityCard />
 
       <dialog
         ref={dialogRef}

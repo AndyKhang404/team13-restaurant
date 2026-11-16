@@ -247,7 +247,7 @@ describe('Route-Level RBAC Enforcement', () => {
 
       it('rejects suspended user login with 403 ACCOUNT_SUSPENDED', async () => {
         const signOutMock = vi.fn().mockResolvedValue({ error: null });
-        vi.spyOn(supabaseLib, 'createSupabaseForRequest').mockReturnValue({
+        vi.spyOn(supabaseLib, 'createStatelessClient').mockReturnValue({
           auth: {
             signInWithPassword: vi.fn().mockResolvedValue({
               data: { user: { id: STAFF_A, email: 'staff@restaurant.com' }, session: { access_token: 'tok' } },

@@ -1,4 +1,4 @@
-import type { Request, RequestHandler } from 'express';
+import type { Request, RequestHandler, Response } from 'express';
 import { ProfileStatus } from '../generated/prisma/enums.js';
 import type { Profile } from '../generated/prisma/client.js';
 import { prisma } from '../lib/prisma.js';
@@ -13,6 +13,12 @@ interface JwtPayloadSummary {
   exp?: number;
   iat?: number;
   email?: string;
+  aal?: string;
+}
+
+interface ProfileWithMfa {
+  profile: Profile;
+  mfaEnabled: boolean;
 }
 
 function parseJwtPayload(token: string): JwtPayloadSummary | null {
@@ -26,38 +32,75 @@ function parseJwtPayload(token: string): JwtPayloadSummary | null {
   }
 }
 
-async function loadOrCreateProfile(
+/**
+ * Loads/creates the app Profile and the non-secret MFA status in a single
+ * round-trip. `mfaState` is stripped so it never leaks through `req.user`.
+ */
+async function loadProfile(
   userId: string,
   email?: string,
-  displayName?: string,
-): Promise<Profile> {
-  return (
-    (await prisma.profile.findUnique({ where: { id: userId } })) ??
-    // Lazy creation on first login; role defaults to VIEWER, status defaults to ACTIVE.
-    (await prisma.profile.upsert({
-      where: { id: userId },
-      create: {
-        id: userId,
-        email: email ?? '',
-        displayName: displayName ?? null,
-      },
-      update: {},
-    }))
-  );
+  displayName?: string | null,
+): Promise<ProfileWithMfa> {
+  const existing = await prisma.profile.findUnique({
+    where: { id: userId },
+    include: { mfaState: { select: { enabledAt: true } } },
+  });
+
+  if (existing) {
+    const { mfaState, ...profile } = existing;
+    return { profile, mfaEnabled: Boolean(mfaState?.enabledAt) };
+  }
+
+  // Lazy creation on first login; role defaults to VIEWER, status defaults to ACTIVE.
+  const created = await prisma.profile.upsert({
+    where: { id: userId },
+    create: {
+      id: userId,
+      email: email ?? '',
+      displayName: displayName ?? null,
+    },
+    update: {},
+  });
+  return { profile: created, mfaEnabled: false };
 }
 
-function applyProfileToRequest(req: Request, profile: Profile): void {
+/**
+ * Applies account-status ABAC and MFA AAL policy. Suspended accounts win over
+ * MFA so they always receive 403 ACCOUNT_SUSPENDED.
+ */
+async function attachUser(
+  req: Request,
+  res: Response,
+  userId: string,
+  email: string,
+  displayName: string | null,
+  aal: string | undefined,
+): Promise<void> {
+  const { profile, mfaEnabled } = await loadProfile(userId, email, displayName);
+  res.locals.mfaEnabled = mfaEnabled;
+
   if (profile.status === ProfileStatus.SUSPENDED) {
     req.suspended = true;
     req.user = null;
     return;
   }
+
+  if (mfaEnabled && aal !== 'aal2') {
+    req.mfaRequired = true;
+    req.user = null;
+    return;
+  }
+
   req.user = profile;
+  res.locals.user = profile;
 }
 
-function sendUnauthenticatedOrSuspended(req: Request, res: Parameters<RequestHandler>[1]) {
+function sendUnauthenticatedOrSuspended(req: Request, res: Response) {
   if (req.suspended) {
     return sendError(res, 403, 'ACCOUNT_SUSPENDED', ACCOUNT_SUSPENDED_MESSAGE);
+  }
+  if (req.mfaRequired) {
+    return sendError(res, 401, 'MFA_REQUIRED', 'Vui lòng xác thực hai lớp để tiếp tục.');
   }
   if (req.tokenExpired) {
     return sendError(res, 401, 'TOKEN_EXPIRED', 'Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại.');
@@ -77,6 +120,7 @@ function sendUnauthenticatedOrSuspended(req: Request, res: Parameters<RequestHan
  * Resolves the Supabase session (verifying JWT from Bearer header or auth cookie)
  * and loads/creates the app Profile.
  * Suspended profiles leave `req.user = null` and set `req.suspended = true`.
+ * MFA-enabled profiles with an AAL1 token set `req.mfaRequired = true`.
  * Anonymous requests skip the auth round-trip entirely.
  */
 export const loadUser: RequestHandler = async (req, res, next) => {
@@ -84,6 +128,8 @@ export const loadUser: RequestHandler = async (req, res, next) => {
   req.tokenExpired = false;
   req.tokenRevoked = false;
   req.suspended = false;
+  req.mfaRequired = false;
+  res.locals.mfaEnabled = false;
 
   const token = getBearerToken(req);
 
@@ -103,17 +149,23 @@ export const loadUser: RequestHandler = async (req, res, next) => {
       let email: string | undefined;
       let displayName: string | undefined;
       let tokenIat = payload?.iat;
+      let aal = payload?.aal;
 
       // Fast path: verify JWT claims without an extra /auth/v1/user network round-trip
       const claimsRes = await supabase.auth.getClaims(token);
       if (!claimsRes.error && claimsRes.data?.claims?.sub) {
-        userId = claimsRes.data.claims.sub;
-        tokenIat = claimsRes.data.claims.iat ?? tokenIat;
-        email =
-          typeof claimsRes.data.claims.email === 'string'
-            ? claimsRes.data.claims.email
-            : undefined;
-        const meta = (claimsRes.data.claims.user_metadata ?? {}) as Record<string, unknown>;
+        const claims = claimsRes.data.claims as {
+          sub?: string;
+          iat?: number;
+          email?: string;
+          aal?: string;
+          user_metadata?: Record<string, unknown>;
+        };
+        userId = claims.sub;
+        tokenIat = claims.iat ?? tokenIat;
+        aal = claims.aal ?? aal;
+        email = typeof claims.email === 'string' ? claims.email : undefined;
+        const meta = claims.user_metadata ?? {};
         displayName = typeof meta.display_name === 'string' ? meta.display_name : undefined;
       } else {
         if (claimsRes.error?.message?.toLowerCase().includes('expir')) {
@@ -150,8 +202,7 @@ export const loadUser: RequestHandler = async (req, res, next) => {
             req.tokenRevoked = true;
           }
         } else {
-          const profile = await loadOrCreateProfile(userId, email, displayName);
-          applyProfileToRequest(req, profile);
+          await attachUser(req, res, userId, email ?? '', displayName ?? null, aal);
         }
       }
     } catch {
@@ -161,15 +212,24 @@ export const loadUser: RequestHandler = async (req, res, next) => {
     try {
       const supabase = createSupabaseForRequest(req, res);
       const { data, error } = await supabase.auth.getClaims();
-      const claims = data?.claims;
+      const claims = data?.claims as
+        | {
+            sub?: string;
+            email?: string;
+            aal?: string;
+            user_metadata?: Record<string, unknown>;
+          }
+        | undefined;
       if (!error && claims?.sub) {
-        const meta = (claims.user_metadata ?? {}) as Record<string, unknown>;
-        const profile = await loadOrCreateProfile(
+        const meta = claims.user_metadata ?? {};
+        await attachUser(
+          req,
+          res,
           claims.sub,
           typeof claims.email === 'string' ? claims.email : '',
-          typeof meta.display_name === 'string' ? meta.display_name : undefined,
+          typeof meta.display_name === 'string' ? meta.display_name : null,
+          claims.aal,
         );
-        applyProfileToRequest(req, profile);
       }
     } catch {
       // Ignored: invalid cookie leaves req.user = null
@@ -194,7 +254,7 @@ export const requireAuth: RequestHandler = (req, res, next) => {
 /**
  * Enforces route-level RBAC + account-status ABAC:
  * - 403 ACCOUNT_SUSPENDED if profile is suspended.
- * - 401 UNAUTHENTICATED / TOKEN_EXPIRED if no valid user session.
+ * - 401 UNAUTHENTICATED / TOKEN_EXPIRED / MFA_REQUIRED if no valid user session.
  * - 403 FORBIDDEN if authenticated user lacks the required permission.
  */
 export function requirePermission(permission: Permission): RequestHandler {

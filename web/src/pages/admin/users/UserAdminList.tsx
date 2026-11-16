@@ -49,6 +49,7 @@ export default function UserAdminList() {
   const [input, setInput] = useState(q);
   const [selectedRoles, setSelectedRoles] = useState<Record<string, UserRole>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [resettingMfaId, setResettingMfaId] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -145,6 +146,27 @@ export default function UserAdminList() {
       setActionError(message);
     } finally {
       setSavingId(null);
+    }
+  }
+
+  async function handleResetMfa(user: UserItem) {
+    const ok = window.confirm(
+      `Reset xác thực hai lớp cho ${user.email}? Họ sẽ đăng nhập lại chỉ bằng mật khẩu và có thể bật lại 2FA sau đó.`,
+    );
+    if (!ok) return;
+
+    setResettingMfaId(user.id);
+    setActionError(null);
+    setActionSuccess(null);
+
+    try {
+      const result = await usersApi.resetMfa(user.id);
+      setActionSuccess(result.message);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Không thể reset xác thực hai lớp.';
+      setActionError(message);
+    } finally {
+      setResettingMfaId(null);
     }
   }
 
@@ -368,6 +390,15 @@ export default function UserAdminList() {
                               onClick={() => void handleStatusToggle(user)}
                             >
                               {isSuspended ? 'Mở khóa' : 'Khóa'}
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-quiet"
+                              disabled={resettingMfaId === user.id}
+                              onClick={() => void handleResetMfa(user)}
+                              title="Xoá toàn bộ yếu tố xác thực hai lớp của người dùng này"
+                            >
+                              {resettingMfaId === user.id ? 'Đang reset…' : 'Reset 2FA'}
                             </button>
                           </div>
                         )}
