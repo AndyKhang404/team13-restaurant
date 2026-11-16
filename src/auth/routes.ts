@@ -150,6 +150,7 @@ const MfaDisableSchema = z
   });
 
 const MfaRecoveryCodesSchema = z.object({
+  password: z.string().min(1, 'Vui lòng nhập mật khẩu'),
   code: TotpCodeSchema,
 });
 
@@ -648,6 +649,135 @@ router.post('/logout', async (req, res) => {
   return sendOk(res, { message: 'Bạn đã đăng xuất.' });
 });
 
+interface PasswordRecovery {
+  userId: string;
+  /** Revokes the refresh tokens created while verifying the recovery proof. */
+  revokeSessions: () => Promise<void>;
+}
+
+/** Single response for every rejected recovery proof (no detail leaks). */
+function invalidResetProof(res: Response) {
+  return sendBusinessError(
+    res,
+    'INVALID_RESET_TOKEN',
+    'Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn.',
+  );
+}
+
+type RecoveryVerification = {
+  data: { user: { id: string } | null } | null;
+  error: unknown;
+};
+
+/**
+ * Verifies a forgot-password proof using a stateless client, so verifying the
+ * link never creates a session cookie. Exactly one proof is accepted; a Bearer
+ * access token is not a proof (an AAL1 token from a password-only login would
+ * otherwise let an attacker skip MFA).
+ */
+async function resolvePasswordRecovery(
+  req: Request,
+  res: Response,
+  data: z.infer<typeof ResetPasswordSchema>,
+): Promise<PasswordRecovery | null> {
+  const code = data.code ?? (typeof req.query.code === 'string' ? req.query.code : undefined);
+  const tokenHash =
+    data.token_hash ??
+    (typeof req.query.token_hash === 'string' ? req.query.token_hash : undefined);
+  const token = data.token;
+  const email = data.email;
+  const otp = data.otp;
+
+  const proofCount = [code, tokenHash, token, email && otp ? 'otp' : undefined].filter(
+    Boolean,
+  ).length;
+  if (proofCount === 0) {
+    invalidResetProof(res);
+    return null;
+  }
+  if (proofCount > 1) {
+    invalidResetProof(res);
+    return null;
+  }
+
+  const supabase = createStatelessClient();
+  let verified: RecoveryVerification;
+  if (tokenHash) {
+    verified = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'recovery' });
+  } else if (email && otp) {
+    verified = await supabase.auth.verifyOtp({ email, token: otp, type: 'recovery' });
+  } else if (code) {
+    verified = await supabase.auth.exchangeCodeForSession(code);
+  } else {
+    // Older templates put the recovery token in `token`: accept a token hash or
+    // an auth code, but never a bare access token.
+    verified = await supabase.auth.verifyOtp({ token_hash: token!, type: 'recovery' });
+    if (verified.error) {
+      verified = await supabase.auth.exchangeCodeForSession(token!);
+    }
+  }
+
+  if (verified.error || !verified.data?.user) {
+    invalidResetProof(res);
+    return null;
+  }
+
+  return {
+    userId: verified.data.user.id,
+    revokeSessions: async () => {
+      await supabase.auth.signOut({ scope: 'global' }).catch(() => undefined);
+    },
+  };
+}
+
+/**
+ * Persists the new password and revokes old sessions. `keepCurrentSession` is
+ * true for a signed-in self-service change (only other devices are signed out);
+ * recovery links sign out every device and never leave a session cookie.
+ */
+async function applyPasswordChange(
+  req: Request,
+  res: Response,
+  userId: string,
+  newPassword: string,
+  keepCurrentSession: boolean,
+  revokeSessions?: () => Promise<void>,
+) {
+  const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+    password: newPassword,
+  });
+
+  if (updateError) {
+    return sendBusinessError(
+      res,
+      'AUTH_ERROR',
+      'Không thể cập nhật mật khẩu. Vui lòng thử lại.',
+    );
+  }
+
+  // Slide 22 & 29: Invalidate previously issued JWTs immediately
+  recordPasswordReset(userId);
+
+  if (keepCurrentSession) {
+    try {
+      await createSupabaseForRequest(req, res).auth.signOut({ scope: 'others' });
+    } catch {
+      // Best-effort: recordPasswordReset already blocks pre-reset access tokens.
+    }
+  } else {
+    try {
+      await revokeSessions?.();
+    } catch {
+      // Best-effort: recordPasswordReset already blocks pre-reset access tokens.
+    }
+    // Defensive: a recovery link must not leave any auth cookie behind.
+    clearSupabaseAuthCookies(req, res);
+  }
+
+  // Slide 18 & 29: Reset không trả accessToken và không tự đăng nhập
+  return sendOk(res, { message: 'Đổi mật khẩu thành công.' });
+}
+
 /** POST /api/auth/reset-password & POST /api/auth/reset */
 async function handleResetPassword(req: Request, res: Response) {
   const parsed = ResetPasswordSchema.safeParse(req.body);
@@ -660,23 +790,43 @@ async function handleResetPassword(req: Request, res: Response) {
     );
   }
 
-  const supabase = createSupabaseForRequest(req, res);
-  let userId: string | null = req.user?.id ?? null;
+  const newPassword = parsed.data.password;
 
-  const bearer = getBearerToken(req);
-  const code = parsed.data.code ?? (typeof req.query.code === 'string' ? req.query.code : undefined);
-  const tokenHash =
-    parsed.data.token_hash ??
-    (typeof req.query.token_hash === 'string' ? req.query.token_hash : undefined);
-  const token = parsed.data.token;
-  const email = parsed.data.email;
-  const otp = parsed.data.otp;
-  const hasRecoveryProof = Boolean(code || tokenHash || token || (email && otp));
+  // A recovery proof always wins (and is verified below with a stateless
+  // client). It lets a signed-in user finish a password reset from the email
+  // link, while a dummy token cannot skip the current-password check.
+  const hasProof = Boolean(
+    parsed.data.code ||
+      parsed.data.token_hash ||
+      parsed.data.token ||
+      (parsed.data.email && parsed.data.otp) ||
+      typeof req.query.code === 'string' ||
+      typeof req.query.token_hash === 'string',
+  );
 
-  // Changing a password from an already authenticated session (e.g. Profile →
-  // Đổi mật khẩu) must prove knowledge of the current password. Recovery
-  // links/OTPs are already proof of mailbox ownership, so they skip this.
-  if (req.user && !hasRecoveryProof) {
+  if (hasProof) {
+    const recovery = await resolvePasswordRecovery(req, res, parsed.data);
+    if (!recovery) return;
+
+    return applyPasswordChange(
+      req,
+      res,
+      recovery.userId,
+      newPassword,
+      false,
+      recovery.revokeSessions,
+    );
+  }
+
+  // An MFA-pending session (AAL1) must never change the password: a stolen
+  // password alone would otherwise become a permanent account takeover.
+  if (req.mfaRequired) {
+    return sendError(res, 401, 'MFA_REQUIRED', 'Vui lòng xác thực hai lớp để tiếp tục.');
+  }
+
+  // Signed-in user changing their own password: always re-check the current
+  // password. This path deliberately ignores any token fields (see hasProof).
+  if (req.user) {
     const currentPassword = parsed.data.currentPassword;
     if (!currentPassword) {
       return sendBusinessError(
@@ -699,125 +849,12 @@ async function handleResetPassword(req: Request, res: Response) {
       );
     }
     await passwordCheck.auth.signOut({ scope: 'local' });
+
+    return applyPasswordChange(req, res, req.user.id, newPassword, true);
   }
 
-  // Resolve session if not already logged in
-  if (!userId) {
-    if (bearer) {
-      // Verify Bearer token
-      const { data, error } = await supabase.auth.getUser(bearer);
-      if (error || !data?.user) {
-        return sendBusinessError(
-          res,
-          'INVALID_RESET_TOKEN',
-          'Token đặt lại mật khẩu không hợp lệ hoặc đã hết hạn.',
-        );
-      }
-      userId = data.user.id;
-    } else if (code) {
-      const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-      if (error || !data?.user) {
-        return sendBusinessError(
-          res,
-          'INVALID_RESET_TOKEN',
-          'Mã khôi phục không hợp lệ hoặc đã hết hạn.',
-        );
-      }
-      userId = data.user.id;
-    } else if (tokenHash) {
-      const { data, error } = await supabase.auth.verifyOtp({
-        token_hash: tokenHash,
-        type: 'recovery',
-      });
-      if (error || !data?.user) {
-        return sendBusinessError(
-          res,
-          'INVALID_RESET_TOKEN',
-          'Liên kết khôi phục không hợp lệ hoặc đã hết hạn.',
-        );
-      }
-      userId = data.user.id;
-    } else if (email && (otp || token)) {
-      const codeToVerify = otp ?? token!;
-      const { data, error } = await supabase.auth.verifyOtp({
-        email,
-        token: codeToVerify,
-        type: 'recovery',
-      });
-      if (error || !data?.user) {
-        return sendBusinessError(
-          res,
-          'INVALID_RESET_TOKEN',
-          'Mã xác nhận khôi phục không hợp lệ hoặc đã hết hạn.',
-        );
-      }
-      userId = data.user.id;
-    } else if (token) {
-      // Generic token passed in body: try token_hash then exchangeCode
-      let verifiedUser: string | null = null;
-      const resHash = await supabase.auth.verifyOtp({ token_hash: token, type: 'recovery' });
-      if (!resHash.error && resHash.data?.user) {
-        verifiedUser = resHash.data.user.id;
-      } else {
-        const resCode = await supabase.auth.exchangeCodeForSession(token);
-        if (!resCode.error && resCode.data?.user) {
-          verifiedUser = resCode.data.user.id;
-        } else {
-          const resUser = await supabase.auth.getUser(token);
-          if (!resUser.error && resUser.data?.user) {
-            verifiedUser = resUser.data.user.id;
-          }
-        }
-      }
-      if (!verifiedUser) {
-        return sendBusinessError(
-          res,
-          'INVALID_RESET_TOKEN',
-          'Token đặt lại mật khẩu không hợp lệ hoặc đã hết hạn.',
-        );
-      }
-      userId = verifiedUser;
-    } else {
-      return sendBusinessError(
-        res,
-        'INVALID_RESET_TOKEN',
-        'Thiếu token đặt lại mật khẩu.',
-      );
-    }
-  }
-
-  if (!userId) {
-    return sendBusinessError(
-      res,
-      'INVALID_RESET_TOKEN',
-      'Không xác định được tài khoản cần đổi mật khẩu.',
-    );
-  }
-
-  // Admin update works for both cookie sessions and Bearer-only clients:
-  // Supabase's user-scoped updateUser requires a stored session.
-  const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
-    password: parsed.data.password,
-  });
-
-  if (updateError) {
-    return sendBusinessError(
-      res,
-      'AUTH_ERROR',
-      'Không thể cập nhật mật khẩu. Vui lòng thử lại.',
-    );
-  }
-
-  // Slide 22 & 29: Invalidate previously issued JWTs immediately
-  recordPasswordReset(userId);
-  try {
-    await supabase.auth.signOut({ scope: 'others' });
-  } catch {
-    // Best-effort: recordPasswordReset already blocks pre-reset access tokens.
-  }
-
-  // Slide 18 & 29: Reset không trả accessToken và không tự đăng nhập
-  return sendOk(res, { message: 'Đổi mật khẩu thành công.' });
+  invalidResetProof(res);
+  return;
 }
 
 /** Email confirmation / magic-link landing */
@@ -1306,10 +1343,13 @@ async function handleMfaVerifyRecovery(req: Request, res: Response) {
 
   if (!codeRow) {
     registerMfaChallengeFailure(challenge.id);
+    const failure = await markMfaFailure(challenge.userId);
+    if (failure.locked) return sendMfaLocked(res, failure.lockedUntil!);
     return sendBusinessError(
       res,
       'INVALID_RECOVERY_CODE',
       'Mã khôi phục không đúng hoặc đã được sử dụng.',
+      { attempts: String(Math.max(0, MFA_MAX_ATTEMPTS - failure.failedAttempts)) },
     );
   }
 
@@ -1414,6 +1454,10 @@ async function handleMfaDisable(req: Request, res: Response) {
     );
   }
 
+  if (isMfaLocked(state.lockedUntil)) {
+    return sendMfaLocked(res, state.lockedUntil!);
+  }
+
   // Re-check the password so an unattended session cannot disable MFA.
   const passwordClient = createStatelessClient();
   const { error: passwordError } = await passwordClient.auth.signInWithPassword({
@@ -1430,18 +1474,15 @@ async function handleMfaDisable(req: Request, res: Response) {
     const codeRow = await prisma.mfaRecoveryCode.findFirst({
       where: { userId: user.id, codeHash, usedAt: null },
     });
-    if (!codeRow) {
-      return sendBusinessError(
-        res,
-        'INVALID_RECOVERY_CODE',
-        'Mã khôi phục không đúng hoặc đã được sử dụng.',
-      );
-    }
-    const consumed = await prisma.mfaRecoveryCode.updateMany({
-      where: { id: codeRow.id, usedAt: null },
-      data: { usedAt: new Date() },
-    });
-    if (consumed.count === 0) {
+    const consumed = codeRow
+      ? await prisma.mfaRecoveryCode.updateMany({
+          where: { id: codeRow.id, usedAt: null },
+          data: { usedAt: new Date() },
+        })
+      : null;
+    if (!consumed || consumed.count === 0) {
+      const failure = await markMfaFailure(user.id);
+      if (failure.locked) return sendMfaLocked(res, failure.lockedUntil!);
       return sendBusinessError(
         res,
         'INVALID_RECOVERY_CODE',
@@ -1449,11 +1490,25 @@ async function handleMfaDisable(req: Request, res: Response) {
       );
     }
   } else {
+    const code = parsed.data.code!.trim();
+    if (isReplayedMfaCode(state.lastCodeHash, state.lastCodeAt, code)) {
+      return sendBusinessError(
+        res,
+        'INVALID_MFA_CODE',
+        'Mã này đã được sử dụng. Vui lòng chờ mã mới từ ứng dụng xác thực.',
+      );
+    }
     const verified = await supabase.auth.mfa.challengeAndVerify({
       factorId: state.factorId,
-      code: parsed.data.code!.trim(),
+      code,
     });
-    if (verified.error) return sendMfaError(res, verified.error);
+    if (verified.error) {
+      const failure = await markMfaFailure(user.id);
+      if (failure.locked) return sendMfaLocked(res, failure.lockedUntil!);
+      return sendMfaError(res, verified.error, {
+        attempts: String(Math.max(0, MFA_MAX_ATTEMPTS - failure.failedAttempts)),
+      });
+    }
   }
 
   // Remove every factor (TOTP and any legacy Supabase recovery_code) so the
@@ -1521,11 +1576,41 @@ async function handleMfaRecoveryCodes(req: Request, res: Response) {
     );
   }
 
+  if (isMfaLocked(state.lockedUntil)) {
+    return sendMfaLocked(res, state.lockedUntil!);
+  }
+
+  // Rotating backup codes changes the second factor, so re-check the password
+  // even though the session is already fully verified.
+  const passwordClient = createStatelessClient();
+  const { error: passwordError } = await passwordClient.auth.signInWithPassword({
+    email: user.email,
+    password: parsed.data.password,
+  });
+  if (passwordError) {
+    return sendBusinessError(res, 'INVALID_PASSWORD', 'Mật khẩu không đúng.');
+  }
+  await passwordClient.auth.signOut({ scope: 'local' });
+
+  if (isReplayedMfaCode(state.lastCodeHash, state.lastCodeAt, parsed.data.code)) {
+    return sendBusinessError(
+      res,
+      'INVALID_MFA_CODE',
+      'Mã này đã được sử dụng. Vui lòng chờ mã mới từ ứng dụng xác thực.',
+    );
+  }
+
   const verified = await supabase.auth.mfa.challengeAndVerify({
     factorId: state.factorId,
     code: parsed.data.code,
   });
-  if (verified.error) return sendMfaError(res, verified.error);
+  if (verified.error) {
+    const failure = await markMfaFailure(user.id);
+    if (failure.locked) return sendMfaLocked(res, failure.lockedUntil!);
+    return sendMfaError(res, verified.error, {
+      attempts: String(Math.max(0, MFA_MAX_ATTEMPTS - failure.failedAttempts)),
+    });
+  }
 
   const codes = generateRecoveryCodes();
   await prisma.mfaRecoveryCode.deleteMany({ where: { userId: user.id } });
@@ -1538,7 +1623,13 @@ async function handleMfaRecoveryCodes(req: Request, res: Response) {
   });
   await prisma.mfaState.update({
     where: { userId: user.id },
-    data: { recoveryCodesEnabled: true },
+    data: {
+      recoveryCodesEnabled: true,
+      failedAttempts: 0,
+      lockedUntil: null,
+      lastCodeHash: hashMfaCode(parsed.data.code),
+      lastCodeAt: new Date(),
+    },
   });
 
   return sendOk(res, {

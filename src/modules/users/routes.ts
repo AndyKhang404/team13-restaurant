@@ -169,6 +169,10 @@ async function handleResetMfa(req: Request, res: Response) {
   }
 
   const targetId = paramId(req.params.id);
+  if (req.user?.id === targetId) {
+    throw forbidden('Bạn không thể tự đặt lại xác thực hai lớp. Hãy dùng trang hồ sơ.');
+  }
+
   const target = await prisma.profile.findUnique({ where: { id: targetId } });
   if (!target) throw notFound('Người dùng');
 

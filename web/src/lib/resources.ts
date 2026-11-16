@@ -466,11 +466,11 @@ export const authApi = {
     if (result.reauthRequired) setAuthToken(null);
     return result;
   },
-  mfaRecoveryCodes: async (code: string) => {
+  mfaRecoveryCodes: async (input: { password: string; code: string }) => {
     await loadSession();
     return apiFetch<MfaRecoveryCodesResult>('/auth/mfa/recovery-codes', {
       method: 'POST',
-      body: { code },
+      body: input,
       timeoutMs: 30_000,
     });
   },

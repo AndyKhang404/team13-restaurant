@@ -73,6 +73,7 @@ export function MfaSecurityCard() {
 
   const recoveryRef = useRef<HTMLDialogElement>(null);
   const [recoveryStep, setRecoveryStep] = useState<RecoveryStep>('verify');
+  const [recoveryPassword, setRecoveryPassword] = useState('');
   const [recoveryCodeInput, setRecoveryCodeInput] = useState('');
   const [newRecoveryCodes, setNewRecoveryCodes] = useState<string[]>([]);
   const [recoveryError, setRecoveryError] = useState<string | null>(null);
@@ -228,6 +229,7 @@ export function MfaSecurityCard() {
 
   function openRecoveryCodes() {
     setRecoveryStep('verify');
+    setRecoveryPassword('');
     setRecoveryCodeInput('');
     setNewRecoveryCodes([]);
     setRecoveryError(null);
@@ -245,6 +247,10 @@ export function MfaSecurityCard() {
   async function submitRecoveryCodes(e: FormEvent) {
     e.preventDefault();
     if (recoveryBusy) return;
+    if (!recoveryPassword) {
+      setRecoveryError('Vui lòng nhập mật khẩu hiện tại.');
+      return;
+    }
     if (!/^\d{6}$/.test(recoveryCodeInput)) {
       setRecoveryError('Mã xác thực phải gồm đúng 6 chữ số.');
       return;
@@ -252,7 +258,10 @@ export function MfaSecurityCard() {
     setRecoveryError(null);
     setRecoveryBusy(true);
     try {
-      const result = await authApi.mfaRecoveryCodes(recoveryCodeInput);
+      const result = await authApi.mfaRecoveryCodes({
+        password: recoveryPassword,
+        code: recoveryCodeInput,
+      });
       setNewRecoveryCodes(result.codes);
       setRecoveryStep('codes');
       void loadStatus();
@@ -573,10 +582,20 @@ export function MfaSecurityCard() {
           {recoveryStep === 'verify' ? (
             <>
               <p className="muted small">
-                Nhập mã 6 chữ số hiện tại để xác nhận. Bộ mã cũ sẽ ngừng hoạt động ngay.
+                Nhập mật khẩu hiện tại và mã 6 chữ số để xác nhận. Bộ mã cũ sẽ ngừng hoạt động ngay.
               </p>
               <FormError message={recoveryError} />
               <form onSubmit={(e) => void submitRecoveryCodes(e)}>
+                <PasswordField
+                  id="mfa-recovery-password"
+                  label="Mật khẩu hiện tại"
+                  required
+                  autoComplete="current-password"
+                  placeholder="Nhập mật khẩu hiện tại"
+                  value={recoveryPassword}
+                  onChange={setRecoveryPassword}
+                  disabled={recoveryBusy}
+                />
                 <OtpField
                   id="mfa-recovery-code"
                   label="Mã xác thực"

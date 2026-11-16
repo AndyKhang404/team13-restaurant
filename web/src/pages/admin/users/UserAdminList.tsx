@@ -325,6 +325,7 @@ export default function UserAdminList() {
                 const isChanged = effectiveRole !== user.role;
                 const isSaving = savingId === user.id;
                 const isSuspended = user.status === 'SUSPENDED';
+                const isSelf = user.id === currentUser?.id;
 
                 return (
                   <tr key={user.id}>
@@ -394,9 +395,13 @@ export default function UserAdminList() {
                             <button
                               type="button"
                               className="btn btn-sm btn-quiet"
-                              disabled={resettingMfaId === user.id}
+                              disabled={isSelf || resettingMfaId === user.id}
                               onClick={() => void handleResetMfa(user)}
-                              title="Tắt xác thực hai lớp cho người dùng này"
+                              title={
+                                isSelf
+                                  ? 'Tắt xác thực hai lớp của chính bạn trong trang hồ sơ'
+                                  : 'Tắt xác thực hai lớp cho người dùng này'
+                              }
                             >
                               {resettingMfaId === user.id
                                 ? 'Đang đặt lại…'

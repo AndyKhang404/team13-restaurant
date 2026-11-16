@@ -37,6 +37,7 @@ function makeClient() {
       signOut: vi.fn().mockResolvedValue({ error: null }),
       updateUser: vi.fn().mockResolvedValue({ data: { user: { id: userId } }, error: null }),
       verifyOtp: vi.fn(),
+      exchangeCodeForSession: vi.fn(),
       mfa: {
         listFactors: vi.fn(),
         enroll: vi.fn(),
@@ -641,12 +642,12 @@ describe('Authenticated password change', () => {
   });
 
   it('does not require the current password for an email + OTP recovery flow', async () => {
-    const requestClient = makeClient();
-    requestClient.auth.verifyOtp.mockResolvedValue({
-      data: { user: { id: userId } },
+    const stateless = makeClient();
+    stateless.auth.verifyOtp.mockResolvedValue({
+      data: { user: { id: userId }, session: { access_token: 'recovery-token' } },
       error: null,
     });
-    vi.spyOn(supabaseLib, 'createSupabaseForRequest').mockReturnValue(requestClient as never);
+    vi.spyOn(supabaseLib, 'createStatelessClient').mockReturnValue(stateless as never);
     const updateUser = vi
       .spyOn(supabaseLib.supabaseAdmin.auth.admin, 'updateUserById')
       .mockResolvedValue({ data: { user: { id: userId } }, error: null } as never);
@@ -661,6 +662,71 @@ describe('Authenticated password change', () => {
     expect(res.status).toBe(200);
     expect(res.body.data.message).toBe('Đổi mật khẩu thành công.');
     expect(updateUser).toHaveBeenCalledWith(userId, { password: 'newpass123' });
+    expect(stateless.auth.signOut).toHaveBeenCalledWith({ scope: 'global' });
+  });
+
+  it('rejects a forged recovery token instead of skipping the current password', async () => {
+    const requestClient = makeClient();
+    requestClient.auth.getClaims.mockResolvedValue(claims('aal2'));
+    vi.spyOn(supabaseLib, 'createSupabaseForRequest').mockReturnValue(requestClient as never);
+    vi.spyOn(prisma.profile, 'findUnique').mockResolvedValue({
+      ...baseProfile,
+      mfaState: null,
+    } as never);
+
+    const stateless = makeClient();
+    stateless.auth.verifyOtp.mockResolvedValue({
+      data: { user: null },
+      error: { code: 'otp_expired', message: 'Token has expired' },
+    });
+    stateless.auth.exchangeCodeForSession.mockResolvedValue({
+      data: { user: null, session: null },
+      error: { code: 'invalid_grant', message: 'Invalid code' },
+    });
+    vi.spyOn(supabaseLib, 'createStatelessClient').mockReturnValue(stateless as never);
+
+    const updateUser = vi
+      .spyOn(supabaseLib.supabaseAdmin.auth.admin, 'updateUserById')
+      .mockResolvedValue({ data: { user: { id: userId } }, error: null } as never);
+
+    const res = await request(app)
+      .post('/api/auth/reset-password')
+      .set('Authorization', 'Bearer aal2-token')
+      .send({
+        password: 'newpass123',
+        confirmPassword: 'newpass123',
+        token: 'forged-token',
+      });
+
+    expect(res.body.error.code).toBe('INVALID_RESET_TOKEN');
+    expect(updateUser).not.toHaveBeenCalled();
+  });
+
+  it('rejects a password change from an MFA-pending (AAL1) session', async () => {
+    const requestClient = makeClient();
+    requestClient.auth.getClaims.mockResolvedValue(claims('aal1'));
+    vi.spyOn(supabaseLib, 'createSupabaseForRequest').mockReturnValue(requestClient as never);
+    vi.spyOn(prisma.profile, 'findUnique').mockResolvedValue({
+      ...baseProfile,
+      mfaState: { enabledAt: new Date('2026-01-02T00:00:00Z') },
+    } as never);
+
+    const updateUser = vi
+      .spyOn(supabaseLib.supabaseAdmin.auth.admin, 'updateUserById')
+      .mockResolvedValue({ data: { user: { id: userId } }, error: null } as never);
+
+    const res = await request(app)
+      .post('/api/auth/reset-password')
+      .set('Authorization', 'Bearer aal1-token')
+      .send({
+        currentPassword: 'correct-password',
+        password: 'newpass123',
+        confirmPassword: 'newpass123',
+      });
+
+    expect(res.status).toBe(401);
+    expect(res.body.error.code).toBe('MFA_REQUIRED');
+    expect(updateUser).not.toHaveBeenCalled();
   });
 });
 
@@ -711,5 +777,76 @@ describe('Admin MFA reset', () => {
     expect(deleteFactor).toHaveBeenCalledWith({ userId: targetId, id: 'factor-1' });
     expect(prisma.mfaRecoveryCode.deleteMany).toHaveBeenCalledWith({ where: { userId: targetId } });
     expect(prisma.mfaState.deleteMany).toHaveBeenCalledWith({ where: { userId: targetId } });
+  });
+
+  it('refuses to reset MFA on the admin own account', async () => {
+    const adminProfile = { ...baseProfile, role: Role.ADMIN, mfaState: null };
+    const requestClient = makeClient();
+    requestClient.auth.getClaims.mockResolvedValue(claims('aal2'));
+    vi.spyOn(supabaseLib, 'createSupabaseForRequest').mockReturnValue(requestClient as never);
+    vi.spyOn(prisma.profile, 'findUnique').mockResolvedValue(adminProfile as never);
+
+    const listFactors = vi.spyOn(supabaseLib.supabaseAdmin.auth.admin.mfa, 'listFactors');
+
+    const res = await request(app)
+      .post(`/api/users/${userId}/mfa/reset`)
+      .set('Authorization', 'Bearer aal2-token')
+      .send({});
+
+    expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe('FORBIDDEN');
+    expect(listFactors).not.toHaveBeenCalled();
+  });
+});
+
+describe('Supabase MFA recovery code rotation', () => {
+  it('requires the current password before issuing a new set', async () => {
+    const requestClient = makeClient();
+    requestClient.auth.getClaims.mockResolvedValue(claims('aal2'));
+    vi.spyOn(supabaseLib, 'createSupabaseForRequest').mockReturnValue(requestClient as never);
+    vi.spyOn(prisma.profile, 'findUnique').mockResolvedValue({
+      ...baseProfile,
+      mfaState: { enabledAt: new Date('2026-01-02T00:00:00Z') },
+    } as never);
+    vi.spyOn(prisma.mfaState, 'findUnique').mockResolvedValue(makeState() as never);
+
+    const res = await request(app)
+      .post('/api/auth/mfa/recovery-codes')
+      .set('Authorization', 'Bearer aal2-token')
+      .send({ code: '123456' });
+
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+    expect(requestClient.auth.mfa.challengeAndVerify).not.toHaveBeenCalled();
+  });
+
+  it('rejects a TOTP code that was already used for login', async () => {
+    const requestClient = makeClient();
+    requestClient.auth.getClaims.mockResolvedValue(claims('aal2'));
+    vi.spyOn(supabaseLib, 'createSupabaseForRequest').mockReturnValue(requestClient as never);
+    vi.spyOn(prisma.profile, 'findUnique').mockResolvedValue({
+      ...baseProfile,
+      mfaState: { enabledAt: new Date('2026-01-02T00:00:00Z') },
+    } as never);
+    vi.spyOn(prisma.mfaState, 'findUnique').mockResolvedValue(
+      makeState({
+        lastCodeHash: hashMfaCode('123456'),
+        lastCodeAt: new Date(),
+      }) as never,
+    );
+
+    const stateless = makeClient();
+    stateless.auth.signInWithPassword.mockResolvedValue({
+      data: { user: { id: userId }, session: { access_token: 'pw-token', refresh_token: 'pw' } },
+      error: null,
+    });
+    vi.spyOn(supabaseLib, 'createStatelessClient').mockReturnValue(stateless as never);
+
+    const res = await request(app)
+      .post('/api/auth/mfa/recovery-codes')
+      .set('Authorization', 'Bearer aal2-token')
+      .send({ password: 'correct-password', code: '123456' });
+
+    expect(res.body.error.code).toBe('INVALID_MFA_CODE');
+    expect(requestClient.auth.mfa.challengeAndVerify).not.toHaveBeenCalled();
   });
 });
