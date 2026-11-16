@@ -45,7 +45,7 @@ function errorMessage(err: unknown, fallback: string): string {
 
 /** Self-service Supabase TOTP enrollment, recovery codes, and disable flow. */
 export function MfaSecurityCard() {
-  const { signOut } = useAuth();
+  const { signOut, refresh } = useAuth();
   const navigate = useNavigate();
 
   const [status, setStatus] = useState<MfaStatus | null>(null);
@@ -126,14 +126,19 @@ export function MfaSecurityCard() {
   }
 
   async function finishEnable() {
+    // The API stored the new AAL2 access token and refreshed the auth cookies,
+    // so the user stays signed in.
     try {
-      await signOut();
+      await refresh();
     } catch {
-      // AuthProvider clears local state in its own finally block.
+      // A transient refresh failure must not undo a successful enrollment.
     }
-    navigate('/login', {
+    setupRef.current?.close();
+    resetSetup();
+    await loadStatus();
+    navigate('/profile', {
       replace: true,
-      state: { message: 'Đã bật xác thực hai lớp. Vui lòng đăng nhập lại.' },
+      state: { message: 'Đã bật xác thực hai lớp.' },
     });
   }
 
@@ -450,7 +455,7 @@ export function MfaSecurityCard() {
                   onClick={() => void finishEnable()}
                   disabled={enrollResult.recoveryCodes.length > 0 && !savedCodes}
                 >
-                  Hoàn tất và đăng nhập lại
+                  Hoàn tất
                 </button>
               </div>
             </>

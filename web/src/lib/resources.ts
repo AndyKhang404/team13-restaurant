@@ -288,7 +288,11 @@ export interface MfaEnrollVerifyResult {
   recoveryCodes: string[];
   recoveryCodesEnabled: boolean;
   warning?: string;
-  reauthRequired: boolean;
+  token?: string | null;
+  accessToken?: string | null;
+  expiresIn?: number;
+  user?: AuthUser | null;
+  reauthRequired?: boolean;
   message: string;
 }
 
@@ -424,7 +428,12 @@ export const authApi = {
       body: { factorId, code },
       timeoutMs: 30_000,
     });
-    if (result.reauthRequired) setAuthToken(null);
+    const token = result.token ?? result.accessToken;
+    if (token) {
+      setAuthToken(token);
+    } else if (result.reauthRequired) {
+      setAuthToken(null);
+    }
     return result;
   },
   mfaVerify: async (challengeId: string, code: string) => {

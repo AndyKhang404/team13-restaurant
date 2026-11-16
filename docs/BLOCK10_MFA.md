@@ -126,9 +126,9 @@ Business errors giữ contract `HTTP 200 + { ok:false, error:{ code, message } }
 2. `POST /api/auth/mfa/enroll/verify`:
    - `mfa.challengeAndVerify`.
    - Upsert `mfa_states.enabled_at` + `factor_id`.
-   - Sinh 10 recovery codes cấp app, lưu SHA-256 vào `mfa_recovery_codes`, trả plaintext một lần.
-   - `recordPasswordReset` + `signOut({ scope: 'global' })`.
-   - Trả recovery codes + `reauthRequired: true`.
+   - Sinh 10 recovery codes cấp app, lưu HMAC-SHA256 vào `mfa_recovery_codes`, trả plaintext một lần.
+   - Giữ session AAL2 hiện tại; chỉ `signOut({ scope: 'others' })` để huỷ session các thiết bị khác.
+   - Trả recovery codes + token AAL2 mới (`token`/`accessToken`), không bắt đăng nhập lại.
 
 ### Tắt
 
@@ -150,8 +150,9 @@ Business errors giữ contract `HTTP 200 + { ok:false, error:{ code, message } }
   - `requireAuth` / `requirePermission` trả `401 MFA_REQUIRED`.
 - `/api/auth/me` trả thêm `mfaEnabled` và `mfaRequired`.
 
-Ngoài ra, khi bật/tắt MFA server gọi `recordPasswordReset` và
-`signOut({ scope: 'global' })` để huỷ mọi session cũ.
+Khi **bật** MFA, server giữ session AAL2 hiện tại và chỉ `signOut({ scope: 'others' })`.
+Khi **tắt** MFA, server gọi `recordPasswordReset` và `signOut({ scope: 'global' })` để huỷ
+mọi session cũ.
 
 ## 8. Recovery codes (app-level)
 
@@ -210,7 +211,7 @@ Manual QA:
 
 1. Đăng nhập, vào `/profile`, bật 2FA, quét QR bằng Google Authenticator/Authy.
 2. Nhập mã 6 số, lưu recovery codes.
-3. Đăng xuất, đăng nhập lại → phải nhập TOTP.
+3. Bật xong vẫn đang đăng nhập; đăng xuất rồi đăng nhập lại → phải nhập TOTP.
 4. Nhập sai 5 lần → khoá 15 phút.
 5. Dùng recovery code → MFA tắt, đăng nhập lại bằng mật khẩu.
 6. Tắt 2FA bằng password + mã; đăng nhập lại không cần TOTP.

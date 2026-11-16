@@ -337,10 +337,18 @@ describe('Supabase MFA challenge verification', () => {
 });
 
 describe('Supabase MFA enrollment', () => {
-  it('enables MFA, returns recovery codes once, and globally signs out', async () => {
+  it('enables MFA, returns recovery codes once, and keeps the current AAL2 session', async () => {
     const requestClient = makeClient();
     requestClient.auth.getClaims.mockResolvedValue(claims('aal1'));
-    requestClient.auth.mfa.challengeAndVerify.mockResolvedValue({ data: {}, error: null });
+    requestClient.auth.mfa.challengeAndVerify.mockResolvedValue({
+      data: {
+        access_token: 'aal2-token',
+        refresh_token: 'aal2-refresh',
+        expires_in: 3600,
+        user: { id: userId },
+      },
+      error: null,
+    });
     vi.spyOn(supabaseLib, 'createSupabaseForRequest').mockReturnValue(requestClient as never);
 
     vi.spyOn(prisma.profile, 'findUnique').mockResolvedValue({
@@ -365,14 +373,16 @@ describe('Supabase MFA enrollment', () => {
       enabled: true,
       factorId: 'factor-1',
       recoveryCodesEnabled: true,
-      reauthRequired: true,
+      token: 'aal2-token',
+      user: { mfaEnabled: true },
+      reauthRequired: false,
     });
     expect(res.body.data.recoveryCodes).toHaveLength(10);
     expect(requestClient.auth.mfa.challengeAndVerify).toHaveBeenCalledWith({
       factorId: 'factor-1',
       code: '123456',
     });
-    expect(requestClient.auth.signOut).toHaveBeenCalledWith({ scope: 'global' });
+    expect(requestClient.auth.signOut).toHaveBeenCalledWith({ scope: 'others' });
   });
 
   it('rejects enrollment when MFA is already enabled', async () => {

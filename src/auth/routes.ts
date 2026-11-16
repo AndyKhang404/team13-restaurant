@@ -616,9 +616,22 @@ async function handleForgotPassword(req: Request, res: Response) {
 
   const redirect = `${emailRedirectOrigin()}/reset-password`;
   const supabase = createSupabaseForRequest(req, res);
-  await supabase.auth.resetPasswordForEmail(parsed.data.email, {
+  const { error: mailError } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {
     redirectTo: redirect,
   });
+
+  // Keep the response identical for existing/non-existing emails (anti-enumeration),
+  // but surface SMTP/configuration failures in server logs for operators.
+  if (mailError) {
+    const [localPart = '', domain = ''] = parsed.data.email.split('@');
+    console.error('[auth] password recovery email failed', {
+      email: `${localPart.slice(0, 2)}***@${domain ?? ''}`,
+      status: mailError.status,
+      code: mailError.code,
+      message: mailError.message,
+      redirectTo: redirect,
+    });
+  }
 
   // Slide 18 & 29: Phản hồi giống nhau cho email có và không có tài khoản
   return sendOk(res, {
@@ -1054,7 +1067,7 @@ async function handleMfaEnrollVerify(req: Request, res: Response) {
     );
   }
 
-  const { error } = await supabase.auth.mfa.challengeAndVerify({
+  const { data: aal2Session, error } = await supabase.auth.mfa.challengeAndVerify({
     factorId: parsed.data.factorId,
     code: parsed.data.code,
   });
@@ -1087,10 +1100,16 @@ async function handleMfaEnrollVerify(req: Request, res: Response) {
     warning = 'Không thể tạo mã khôi phục. Bạn có thể tạo lại sau trong trang hồ sơ.';
   }
 
-  // Enabling MFA must invalidate every pre-MFA session.
-  recordPasswordReset(user.id);
-  await supabase.auth.signOut({ scope: 'global' });
-  clearSupabaseAuthCookies(req, res);
+  // Keep the current AAL2 session (the user just proved possession of the
+  // authenticator). Revoke only the *other* sessions; their AAL1 access tokens
+  // are also rejected by loadUser because mfa_states.enabled_at is now set.
+  try {
+    await supabase.auth.signOut({ scope: 'others' });
+  } catch {
+    // Non-fatal: the current AAL2 session and MFA state are already valid.
+  }
+
+  const profile = await prisma.profile.findUnique({ where: { id: user.id } });
 
   return sendOk(res, {
     enabled: true,
@@ -1098,8 +1117,13 @@ async function handleMfaEnrollVerify(req: Request, res: Response) {
     recoveryCodes,
     recoveryCodesEnabled,
     warning,
-    reauthRequired: true,
-    message: 'Đã bật xác thực hai lớp. Vui lòng đăng nhập lại bằng mã từ ứng dụng xác thực.',
+    token: aal2Session?.access_token,
+    accessToken: aal2Session?.access_token,
+    expiresIn: aal2Session?.expires_in ?? 3600,
+    session: aal2Session,
+    user: withMfa(profile, true),
+    reauthRequired: false,
+    message: 'Đã bật xác thực hai lớp.',
   });
 }
 

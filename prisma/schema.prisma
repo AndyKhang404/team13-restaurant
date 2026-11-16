@@ -24,10 +24,14 @@ enum Role {
 }
 
 enum ProfileStatus {
+  PENDING
   ACTIVE
   SUSPENDED
 
-  @@map("profile_status")
+  // The shared Supabase database already stores profiles.status as
+  // account_status (PENDING/ACTIVE). Reuse that type and add SUSPENDED instead
+  // of changing the column type, which would break the local-auth branch.
+  @@map("account_status")
 }
 
 enum DishCategory {
