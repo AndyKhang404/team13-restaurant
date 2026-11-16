@@ -3,9 +3,10 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { chefsApi, dishesApi, ingredientsApi } from '../../../lib/resources';
 import { useApi } from '../../../lib/useApi';
 import { ApiError, HttpError, type ApiFieldErrors } from '../../../lib/api';
-import { ErrorState, Loading, NotFoundState } from '../../../components/StateViews';
+import { useAuth } from '../../../auth/AuthProvider';
+import { ErrorState, ForbiddenState, Loading, NotFoundState } from '../../../components/StateViews';
 import { FieldError, FormError } from '../../../components/FieldError';
-import { NOT_OWNER_TOOLTIP } from '../../../auth/roles';
+import { ADMIN_ONLY_FIELD_TOOLTIP, NOT_OWNER_TOOLTIP } from '../../../auth/roles';
 import {
   SearchableSelect,
   type SearchableSelectOption,
@@ -72,6 +73,8 @@ export default function DishForm({ mode }: { mode: 'new' | 'edit' }) {
   const { id } = useParams<{ id: string }>();
   const editing = mode === 'edit';
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const canEditAdminFields = user?.role === 'ADMIN';
 
   const dishState = useApi(
     () => (editing ? dishesApi.get(id ?? '') : Promise.resolve(null)),
@@ -206,6 +209,15 @@ export default function DishForm({ mode }: { mode: 'new' | 'edit' }) {
         </NotFoundState>
       );
     }
+    if ((dishState.error instanceof ApiError || dishState.error instanceof HttpError) && dishState.error.status === 403) {
+      return (
+        <ForbiddenState message={dishState.error.message}>
+          <Link className="btn btn-solid" to="/admin/dishes">
+            Về danh sách
+          </Link>
+        </ForbiddenState>
+      );
+    }
     return <ErrorState error={dishState.error} onRetry={dishState.reload} />;
   }
 
@@ -225,6 +237,7 @@ export default function DishForm({ mode }: { mode: 'new' | 'edit' }) {
       <FormError message={formError ?? (!canEdit ? NOT_OWNER_TOOLTIP : null)} />
 
       <form onSubmit={onSubmit}>
+        <fieldset disabled={saving || !canEdit} style={{ border: 0, margin: 0, padding: 0 }}>
         <div className="form-grid">
           <div className="field full">
             <p className="form-note">
@@ -337,9 +350,13 @@ export default function DishForm({ mode }: { mode: 'new' | 'edit' }) {
               searchPlaceholder="Tìm đầu bếp theo tên hoặc chuyên môn…"
               emptyOptionLabel="Chưa phân công"
               allowEmpty
+              disabled={saving || !canEdit || !canEditAdminFields}
               pageSize={OPTION_PAGE_SIZE}
               ariaLabel="Đầu bếp phụ trách"
             />
+            {!canEditAdminFields ? (
+              <p className="hint">{ADMIN_ONLY_FIELD_TOOLTIP}</p>
+            ) : null}
             <FieldError message={errors['chefId']} />
           </div>
 
@@ -385,15 +402,20 @@ export default function DishForm({ mode }: { mode: 'new' | 'edit' }) {
                 />{' '}
                 Còn bán
               </label>
-              <label className="check">
+              <label
+                className="check"
+                title={!canEditAdminFields ? ADMIN_ONLY_FIELD_TOOLTIP : undefined}
+              >
                 <input
                   type="checkbox"
                   checked={form.isFeatured}
                   onChange={(e) => set('isFeatured', e.target.checked)}
+                  disabled={!canEditAdminFields}
                 />{' '}
                 Nổi bật ở trang chủ
               </label>
             </div>
+            <FieldError message={errors['isFeatured']} />
           </div>
 
           <div className="field full">
@@ -419,6 +441,7 @@ export default function DishForm({ mode }: { mode: 'new' | 'edit' }) {
                     selectedOption={selectedIngredientOption(row)}
                     placeholder="Chọn nguyên liệu"
                     searchPlaceholder="Tìm nguyên liệu theo tên hoặc đơn vị…"
+                    disabled={saving || !canEdit}
                     pageSize={OPTION_PAGE_SIZE}
                     required
                     ariaLabel={`Nguyên liệu dòng ${index + 1}`}
@@ -454,6 +477,7 @@ export default function DishForm({ mode }: { mode: 'new' | 'edit' }) {
             </div>
           </div>
         </div>
+        </fieldset>
 
         <div className="form-foot">
           <span className="left">Trường có dấu * là bắt buộc</span>

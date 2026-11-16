@@ -2,10 +2,10 @@ import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { dishesApi } from '../../../lib/resources';
 import { useApi } from '../../../lib/useApi';
-import { ApiError } from '../../../lib/api';
-import { ErrorState, Loading, NotFoundState } from '../../../components/StateViews';
+import { ApiError, HttpError } from '../../../lib/api';
+import { ErrorState, ForbiddenState, Loading, NotFoundState } from '../../../components/StateViews';
 import { FormError } from '../../../components/FieldError';
-import { NOT_OWNER_TOOLTIP } from '../../../auth/roles';
+import { ADMIN_ONLY_DELETE_TOOLTIP } from '../../../auth/roles';
 import { formatVnd } from '../../../lib/format';
 import { categoryLabel } from '../../../lib/types';
 
@@ -20,6 +20,15 @@ export default function DishDelete() {
   if (error) {
     if (error instanceof ApiError && error.code === 'NOT_FOUND') {
       return <NotFoundState title="Không tìm thấy món" message="Món ăn này không tồn tại." />;
+    }
+    if ((error instanceof ApiError || error instanceof HttpError) && error.status === 403) {
+      return (
+        <ForbiddenState message={error.message}>
+          <Link className="btn btn-solid" to="/admin/dishes">
+            Về danh sách
+          </Link>
+        </ForbiddenState>
+      );
     }
     return <ErrorState error={error} onRetry={reload} />;
   }
@@ -52,7 +61,7 @@ export default function DishDelete() {
       </div>
 
       <div className="delx-body">
-        <FormError message={delError ?? (!canDelete ? NOT_OWNER_TOOLTIP : null)} />
+        <FormError message={delError ?? (!canDelete ? ADMIN_ONLY_DELETE_TOOLTIP : null)} />
 
         <div className="delx-warn" role="alert">
           <span className="mark" aria-hidden="true">
@@ -105,7 +114,7 @@ export default function DishDelete() {
           type="button"
           onClick={() => void onDelete()}
           disabled={busy || !canDelete}
-          title={!canDelete ? NOT_OWNER_TOOLTIP : undefined}
+          title={!canDelete ? ADMIN_ONLY_DELETE_TOOLTIP : undefined}
           aria-busy={busy}
         >
           {busy ? 'Đang xóa…' : 'Xác nhận xóa'}

@@ -15,8 +15,9 @@ export interface Resource {
 }
 
 export interface Denial {
-  code: 'ACCOUNT_SUSPENDED' | 'NOT_OWNER' | 'FORBIDDEN';
+  code: 'ACCOUNT_SUSPENDED' | 'ACCOUNT_NOT_ACTIVATED' | 'NOT_OWNER' | 'FORBIDDEN';
   message: string;
+  fields?: Record<string, string>;
 }
 
 export type PolicyResult = Denial | null;
@@ -41,21 +42,29 @@ const CONTENT_MUTATION_ACTIONS: ReadonlySet<Action> = new Set<Action>([
 ]);
 
 export const ACCOUNT_SUSPENDED_MESSAGE = 'Tài khoản của bạn đã bị tạm khóa.';
+export const ACCOUNT_PENDING_MESSAGE = 'Tài khoản của bạn chưa được kích hoạt.';
 export const NOT_OWNER_MESSAGE = 'Bạn chỉ có thể chỉnh sửa nội dung do chính mình tạo.';
 export const FORBIDDEN_MESSAGE = 'Bạn không có quyền thực hiện thao tác này.';
+export const DISH_ADMIN_FIELDS_MESSAGE =
+  'Chỉ quản trị viên mới có quyền thay đổi đầu bếp phụ trách hoặc trạng thái nổi bật.';
 
 /**
  * ABAC deny-overrides rules evaluated after the RBAC coarse check.
  * Returning `null` means no opinion (allow unless another policy vetoes).
  */
 const policies: Policy[] = [
-  // 1. Suspended accounts are denied regardless of role.
-  (subject) =>
-    subject.status === ProfileStatus.SUSPENDED
-      ? { code: 'ACCOUNT_SUSPENDED', message: ACCOUNT_SUSPENDED_MESSAGE }
-      : null,
+  // 1. Suspended and pending (unactivated) accounts are denied regardless of role.
+  (subject) => {
+    if (subject.status === ProfileStatus.SUSPENDED) {
+      return { code: 'ACCOUNT_SUSPENDED', message: ACCOUNT_SUSPENDED_MESSAGE };
+    }
+    if (subject.status === ProfileStatus.PENDING) {
+      return { code: 'ACCOUNT_NOT_ACTIVATED', message: ACCOUNT_PENDING_MESSAGE };
+    }
+    return null;
+  },
 
-  // 2. STAFF may only update, soft-delete, or restore rows they created.
+  // 2. STAFF may only update or restore rows they created.
   //    Legacy rows with `createdBy === null` are mutable by ADMIN only.
   (subject, action, resource) => {
     if (
@@ -83,7 +92,7 @@ export function authorize(
     return { code: 'FORBIDDEN', message: FORBIDDEN_MESSAGE };
   }
 
-  // Check suspended status before RBAC so suspended accounts always receive ACCOUNT_SUSPENDED.
+  // Check account status before RBAC so suspended/pending accounts always receive their specific denial.
   const statusDenial = policies[0]!(subject, action, resource);
   if (statusDenial) return statusDenial;
 
@@ -94,6 +103,47 @@ export function authorize(
   for (let i = 1; i < policies.length; i++) {
     const denial = policies[i]!(subject, action, resource);
     if (denial) return denial;
+  }
+
+  return null;
+}
+
+export interface DishAdminFields {
+  chefId?: string | null;
+  isFeatured?: boolean;
+}
+
+/**
+ * Field-level ABAC for dishes: only ADMIN may assign/change `chefId` or `isFeatured`.
+ * On create (`existing` omitted), STAFF cannot pass a non-null `chefId` or `isFeatured: true`.
+ * On update (`existing` provided), STAFF cannot change either field from its DB value.
+ */
+export function checkDishAdminFields(
+  subject: Subject | null | undefined,
+  next: DishAdminFields,
+  existing?: DishAdminFields | null,
+): PolicyResult {
+  if (!subject || subject.role !== Role.STAFF) return null;
+
+  const fields: Record<string, string> = {};
+  const nextChefId = next.chefId ?? null;
+  const prevChefId = existing?.chefId ?? null;
+  if (existing ? nextChefId !== prevChefId : nextChefId !== null) {
+    fields['chefId'] = DISH_ADMIN_FIELDS_MESSAGE;
+  }
+
+  const nextFeatured = Boolean(next.isFeatured);
+  const prevFeatured = Boolean(existing?.isFeatured);
+  if (existing ? nextFeatured !== prevFeatured : nextFeatured !== false) {
+    fields['isFeatured'] = DISH_ADMIN_FIELDS_MESSAGE;
+  }
+
+  if (Object.keys(fields).length > 0) {
+    return {
+      code: 'FORBIDDEN',
+      message: DISH_ADMIN_FIELDS_MESSAGE,
+      fields,
+    };
   }
 
   return null;

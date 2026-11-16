@@ -123,12 +123,17 @@ router.get('/filter-options', requirePermission('chef:create'), async (_req, res
   return sendOk(res, { specialties });
 });
 
-router.get('/:id', requirePermission('chef:update'), async (req, res) => {
-  const id = paramId(req.params.id);
-  const chef = await prisma.chef.findUnique({ where: { id } });
-  if (!chef) throw notFound('Đầu bếp');
-  return sendOk(res, { chef: withRowPermissions('chef', chef, req.user) });
-});
+router.get(
+  '/:id',
+  requirePermission('chef:update'),
+  requireOwnership('chef:update', loadChefOwner),
+  async (req, res) => {
+    const id = paramId(req.params.id);
+    const chef = await prisma.chef.findUnique({ where: { id } });
+    if (!chef) throw notFound('Đầu bếp');
+    return sendOk(res, { chef: withRowPermissions('chef', chef, req.user) });
+  },
+);
 
 router.post('/', requirePermission('chef:create'), async (req, res) => {
   const file = fileFor(req.files, 'avatar') as UploadedFile | undefined;

@@ -127,12 +127,17 @@ router.get('/filter-options', requirePermission('ingredient:create'), async (_re
   return sendOk(res, { units });
 });
 
-router.get('/:id', requirePermission('ingredient:update'), async (req, res) => {
-  const id = paramId(req.params.id);
-  const ingredient = await prisma.ingredient.findUnique({ where: { id } });
-  if (!ingredient) throw notFound('Nguyên liệu');
-  return sendOk(res, { ingredient: withRowPermissions('ingredient', ingredient, req.user) });
-});
+router.get(
+  '/:id',
+  requirePermission('ingredient:update'),
+  requireOwnership('ingredient:update', loadIngredientOwner),
+  async (req, res) => {
+    const id = paramId(req.params.id);
+    const ingredient = await prisma.ingredient.findUnique({ where: { id } });
+    if (!ingredient) throw notFound('Nguyên liệu');
+    return sendOk(res, { ingredient: withRowPermissions('ingredient', ingredient, req.user) });
+  },
+);
 
 router.post('/', requirePermission('ingredient:create'), async (req, res) => {
   const file = fileFor(req.files, 'image') as UploadedFile | undefined;

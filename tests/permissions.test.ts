@@ -16,13 +16,15 @@ describe('RBAC Permissions', () => {
     expect(can(admin, 'user:manage')).toBe(true);
   });
 
-  it('allows STAFF to access admin panel and content CRUD, but denies user:manage', () => {
+  it('allows STAFF to access admin panel and create/update content, but denies *:delete and user:manage', () => {
     expect(can(staff, 'admin:access')).toBe(true);
     expect(can(staff, 'dish:create')).toBe(true);
     expect(can(staff, 'dish:update')).toBe(true);
-    expect(can(staff, 'dish:delete')).toBe(true);
+    expect(can(staff, 'dish:delete')).toBe(false);
     expect(can(staff, 'chef:create')).toBe(true);
+    expect(can(staff, 'chef:delete')).toBe(false);
     expect(can(staff, 'ingredient:create')).toBe(true);
+    expect(can(staff, 'ingredient:delete')).toBe(false);
     expect(can(staff, 'user:manage')).toBe(false);
   });
 

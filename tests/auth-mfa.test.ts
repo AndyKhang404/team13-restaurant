@@ -5,7 +5,7 @@ import { prisma } from '../src/lib/prisma.js';
 import * as supabaseLib from '../src/lib/supabase.js';
 import { createMfaChallenge, resetMfaChallenges } from '../src/auth/mfa-challenges.js';
 import { hashMfaCode, hashRecoveryCode } from '../src/auth/mfa.js';
-import { clearRevocationState } from '../src/auth/token-revocation.js';
+import { clearRevocationState, recordPasswordReset } from '../src/auth/token-revocation.js';
 import { Role } from '../src/generated/prisma/enums.js';
 
 const app = createApp();
@@ -848,5 +848,240 @@ describe('Supabase MFA recovery code rotation', () => {
 
     expect(res.body.error.code).toBe('INVALID_MFA_CODE');
     expect(requestClient.auth.mfa.challengeAndVerify).not.toHaveBeenCalled();
+  });
+});
+
+describe('MFA Harmonization fixes (callback, enroll-verify guards, cookie revocation, /mfa alias)', () => {
+  it('handleAuthCallback uses stateless client and returns MFA challenge without cookies when MFA is enabled', async () => {
+    const stateless = makeClient();
+    stateless.auth.exchangeCodeForSession.mockResolvedValue({
+      data: {
+        user: { id: userId, email: baseProfile.email },
+        session: { access_token: 'aal1-cb-token', refresh_token: 'aal1-cb-refresh' },
+      },
+      error: null,
+    });
+    stateless.auth.getUser.mockResolvedValue({
+      data: {
+        user: {
+          id: userId,
+          email: baseProfile.email,
+          factors: [{ id: 'factor-1', factor_type: 'totp', status: 'verified' }],
+        },
+      },
+      error: null,
+    });
+    vi.spyOn(supabaseLib, 'createStatelessClient').mockReturnValue(stateless as never);
+    const requestClientSpy = vi.spyOn(supabaseLib, 'createSupabaseForRequest');
+
+    vi.spyOn(prisma.profile, 'findUnique').mockResolvedValue(baseProfile as never);
+    vi.spyOn(prisma.profile, 'upsert').mockResolvedValue(baseProfile as never);
+    vi.spyOn(prisma.mfaState, 'findUnique').mockResolvedValue(makeState() as never);
+
+    const res = await request(app).get('/api/auth/callback?code=auth-code-123');
+
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    expect(res.body.data).toMatchObject({
+      mfaRequired: true,
+      next: 'mfa',
+      email: baseProfile.email,
+    });
+    expect(res.body.data.challengeId).toBeTruthy();
+    expect(res.body.data.challenge).toBe(res.body.data.challengeId);
+    expect(res.body.data.token).toBeUndefined();
+    expect(res.body.data.accessToken).toBeUndefined();
+    expect(requestClientSpy).not.toHaveBeenCalled();
+  });
+
+  it('handleMfaEnrollVerify rejects when locked, blocks replay, and increments failure attempts on bad code', async () => {
+    const requestClient = makeClient();
+    requestClient.auth.getClaims.mockResolvedValue(claims('aal1'));
+    requestClient.auth.mfa.challengeAndVerify.mockResolvedValue({
+      data: null,
+      error: { code: 'mfa_verification_failed', message: 'Invalid code' },
+    });
+    vi.spyOn(supabaseLib, 'createSupabaseForRequest').mockReturnValue(requestClient as never);
+    vi.spyOn(prisma.profile, 'findUnique').mockResolvedValue({
+      ...baseProfile,
+      mfaState: null,
+    } as never);
+
+    vi.spyOn(prisma.mfaState, 'findUnique').mockResolvedValueOnce({
+      userId,
+      factorId: null,
+      enabledAt: null,
+      lockedUntil: new Date(Date.now() + 10 * 60_000),
+      failedAttempts: 5,
+    } as never);
+    const lockedRes = await request(app)
+      .post('/api/auth/mfa/enroll/verify')
+      .set('Authorization', 'Bearer aal1-token')
+      .send({ factorId: 'factor-1', code: '123456' });
+    expect(lockedRes.body.error.code).toBe('MFA_LOCKED');
+
+    vi.spyOn(prisma.mfaState, 'findUnique').mockResolvedValueOnce({
+      userId,
+      factorId: null,
+      enabledAt: null,
+      lockedUntil: null,
+      lastCodeHash: hashMfaCode('123456'),
+      lastCodeAt: new Date(),
+    } as never);
+    const replayRes = await request(app)
+      .post('/api/auth/mfa/enroll/verify')
+      .set('Authorization', 'Bearer aal1-token')
+      .send({ factorId: 'factor-1', code: '123456' });
+    expect(replayRes.body.error.code).toBe('INVALID_MFA_CODE');
+    expect(requestClient.auth.mfa.challengeAndVerify).not.toHaveBeenCalled();
+
+    vi.spyOn(prisma.mfaState, 'findUnique')
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ userId, failedAttempts: 0 } as never);
+    const upsertSpy = vi.spyOn(prisma.mfaState, 'upsert').mockResolvedValue({
+      userId,
+      failedAttempts: 1,
+      lockedUntil: null,
+    } as never);
+    const badCodeRes = await request(app)
+      .post('/api/auth/mfa/enroll/verify')
+      .set('Authorization', 'Bearer aal1-token')
+      .send({ factorId: 'factor-1', code: '000000' });
+    expect(badCodeRes.body.error.code).toBe('INVALID_MFA_CODE');
+    expect(badCodeRes.body.error.fields.attempts).toBe('4');
+    expect(upsertSpy).toHaveBeenCalled();
+  });
+
+  it('loadUser cookie path enforces token revocation after password reset', async () => {
+    const oldIat = Math.floor(Date.now() / 1000) - 60;
+    const requestClient = makeClient();
+    requestClient.auth.getClaims.mockResolvedValue({
+      data: {
+        claims: {
+          sub: userId,
+          email: baseProfile.email,
+          aal: 'aal2',
+          iat: oldIat,
+        },
+      },
+      error: null,
+    });
+    vi.spyOn(supabaseLib, 'createSupabaseForRequest').mockReturnValue(requestClient as never);
+    vi.spyOn(prisma.profile, 'findUnique').mockResolvedValue({
+      ...baseProfile,
+      role: Role.ADMIN,
+    } as never);
+
+    recordPasswordReset(userId);
+
+    const res = await request(app)
+      .get('/api/stats')
+      .set('Cookie', ['sb-test-auth-token=cookie-val']);
+
+    expect(res.status).toBe(401);
+    expect(res.body.error.code).toBe('UNAUTHENTICATED');
+  });
+
+  it('POST /api/auth/mfa accepts deck-style { challenge, code } payload for TOTP verification', async () => {
+    const challenge = makeChallenge();
+    const stateless = makeClient();
+    stateless.auth.mfa.challengeAndVerify.mockResolvedValue({
+      data: { access_token: 'aal2-alias-token', refresh_token: 'aal2-refresh', expires_in: 3600 },
+      error: null,
+    });
+    vi.spyOn(supabaseLib, 'createStatelessClient').mockReturnValue(stateless as never);
+
+    const requestClient = makeClient();
+    vi.spyOn(supabaseLib, 'createSupabaseForRequest').mockReturnValue(requestClient as never);
+    vi.spyOn(prisma.mfaState, 'findUnique').mockResolvedValue(makeState() as never);
+    vi.spyOn(prisma.mfaState, 'updateMany').mockResolvedValue({ count: 1 });
+    vi.spyOn(prisma.profile, 'findUnique').mockResolvedValue(baseProfile as never);
+
+    const res = await request(app).post('/api/auth/mfa').send({
+      challenge: challenge.id,
+      code: '123456',
+    });
+
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    expect(res.body.data.accessToken).toBe('aal2-alias-token');
+  });
+
+  it('resets failedAttempts after an expired lockout instead of immediately re-locking', async () => {
+    const challenge = makeChallenge();
+    const stateless = makeClient();
+    stateless.auth.mfa.challengeAndVerify.mockResolvedValue({
+      data: null,
+      error: { code: 'mfa_verification_failed', message: 'Invalid code' },
+    });
+    vi.spyOn(supabaseLib, 'createStatelessClient').mockReturnValue(stateless as never);
+
+    vi.spyOn(prisma.mfaState, 'findUnique').mockResolvedValue(
+      makeState({
+        failedAttempts: 5,
+        lockedUntil: new Date(Date.now() - 60_000),
+      }) as never,
+    );
+    const upsertSpy = vi.spyOn(prisma.mfaState, 'upsert').mockResolvedValue(
+      makeState({ failedAttempts: 1, lockedUntil: null }) as never,
+    );
+
+    const res = await request(app).post('/api/auth/mfa/verify').send({
+      challengeId: challenge.id,
+      code: '000000',
+    });
+
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(false);
+    expect(res.body.error.code).toBe('INVALID_MFA_CODE');
+    expect(res.body.error.fields.attempts).toBe('4');
+    expect(upsertSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({ failedAttempts: 1, lockedUntil: null }),
+      }),
+    );
+  });
+
+  it('POST /api/auth/mfa routes an all-digit 10-char recovery code to recovery verification and counts punctuation-only failures', async () => {
+    const challenge = makeChallenge();
+    vi.spyOn(prisma.mfaState, 'findUnique').mockResolvedValue(makeState() as never);
+    const upsertSpy = vi.spyOn(prisma.mfaState, 'upsert').mockResolvedValue(
+      makeState({ failedAttempts: 1 }) as never,
+    );
+
+    const punctuationRes = await request(app).post('/api/auth/mfa/verify-recovery').send({
+      challengeId: challenge.id,
+      code: '---',
+    });
+    expect(punctuationRes.status).toBe(200);
+    expect(punctuationRes.body.error.code).toBe('INVALID_RECOVERY_CODE');
+    expect(punctuationRes.body.error.fields.attempts).toBe('4');
+    expect(upsertSpy).toHaveBeenCalledTimes(1);
+
+    vi.spyOn(prisma.mfaRecoveryCode, 'findFirst').mockResolvedValue({
+      id: 'recovery-digits',
+      userId,
+      codeHash: hashRecoveryCode('2345678923'),
+      usedAt: null,
+    } as never);
+    vi.spyOn(prisma.mfaRecoveryCode, 'updateMany').mockResolvedValue({ count: 1 });
+    vi.spyOn(prisma.mfaRecoveryCode, 'deleteMany').mockResolvedValue({ count: 9 });
+    vi.spyOn(prisma.mfaState, 'deleteMany').mockResolvedValue({ count: 1 });
+    vi.spyOn(supabaseLib.supabaseAdmin.auth.admin.mfa, 'listFactors').mockResolvedValue({
+      data: { factors: [{ id: 'factor-1' }] },
+      error: null,
+    } as never);
+    vi.spyOn(supabaseLib.supabaseAdmin.auth.admin.mfa, 'deleteFactor').mockResolvedValue({
+      data: {},
+      error: null,
+    } as never);
+
+    const digitRecoveryRes = await request(app).post('/api/auth/mfa').send({
+      challenge: challenge.id,
+      code: '2345-6789-23',
+    });
+    expect(digitRecoveryRes.status).toBe(200);
+    expect(digitRecoveryRes.body.ok).toBe(true);
+    expect(digitRecoveryRes.body.data.recoveryUsed).toBe(true);
   });
 });

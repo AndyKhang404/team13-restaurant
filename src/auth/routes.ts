@@ -45,8 +45,7 @@ import {
   registerFailedLogin,
 } from './login-attempts.js';
 import { normalizeEmail } from './email.js';
-import { can } from './permissions.js';
-import { ACCOUNT_SUSPENDED_MESSAGE } from './policy.js';
+import { ACCOUNT_SUSPENDED_MESSAGE, canMutate } from './policy.js';
 import { hasOtherActiveAdmin } from './user-guards.js';
 import { requireAuth } from './middleware.js';
 import { authRateLimit, otpRateLimit } from '../middleware/rate-limit.js';
@@ -181,7 +180,7 @@ async function ensureMfaState(userId: string, factorId: string | null) {
 
 async function markMfaFailure(userId: string) {
   const state = await getMfaState(userId);
-  const next = registerMfaFailure(state?.failedAttempts ?? 0);
+  const next = registerMfaFailure(state?.failedAttempts ?? 0, new Date(), state?.lockedUntil);
   await prisma.mfaState.upsert({
     where: { userId },
     create: {
@@ -287,7 +286,7 @@ async function landingFor(userId: string, email: string, next: unknown): Promise
     create: { id: userId, email },
     update: {},
   });
-  const fallback = can(profile, 'admin:access') ? '/admin' : '/';
+  const fallback = canMutate(profile, 'admin:access') ? '/admin' : '/';
   return safeNext(next, fallback);
 }
 
@@ -401,6 +400,8 @@ async function handleLogin(req: Request, res: Response) {
     clearSupabaseAuthCookies(req, res);
     return sendOk(res, {
       mfaRequired: true,
+      next: 'mfa',
+      challenge: challenge.challengeId,
       ...challenge,
       message: 'Vui lòng nhập mã xác thực hai lớp.',
     });
@@ -859,7 +860,7 @@ async function handleResetPassword(req: Request, res: Response) {
 
 /** Email confirmation / magic-link landing */
 async function handleAuthCallback(req: Request, res: Response) {
-  const supabase = createSupabaseForRequest(req, res);
+  const auth = createStatelessClient();
   const code =
     typeof req.query.code === 'string'
       ? req.query.code
@@ -893,12 +894,12 @@ async function handleAuthCallback(req: Request, res: Response) {
   const next = req.query.next ?? req.body?.next;
 
   const { data, error } = code
-    ? await supabase.auth.exchangeCodeForSession(code)
+    ? await auth.auth.exchangeCodeForSession(code)
     : tokenHash && type
-      ? await supabase.auth.verifyOtp({ token_hash: tokenHash, type })
+      ? await auth.auth.verifyOtp({ token_hash: tokenHash, type })
       : email && otp && type
-        ? await supabase.auth.verifyOtp({ email, token: otp, type })
-        : { data: { user: null }, error: new Error('Missing confirmation code') };
+        ? await auth.auth.verifyOtp({ email, token: otp, type })
+        : { data: { user: null, session: null }, error: new Error('Missing confirmation code') };
 
   if (error || !data.user) {
     return sendBusinessError(
@@ -910,14 +911,15 @@ async function handleAuthCallback(req: Request, res: Response) {
 
   const existingProfile = await prisma.profile.findUnique({ where: { id: data.user.id } });
   if (existingProfile?.status === ProfileStatus.SUSPENDED) {
-    await supabase.auth.signOut();
+    await auth.auth.signOut({ scope: 'local' });
+    clearSupabaseAuthCookies(req, res);
     return sendError(res, 403, 'ACCOUNT_SUSPENDED', ACCOUNT_SUSPENDED_MESSAGE);
   }
 
   const redirectTo = await landingFor(data.user.id, data.user.email ?? '', next);
 
   if (data.session?.access_token) {
-    const { data: userData, error: userError } = await supabase.auth.getUser(
+    const { data: userData, error: userError } = await auth.auth.getUser(
       data.session.access_token,
     );
     if (userError || !userData.user) {
@@ -935,18 +937,31 @@ async function handleAuthCallback(req: Request, res: Response) {
         return sendMfaLocked(res, challenge.lockedUntil);
       }
 
-      // The challenge holds the session server-side; never leave AAL1 cookies.
-      await supabase.auth.signOut({ scope: 'local' });
+      // The stateless callback client never wrote session cookies; clear any stale
+      // AAL1 cookie defensively before returning the challenge.
       clearSupabaseAuthCookies(req, res);
 
       return sendOk(res, {
         mfaRequired: true,
+        next: 'mfa',
+        challenge: challenge.challengeId,
+        email: userData.user.email ?? undefined,
         ...challenge,
         message: 'Vui lòng nhập mã xác thực hai lớp.',
       });
     }
 
     await prisma.mfaState.deleteMany({ where: { userId: data.user.id } });
+
+    const { error: setSessionError } = await attachSessionCookies(req, res, data.session);
+    if (setSessionError) {
+      return sendError(
+        res,
+        500,
+        'AUTH_ERROR',
+        'Không thể tạo phiên đăng nhập. Vui lòng thử lại.',
+      );
+    }
   }
 
   const profile =
@@ -1135,6 +1150,18 @@ async function handleMfaEnrollVerify(req: Request, res: Response) {
     return sendBusinessError(res, 'MFA_ALREADY_ENABLED', 'Tài khoản đã bật xác thực hai lớp.');
   }
 
+  if (isMfaLocked(existing?.lockedUntil)) {
+    return sendMfaLocked(res, existing!.lockedUntil!);
+  }
+
+  if (isReplayedMfaCode(existing?.lastCodeHash, existing?.lastCodeAt, parsed.data.code)) {
+    return sendBusinessError(
+      res,
+      'INVALID_MFA_CODE',
+      'Mã này đã được sử dụng. Vui lòng chờ mã mới từ ứng dụng xác thực.',
+    );
+  }
+
   const supabase = createSupabaseForRequest(req, res);
   const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
   if (sessionError || !sessionData.session) {
@@ -1149,9 +1176,25 @@ async function handleMfaEnrollVerify(req: Request, res: Response) {
     factorId: parsed.data.factorId,
     code: parsed.data.code,
   });
-  if (error) return sendMfaError(res, error);
+  if (error) {
+    const failure = await markMfaFailure(user.id);
+    if (failure.locked) {
+      return sendMfaLocked(res, failure.lockedUntil!);
+    }
+    const remaining = Math.max(0, MFA_MAX_ATTEMPTS - failure.failedAttempts);
+    return sendMfaError(res, error, { attempts: String(remaining) });
+  }
 
   await ensureMfaState(user.id, parsed.data.factorId);
+  await prisma.mfaState.update({
+    where: { userId: user.id },
+    data: {
+      failedAttempts: 0,
+      lockedUntil: null,
+      lastCodeHash: hashMfaCode(parsed.data.code),
+      lastCodeAt: new Date(),
+    },
+  });
 
   let recoveryCodes: string[] = [];
   let recoveryCodesEnabled = false;
@@ -1332,14 +1375,11 @@ async function handleMfaVerifyRecovery(req: Request, res: Response) {
   }
 
   const normalized = normalizeRecoveryCode(parsed.data.code);
-  if (!normalized) {
-    return sendBusinessError(res, 'INVALID_RECOVERY_CODE', 'Mã khôi phục không hợp lệ.');
-  }
-
-  const codeHash = hashRecoveryCode(normalized);
-  const codeRow = await prisma.mfaRecoveryCode.findFirst({
-    where: { userId: challenge.userId, codeHash, usedAt: null },
-  });
+  const codeRow = normalized
+    ? await prisma.mfaRecoveryCode.findFirst({
+        where: { userId: challenge.userId, codeHash: hashRecoveryCode(normalized), usedAt: null },
+      })
+    : null;
 
   if (!codeRow) {
     registerMfaChallengeFailure(challenge.id);
@@ -1638,7 +1678,26 @@ async function handleMfaRecoveryCodes(req: Request, res: Response) {
   });
 }
 
-// Routes and Aliases conforming to Deck (Slide 15, 16, 17, 18, 28, 29)
+/**
+ * POST /api/auth/mfa — Deck-aligned alias (Slide 56 / Week 8) for MFA challenge verification.
+ * Accepts `{ challenge | challengeId, code | recoveryCode }` and dispatches to TOTP or recovery verification.
+ */
+async function handleMfaChallengeAlias(req: Request, res: Response) {
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const challengeId = body.challengeId ?? body.challenge;
+  if (typeof body.recoveryCode === 'string' && body.recoveryCode.trim()) {
+    req.body = { challengeId, code: body.recoveryCode };
+    return handleMfaVerifyRecovery(req, res);
+  }
+  req.body = { ...body, challengeId };
+  const rawCode = typeof body.code === 'string' ? body.code.trim() : '';
+  if (/[a-zA-Z]/.test(rawCode) || normalizeRecoveryCode(rawCode).length > 6) {
+    return handleMfaVerifyRecovery(req, res);
+  }
+  return handleMfaVerify(req, res);
+}
+
+// Routes and Aliases conforming to Deck (Slide 15, 16, 17, 18, 28, 29, 56)
 router.delete('/me', authRateLimit(), requireAuth, handleDeleteAccount);
 
 router.get('/mfa/status', requireAuth, handleMfaStatus);
@@ -1649,6 +1708,7 @@ router.post(
   requireAuth,
   handleMfaEnrollVerify,
 );
+router.post('/mfa', authRateLimit({ windowMs: 15 * 60_000, max: 20 }), handleMfaChallengeAlias);
 router.post('/mfa/verify', authRateLimit({ windowMs: 15 * 60_000, max: 20 }), handleMfaVerify);
 router.post(
   '/mfa/verify-recovery',

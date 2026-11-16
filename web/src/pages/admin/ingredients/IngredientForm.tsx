@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ingredientsApi } from '../../../lib/resources';
 import { useApi } from '../../../lib/useApi';
 import { ApiError, HttpError, type ApiFieldErrors } from '../../../lib/api';
-import { ErrorState, Loading, NotFoundState } from '../../../components/StateViews';
+import { ErrorState, ForbiddenState, Loading, NotFoundState } from '../../../components/StateViews';
 import { FieldError, FormError } from '../../../components/FieldError';
 import { NOT_OWNER_TOOLTIP } from '../../../auth/roles';
 import type { IngredientInput } from '../../../lib/types';
@@ -96,6 +96,15 @@ export default function IngredientForm({ mode }: { mode: 'new' | 'edit' }) {
         </NotFoundState>
       );
     }
+    if ((ingState.error instanceof ApiError || ingState.error instanceof HttpError) && ingState.error.status === 403) {
+      return (
+        <ForbiddenState message={ingState.error.message}>
+          <Link className="btn btn-solid" to="/admin/ingredients">
+            Về kho nguyên liệu
+          </Link>
+        </ForbiddenState>
+      );
+    }
     return <ErrorState error={ingState.error} onRetry={ingState.reload} />;
   }
 
@@ -115,6 +124,7 @@ export default function IngredientForm({ mode }: { mode: 'new' | 'edit' }) {
       <FormError message={formError ?? (!canEdit ? NOT_OWNER_TOOLTIP : null)} />
 
       <form onSubmit={onSubmit}>
+        <fieldset disabled={saving || !canEdit} style={{ border: 0, margin: 0, padding: 0 }}>
         <div className="form-grid">
           <div className="field full">
             <p className="form-note">Quản lý tồn kho và giá vốn cho từng nguyên liệu.</p>
@@ -235,6 +245,7 @@ export default function IngredientForm({ mode }: { mode: 'new' | 'edit' }) {
             </div>
           </div>
         </div>
+        </fieldset>
 
         <div className="form-foot">
           <span className="left">Trường có dấu * là bắt buộc</span>

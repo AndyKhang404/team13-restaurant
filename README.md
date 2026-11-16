@@ -18,11 +18,11 @@ A modern client-side rendered (CSR) web application for restaurant meal manageme
 ### 2. Authentication & Account Lifecycle (`/login`, `/register`, `/forgot-password`, `/reset-password`)
 
 - **Sign In (`/login`)**:
-  - Email & password authentication supporting `Authorization: Bearer <token>` or HTTP-only session cookies.
+  - Email & password authentication supporting `Authorization: Bearer <token>` or HTTP-only session cookies, with token revocation checked on both Bearer and cookie paths.
   - Adaptive Google reCAPTCHA v2 verification triggered automatically after repeated failed login attempts (`CAPTCHA_SITE_KEY`).
   - Accessible password eye visibility toggle (`<PasswordField />`) with keyboard navigation and ARIA attributes.
   - Left-aligned password recovery link leading directly to `/forgot-password`.
-  - **Supabase MFA (TOTP)**: opt-in from `/profile`; password login then requires a 6-digit authenticator code (or one of 10 single-use app-managed recovery codes). No AAL1 token/cookie is issued before MFA succeeds, and 5 wrong codes lock the account for 15 minutes. TOTP codes are replay-protected; using a recovery code disables MFA and requires signing in again with the password, then re-enabling 2FA from `/profile`.
+  - **Supabase MFA (TOTP)**: opt-in from `/profile`; password login and `/api/auth/callback` magic/recovery links use a stateless Supabase client so no AAL1 token/cookie is issued before MFA succeeds, and `AuthCallback` routes pending challenges to `/login`'s TOTP step (`next: "mfa"`, `challenge` / `challengeId`). Wrong codes lock the account for 15 minutes after 5 attempts (including `enroll/verify` and recovery codes), and TOTP codes are replay-protected for 90s. Using one of the 10 single-use app-managed recovery codes consumes it, disables MFA (`reauthRequired: true`), and requires signing in again with the password. Enrollment, disable, and recovery-code rotation require a cookie-backed session.
   - **Admin 2FA reset**: `/admin/users` can remove every MFA factor for a user who lost their authenticator and backup codes.
 - **Sign Up with 6-Digit Email OTP (`/register`)**:
   - Account creation with display name, email, password strength/confirmation validation (6–72 characters), and CAPTCHA challenge.
@@ -36,7 +36,7 @@ A modern client-side rendered (CSR) web application for restaurant meal manageme
   - Recovery links/OTP are proof of mailbox ownership, so they do not require the old password.
   - Dual-entry recovery: automatic token verification from query params (`?token_hash=…` or `?code=…`) or manual 6-digit OTP entry (`/api/auth/callback`).
   - Stateful lifecycle phases (`verifying`, `code`, `ready`, `success`, `error`) with semantic `<h1>` headings and error guidance.
-  - Independent password and confirm password eye toggles, with immediate revocation of other active sessions on successful password update.
+  - Independent password and confirm password eye toggles, with immediate revocation of other active sessions on successful password update (preserving MFA factors).
 - **Unified Auth Component Suite (`web/src/components/auth/`)**:
   - `<AuthAside />`: Reusable branded sidebar with customizable quote and consistent 3-line contact footer (`123 Nguyễn Văn Cừ, Q.5, TP.HCM` | `Mở cửa 09:00 – 22:00` | `1900 6868`).
   - `<PasswordField />`: Accessible password input with integrated eye toggle icon, `aria-pressed`, `aria-label`, and full-width input layout.
@@ -46,10 +46,10 @@ A modern client-side rendered (CSR) web application for restaurant meal manageme
 
 - **Dashboard (`/admin`)**: Real-time business metrics across active dishes, chefs, ingredients, and registered users, plus quick-action shortcuts.
 - **Meal CRUD (`/admin/dishes`)**:
-  - Full create, read, update, soft-delete, and restore lifecycle.
-  - Inline confirmation modal (`<ConfirmDeleteModal />`) for zero-redirect deletion.
+  - Full create, read, update, soft-delete (`ADMIN` only), and restore lifecycle.
+  - Dedicated delete confirmation pages (`/admin/dishes/:id/delete`, `ADMIN` only; delete buttons hidden for `STAFF`).
   - Image upload to Supabase Storage with live preview and removal toggle.
-  - **Paginated searchable selectors (`<SearchableSelect />`)**: Chef assignment and dynamic multi-row recipe ingredient selectors use debounced server-side search and pagination (`/api/chefs` & `/api/ingredients`) with keyboard navigation, scaling smoothly to thousands of records.
+  - **Paginated searchable selectors (`<SearchableSelect />`)**: Chef assignment (`ADMIN` only) and dynamic multi-row recipe ingredient selectors use debounced server-side search and pagination (`/api/chefs` & `/api/ingredients`) with keyboard navigation, scaling smoothly to thousands of records.
   - Automatic Vietnamese diacritic-stripped SEO slugs (`Phở Bò` → `pho-bo`), collision-safe (`pho-bo-2`).
   - Hybrid full-text + fuzzy search (`fuzzy` toggle) plus multi-filter/sort toolbar (categories, chefs, included/excluded ingredients, featured, availability, price range, prep time, assigned chef, deleted records) with server pagination.
 - **Chefs Management (`/admin/chefs`)**: Manage chef profiles, culinary specialties, biographies, and portrait uploads, with hybrid full-text/fuzzy search, multi-select specialty filters, active/has-dishes filters, sorting, and server pagination.
@@ -60,17 +60,22 @@ A modern client-side rendered (CSR) web application for restaurant meal manageme
 
 RBAC (`src/auth/permissions.ts`) serves as the coarse permission gate, restricted by an attribute-based deny-overrides policy layer (`src/auth/policy.ts`):
 
-| Capability                                | ADMIN | STAFF | VIEWER / CUSTOMER | Guest |
-| ----------------------------------------- | :---: | :---: | :---------------: | :---: |
-| Browse Menu & View Meal Details           |  ✅   |  ✅   |        ✅         |  ✅   |
-| Access Admin Dashboard (`/admin`)         |  ✅   |  ✅   |        ❌         |  ❌   |
-| Create Meals, Chefs, Ingredients          |  ✅   |  ✅   |        ❌         |  ❌   |
-| Edit / Soft-delete / Restore Content      |  ✅ (All) | ✅ (Own `createdBy` only) | ❌ | ❌ |
-| Manage Users & Status (`user:manage`)     |  ✅   |  ❌   |        ❌         |  ❌   |
+| Capability                                    | ADMIN    | STAFF (`Editor`)         | VIEWER / CUSTOMER | Guest |
+| --------------------------------------------- | :------: | :----------------------: | :---------------: | :---: |
+| Browse Menu & View Meal Details               |    ✅    |            ✅            |        ✅         |  ✅   |
+| Access Admin Dashboard (`/admin`)             |    ✅    |            ✅            |        ❌         |  ❌   |
+| Create Meals, Chefs, Ingredients              |    ✅    |            ✅            |        ❌         |  ❌   |
+| Edit / Restore & Open Edit Forms              | ✅ (All) | ✅ (Own `createdBy` only) |        ❌         |  ❌   |
+| Soft-delete Content (`*:delete`)              |    ✅    |            ❌            |        ❌         |  ❌   |
+| Set/Change Dish `chefId` & `isFeatured`       |    ✅    |            ❌            |        ❌         |  ❌   |
+| Manage Users & Status (`user:manage`)         |    ✅    |            ❌            |        ❌         |  ❌   |
 
-- **Account Status (`Profile.status`)**: `SUSPENDED` accounts are denied login and all authenticated/admin endpoints (`403 ACCOUNT_SUSPENDED`), with pre-suspension tokens revoked immediately.
-- **Content Ownership (`createdBy`)**: `STAFF` can update, soft-delete, or restore only content they created; legacy rows with `createdBy = NULL` are mutable by `ADMIN` only (`403 NOT_OWNER`). Admin list/detail APIs return per-row `permissions` flags for the UI.
+- **Account Status (`Profile.status`)**: `SUSPENDED` (`403 ACCOUNT_SUSPENDED`) and `PENDING` (`403 ACCOUNT_NOT_ACTIVATED`) accounts are denied by `authorize()`, with pre-suspension tokens revoked immediately.
+- **Content Ownership (`createdBy`) & Edit-Form GETs**: `STAFF` can open edit forms (`GET /api/chefs/:id`, `GET /api/ingredients/:id`, `GET /api/dishes/form-deps?dishId=`), update, or restore only content they created; legacy rows with `createdBy = NULL` are mutable by `ADMIN` only (`403 NOT_OWNER`). Admin list/detail APIs return per-row `permissions` flags, and frontend edit forms disable inputs on `403` / `!canEdit`.
+- **Dish Field-Level ABAC**: `STAFF` cannot set or alter `chefId` or `isFeatured` on dish creation or updates (`403 FORBIDDEN` with `fields`); those controls are disabled for `STAFF` in the dish editor.
 - **Admin Guards**: Admins cannot change their own role (`SELF_ROLE_CHANGE`) or suspend themselves (`403 SELF_MODIFY`), and transactional `FOR UPDATE` locks block demoting, suspending, or deleting the last active `ADMIN` (`LAST_ADMIN`).
+
+See [docs/BLOCK10_MFA.md](docs/BLOCK10_MFA.md) for the full MFA & RBAC/ABAC specification and acceptance mapping.
 
 ---
 
@@ -150,45 +155,47 @@ All protected endpoints accept authentication via `Authorization: Bearer <access
 Mutating endpoints using `Authorization: Bearer <token>` bypass double-submit CSRF enforcement (since cross-origin requests cannot attach custom headers without CORS preflight).
 Legacy `/api/admin/*` routes remain fully supported as backward-compatibility aliases to `/api/*`.
 
-| Route                             |         Method          |     Access     | Description                                                                    |
-| --------------------------------- | :---------------------: | :------------: | ------------------------------------------------------------------------------ |
-| `/api/auth/me`                    |           GET           |     Public     | Current profile and CSRF token                                                 |
-| `/api/auth/captcha`               |           GET           |     Public     | Public reCAPTCHA config & dynamic requirement status for IP/email              |
-| `/api/auth/login`                 |          POST           |     Public     | Sign in with email and password (supports adaptive reCAPTCHA)                  |
-| `/api/auth/register`              |          POST           |     Public     | Register new account with reCAPTCHA (initiates email OTP verification)         |
-| `/api/auth/verify-otp`            |          POST           |     Public     | Verify 6-digit email signup OTP token                                          |
-| `/api/auth/resend-otp`            |          POST           |     Public     | Resend email signup OTP with 60-second cooldown                                |
-| `/api/auth/forgot-password`       |          POST           |     Public     | Request password recovery link and 6-digit OTP (anti-enumeration)              |
-| `/api/auth/reset-password`        |          POST           | Authenticated  | Update password for recovery session or authenticated user                     |
-| `/api/auth/logout`                |          POST           | Authenticated  | Clear session cookies / invalidate session                                     |
-| `/api/auth/callback`              |        GET/POST         |     Public     | Supabase OAuth / email verification / magic-link / recovery callback           |
-| `/api/auth/mfa/status`            |           GET           | Authenticated  | MFA enabled state, factor id, and remaining recovery codes                     |
-| `/api/auth/mfa/enroll`            |          POST           | Authenticated  | Start Supabase TOTP enrollment (returns QR code + secret)                      |
-| `/api/auth/mfa/enroll/verify`     |          POST           | Authenticated  | Confirm the first TOTP code and return recovery codes once                     |
-| `/api/auth/mfa/verify`            |          POST           |     Public     | Complete a login challenge with a 6-digit TOTP code                            |
-| `/api/auth/mfa/verify-recovery`   |          POST           |     Public     | Use a single-use recovery code to disable MFA, then sign in again              |
-| `/api/auth/mfa/disable`           |          POST           | Authenticated  | Disable MFA (password + current TOTP/recovery code)                            |
-| `/api/auth/mfa/recovery-codes`    |          POST           | Authenticated  | Rotate the recovery-code set                                                   |
-| `/api/users/:id/mfa/reset`        |          POST           |   Admin only   | Remove all MFA factors + local mirror for a locked-out user                    |
-| `/api/home`                       |           GET           |     Public     | Featured dishes for the home page                                              |
-| `/api/menu`                       |           GET           |     Public     | Full visible dish catalog with FTS, filters & sort (no pagination)             |
-| `/api/dishes/filter-options`      |           GET           |     Public     | Chefs, ingredients, categories and price range for public filter UI            |
-| `/api/dishes`                     |        GET, POST        | Public / Staff | Server-paginated catalog with FTS, filters & sort; create dish (`dish:create`) |
-| `/api/dishes/:idOrSlug`           | GET, PATCH, PUT, DELETE | Public / Staff | View dish (public); update / soft-delete (`dish:update`/`delete`)              |
-| `/api/dishes/:id/restore`         |          POST           | Staff / Admin  | Restore soft-deleted dish                                                      |
-| `/api/dishes/form-deps`           |           GET           | Staff / Admin  | Active chefs and ingredients options for dish editor                           |
-| `/api/chefs/filter-options`       |           GET           | Staff / Admin  | Distinct active specialty values for chef filters                              |
-| `/api/chefs`                      |        GET, POST        | Staff / Admin  | Server-paginated chefs with FTS, filters & sort; create chef                   |
-| `/api/chefs/:id`                  | GET, PATCH, PUT, DELETE | Staff / Admin  | View, update, or soft-delete chef                                              |
-| `/api/chefs/:id/restore`          |          POST           | Staff / Admin  | Restore soft-deleted chef                                                      |
-| `/api/ingredients/filter-options` |           GET           | Staff / Admin  | Distinct unit values for ingredient filters                                    |
-| `/api/ingredients`                |        GET, POST        | Staff / Admin  | Server-paginated ingredients with FTS, filters & sort; create ingredient       |
-| `/api/ingredients/:id`            | GET, PATCH, PUT, DELETE | Staff / Admin  | View, update, or soft-delete ingredient                                        |
-| `/api/ingredients/:id/restore`    |          POST           | Staff / Admin  | Restore soft-deleted ingredient                                                |
-| `/api/stats`                      |           GET           | Staff / Admin  | Dashboard summary counts (dishes, chefs, ingredients, users)                   |
-| `/api/users`                      |           GET           |   Admin only   | Server-paginated users with FTS, role/date filters                             |
-| `/api/users/:id/role`             |       PATCH, POST       |   Admin only   | Change user role (`CUSTOMER`, `STAFF`, `ADMIN`)                                |
-| `/api/admin/*`                    |           ANY           | Staff / Admin  | Backward-compatibility aliases for `/api/*` management endpoints               |
+| Route                             |         Method          |      Access       | Description                                                                                            |
+| --------------------------------- | :---------------------: | :---------------: | ------------------------------------------------------------------------------------------------------ |
+| `/api/auth/me`                    |           GET           |      Public       | Current profile and CSRF token                                                                         |
+| `/api/auth/captcha`               |           GET           |      Public       | Public reCAPTCHA config & dynamic requirement status for IP/email                                      |
+| `/api/auth/login`                 |          POST           |      Public       | Sign in with email and password (supports adaptive reCAPTCHA)                                          |
+| `/api/auth/register`              |          POST           |      Public       | Register new account with reCAPTCHA (initiates email OTP verification)                                 |
+| `/api/auth/verify-otp`            |          POST           |      Public       | Verify 6-digit email signup OTP token (alias: `/api/auth/activate`)                                    |
+| `/api/auth/resend-otp`            |          POST           |      Public       | Resend email signup OTP with 60-second cooldown (alias: `/api/auth/activate/resend`)                   |
+| `/api/auth/forgot-password`       |          POST           |      Public       | Request password recovery link and 6-digit OTP (alias: `/api/auth/forgot`)                             |
+| `/api/auth/reset-password`        |          POST           |  Authenticated    | Update password for recovery proof or authenticated user (alias: `/api/auth/reset`)                    |
+| `/api/auth/logout`                |          POST           |  Authenticated    | Clear session cookies / invalidate session                                                             |
+| `/api/auth/callback`              |        GET/POST         |      Public       | Stateless OAuth / email verification / magic-link / recovery callback (issues MFA challenge if needed) |
+| `/api/auth/mfa/status`            |           GET           |  Authenticated    | MFA enabled state, factor id, and remaining recovery codes                                             |
+| `/api/auth/mfa/enroll`            |          POST           | Authenticated (Cookie) | Start Supabase TOTP enrollment (returns QR code + secret; requires cookie session)                     |
+| `/api/auth/mfa/enroll/verify`     |          POST           | Authenticated (Cookie) | Confirm the first TOTP code (lockout & replay guarded) and return recovery codes once                  |
+| `/api/auth/mfa`                   |          POST           |         Public         | Deck-aligned challenge alias (`{ challenge \| challengeId, code \| recoveryCode }`)                    |
+| `/api/auth/mfa/verify`            |          POST           |         Public         | Complete a login challenge with a 6-digit TOTP code                                                    |
+| `/api/auth/mfa/verify-recovery`   |          POST           |         Public         | Use a single-use recovery code to disable MFA, then sign in again                                      |
+| `/api/auth/mfa/disable`           |          POST           | Authenticated (Cookie) | Disable MFA (password + current TOTP/recovery code; requires cookie session)                           |
+| `/api/auth/mfa/recovery-codes`    |          POST           | Authenticated (Cookie) | Rotate the recovery-code set (requires cookie session)                                                 |
+| `/api/users/:id/mfa/reset`        |          POST           |       Admin only       | Remove all MFA factors + local mirror for a locked-out user (non-self)                                 |
+| `/api/home`                       |           GET           |         Public         | Featured dishes for the home page                                                                      |
+| `/api/menu`                       |           GET           |         Public         | Full visible dish catalog with FTS, filters & sort (no pagination)                                     |
+| `/api/dishes/filter-options`      |           GET           |         Public         | Chefs, ingredients, categories and price range for public filter UI                                    |
+| `/api/dishes`                     |        GET, POST        |     Public / Staff     | Server-paginated catalog with FTS, filters & sort; create dish (`dish:create`)                         |
+| `/api/dishes/:idOrSlug`           | GET, PATCH, PUT, DELETE |  Public / Staff / Admin | View dish (public); update (`ABAC` own for Staff, `chefId`/`isFeatured` Admin-only); `DELETE` Admin    |
+| `/api/dishes/:id/restore`         |          POST           |   Staff / Admin   | Restore soft-deleted dish (`ABAC` own for Staff)                                                       |
+| `/api/dishes/form-deps`           |           GET           |   Staff / Admin   | Active chefs/ingredients options; when `?dishId=` is passed, enforces `dish:update` + `ABAC` ownership |
+| `/api/chefs/filter-options`       |           GET           |   Staff / Admin   | Distinct active specialty values for chef filters                                                      |
+| `/api/chefs`                      |        GET, POST        |   Staff / Admin   | Server-paginated chefs with FTS, filters & sort; create chef                                           |
+| `/api/chefs/:id`                  | GET, PATCH, PUT, DELETE |   Staff / Admin   | View / update (`ABAC` own for Staff); `DELETE` Admin only                                              |
+| `/api/chefs/:id/restore`          |          POST           |   Staff / Admin   | Restore soft-deleted chef (`ABAC` own for Staff)                                                       |
+| `/api/ingredients/filter-options` |           GET           |   Staff / Admin   | Distinct unit values for ingredient filters                                                            |
+| `/api/ingredients`                |        GET, POST        |   Staff / Admin   | Server-paginated ingredients with FTS, filters & sort; create ingredient                               |
+| `/api/ingredients/:id`            | GET, PATCH, PUT, DELETE |   Staff / Admin   | View / update (`ABAC` own for Staff); `DELETE` Admin only                                              |
+| `/api/ingredients/:id/restore`    |          POST           |   Staff / Admin   | Restore soft-deleted ingredient (`ABAC` own for Staff)                                                 |
+| `/api/stats`                      |           GET           |   Staff / Admin   | Dashboard summary counts (dishes, chefs, ingredients, users)                                           |
+| `/api/users`                      |           GET           |    Admin only     | Server-paginated users with FTS, role/date filters                                                     |
+| `/api/users/:id/role`             |       PATCH, POST       |    Admin only     | Change user role (`VIEWER`, `STAFF`, `ADMIN`)                                                          |
+| `/api/users/:id/status`           |       PATCH, POST       |    Admin only     | Suspend or activate user (`ACTIVE`, `SUSPENDED`)                                                       |
+| `/api/admin/*`                    |           ANY           |   Staff / Admin   | Backward-compatibility aliases for `/api/*` management endpoints                                       |
 
 ### Search, Filtering, Sorting & Pagination Query Parameters
 
@@ -199,7 +206,7 @@ All list endpoints accept `page` (default `1`), `pageSize` (default `20`, max `1
 | **Dish** (`/api/dishes`, `/api/menu`) | Hybrid FTS (`search_vector`) + `pg_trgm` fuzzy matching (`name`, `description`, linked `chef`, linked `ingredients`) | `category` (CSV), `chefId` (CSV), `withIngredients` (CSV IDs), `withoutIngredients` (CSV IDs), `available`, `featured`, `minPrice`, `maxPrice`, `maxPrepTime`, `unassignedChef`, `deleted` (staff only) | `name-asc`, `name-desc`, `price-asc`, `price-desc`, `newest`, `updated`, `prep-asc`, `ingredients-asc`, `ingredients-desc`, `relevance` (default when `q` is set) |
 | **Chef** (`/api/chefs`)               | Hybrid FTS + `pg_trgm` fuzzy matching (`name`, `specialty`, `bio`)                                                   | `specialty` (CSV), `isActive`, `minExperience`, `hasActiveDishes`                                                                                                                                       | `experience-asc`, `experience-desc`, `dishes-desc`, `name-asc`, `newest`, `updated`, `relevance` (default when `q` is set)                                        |
 | **Ingredient** (`/api/ingredients`)   | Hybrid FTS + `pg_trgm` fuzzy matching (`name`, `unit`)                                                               | `unit` (CSV), `isAvailable`, `stock` (`in`/`out`), `usage` (`unused`/`activeDishes`)                                                                                                                    | `name-asc`, `stock-asc`, `stock-desc`, `price-asc`, `price-desc`, `usage-desc`, `updated`, `relevance` (default when `q` is set)                                  |
-| **Profile / User** (`/api/users`)     | Hybrid FTS + `pg_trgm` fuzzy matching (`display_name`, `email`)                                                      | `role` (CSV: `CUSTOMER,STAFF,ADMIN`), `createdFrom`, `createdTo` (ISO dates)                                                                                                                            | Newest first; ranked by relevance when `q` is set                                                                                                                 |
+| **Profile / User** (`/api/users`)     | Hybrid FTS + `pg_trgm` fuzzy matching (`display_name`, `email`)                                                      | `role` (CSV: `VIEWER,STAFF,ADMIN`), `status` (`PENDING,ACTIVE,SUSPENDED`), `createdFrom`, `createdTo` (ISO dates)                                                                                       | Newest first; ranked by relevance when `q` is set                                                                                                                 |
 
 ---
 
@@ -291,7 +298,7 @@ npm run dev:server  # Express API server on port 3000 (tsx watch)
 
 ## 🧪 Testing & Code Quality
 
-Run Vitest unit test suite (14 test suites, 98 test cases covering HTTP envelopes, Bearer token auth, CSRF bypass, business/technical error contracts, CORS, validation, rate limiting, signup & recovery OTP verification, RBAC, hybrid full-text/fuzzy search & filter builders, and server pagination):
+Run Vitest unit test suite (20 test suites, 189 test cases covering HTTP envelopes, Bearer token & cookie auth, token revocation, CSRF bypass, business/technical error contracts, CORS, validation, rate limiting, signup & recovery OTP verification, MFA challenges/lockout/replay/aliases, RBAC & ABAC policies/ownership/edit-form GETs/field-level rules, hybrid full-text/fuzzy search & filter builders, and server pagination):
 
 ```bash
 npm test

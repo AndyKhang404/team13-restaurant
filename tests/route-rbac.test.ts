@@ -305,12 +305,12 @@ describe('Route-Level RBAC Enforcement', () => {
         );
         expect(res.body.data.chef.permissions).toEqual({
           canUpdate: true,
-          canDelete: true,
+          canDelete: false,
           canRestore: false,
         });
       });
 
-      it('denies STAFF PATCH/DELETE/restore on another user or legacy null-owner row with 403 NOT_OWNER', async () => {
+      it('denies STAFF PATCH/restore on another user or legacy null-owner row with 403 NOT_OWNER and DELETE with 403 FORBIDDEN', async () => {
         setupAuthMock(Role.STAFF, STAFF_A);
         vi.spyOn(prisma.dish, 'findUnique').mockResolvedValue({
           id: ROW_ID,
@@ -329,7 +329,7 @@ describe('Route-Level RBAC Enforcement', () => {
           .delete(`/api/dishes/${ROW_ID}`)
           .set('Authorization', 'Bearer test-token');
         expect(delRes.status).toBe(403);
-        expect(delRes.body.error).toMatchObject({ code: 'NOT_OWNER' });
+        expect(delRes.body.error).toMatchObject({ code: 'FORBIDDEN' });
 
         vi.spyOn(prisma.ingredient, 'findUnique').mockResolvedValue({
           id: ROW_ID,
@@ -343,7 +343,7 @@ describe('Route-Level RBAC Enforcement', () => {
         expect(restoreRes.body.error).toMatchObject({ code: 'NOT_OWNER' });
       });
 
-      it('allows STAFF to PATCH/DELETE/restore their own rows', async () => {
+      it('allows STAFF to PATCH/restore their own rows, while denying DELETE on own rows with 403 FORBIDDEN', async () => {
         setupAuthMock(Role.STAFF, STAFF_A);
         const ownChef = {
           id: ROW_ID,
@@ -362,14 +362,21 @@ describe('Route-Level RBAC Enforcement', () => {
         vi.spyOn(prisma.chef, 'findUnique').mockResolvedValue(ownChef as never);
         vi.spyOn(prisma.chef, 'update').mockResolvedValue({
           ...ownChef,
-          deletedAt: new Date(),
+          name: 'Chef A Updated',
         } as never);
+
+        const patchRes = await request(app)
+          .patch(`/api/chefs/${ROW_ID}`)
+          .set('Authorization', 'Bearer test-token')
+          .send({ name: 'Chef A Updated', experienceYears: 3, isActive: 'true' });
+        expect(patchRes.status).toBe(200);
+        expect(patchRes.body.ok).toBe(true);
 
         const delRes = await request(app)
           .delete(`/api/chefs/${ROW_ID}`)
           .set('Authorization', 'Bearer test-token');
-        expect(delRes.status).toBe(200);
-        expect(delRes.body.ok).toBe(true);
+        expect(delRes.status).toBe(403);
+        expect(delRes.body.error).toMatchObject({ code: 'FORBIDDEN' });
 
         vi.spyOn(prisma.chef, 'findUnique').mockResolvedValue({
           ...ownChef,
@@ -387,7 +394,7 @@ describe('Route-Level RBAC Enforcement', () => {
         expect(restoreRes.body.ok).toBe(true);
         expect(restoreRes.body.data.chef.permissions).toEqual({
           canUpdate: true,
-          canDelete: true,
+          canDelete: false,
           canRestore: false,
         });
       });
@@ -419,6 +426,134 @@ describe('Route-Level RBAC Enforcement', () => {
 
         expect(res.status).toBe(200);
         expect(res.body.ok).toBe(true);
+      });
+    });
+
+    describe('Edit-form GET ABAC, PENDING status, and Dish field ABAC', () => {
+      it('denies PENDING accounts on protected routes with 403 ACCOUNT_NOT_ACTIVATED', async () => {
+        setupAuthMock(Role.STAFF, STAFF_A, ProfileStatus.PENDING);
+
+        const res = await request(app)
+          .get('/api/stats')
+          .set('Authorization', 'Bearer test-token');
+        expect(res.status).toBe(403);
+        expect(res.body.error).toMatchObject({ code: 'ACCOUNT_NOT_ACTIVATED' });
+      });
+
+      it('gates GET /api/chefs/:id and GET /api/ingredients/:id by ownership (404 missing, 403 NOT_OWNER)', async () => {
+        setupAuthMock(Role.STAFF, STAFF_A);
+
+        vi.spyOn(prisma.chef, 'findUnique')
+          .mockResolvedValueOnce(null)
+          .mockResolvedValueOnce(null);
+        const missingChef = await request(app)
+          .get(`/api/chefs/${ROW_ID}`)
+          .set('Authorization', 'Bearer test-token');
+        expect(missingChef.body).toMatchObject({ ok: false, error: { code: 'NOT_FOUND' } });
+
+        vi.spyOn(prisma.chef, 'findUnique').mockResolvedValueOnce({
+          id: ROW_ID,
+          createdBy: STAFF_B,
+          deletedAt: null,
+        } as never);
+        const otherChef = await request(app)
+          .get(`/api/chefs/${ROW_ID}`)
+          .set('Authorization', 'Bearer test-token');
+        expect(otherChef.status).toBe(403);
+        expect(otherChef.body.error).toMatchObject({ code: 'NOT_OWNER' });
+
+        vi.spyOn(prisma.ingredient, 'findUnique').mockResolvedValueOnce({
+          id: ROW_ID,
+          createdBy: STAFF_B,
+          deletedAt: null,
+        } as never);
+        const otherIng = await request(app)
+          .get(`/api/ingredients/${ROW_ID}`)
+          .set('Authorization', 'Bearer test-token');
+        expect(otherIng.status).toBe(403);
+        expect(otherIng.body.error).toMatchObject({ code: 'NOT_OWNER' });
+      });
+
+      it('gates GET /api/dishes/form-deps?dishId= by ownership while leaving new-form deps open to STAFF', async () => {
+        setupAuthMock(Role.STAFF, STAFF_A);
+
+        vi.spyOn(prisma.chef, 'findMany').mockResolvedValue([]);
+        vi.spyOn(prisma.ingredient, 'findMany').mockResolvedValue([]);
+        const newDeps = await request(app)
+          .get('/api/dishes/form-deps')
+          .set('Authorization', 'Bearer test-token');
+        expect(newDeps.status).toBe(200);
+        expect(newDeps.body.ok).toBe(true);
+
+        vi.spyOn(prisma.dish, 'findUnique').mockResolvedValueOnce(null);
+        const missingDish = await request(app)
+          .get(`/api/dishes/form-deps?dishId=${ROW_ID}`)
+          .set('Authorization', 'Bearer test-token');
+        expect(missingDish.body).toMatchObject({ ok: false, error: { code: 'NOT_FOUND' } });
+
+        vi.spyOn(prisma.dish, 'findUnique').mockResolvedValueOnce({
+          id: ROW_ID,
+          createdBy: STAFF_B,
+          deletedAt: null,
+        } as never);
+        const otherDish = await request(app)
+          .get(`/api/dishes/form-deps?dishId=${ROW_ID}`)
+          .set('Authorization', 'Bearer test-token');
+        expect(otherDish.status).toBe(403);
+        expect(otherDish.body.error).toMatchObject({ code: 'NOT_OWNER' });
+      });
+
+      it('blocks STAFF from setting/changing chefId or isFeatured on dishes with 403 FORBIDDEN', async () => {
+        setupAuthMock(Role.STAFF, STAFF_A);
+        const chefUuid = '77777777-7777-4777-8777-777777777777';
+
+        const createRes = await request(app)
+          .post('/api/dishes')
+          .set('Authorization', 'Bearer test-token')
+          .send({
+            name: 'Pho Bo',
+            price: 55000,
+            category: 'main',
+            isAvailable: true,
+            isFeatured: true,
+            chefId: chefUuid,
+          });
+        expect(createRes.status).toBe(403);
+        expect(createRes.body.error).toMatchObject({
+          code: 'FORBIDDEN',
+          fields: {
+            chefId: expect.any(String),
+            isFeatured: expect.any(String),
+          },
+        });
+
+        vi.spyOn(prisma.dish, 'findUnique').mockResolvedValue({
+          id: ROW_ID,
+          slug: 'pho-bo',
+          chefId: null,
+          isFeatured: false,
+          imageUrl: null,
+          createdBy: STAFF_A,
+          deletedAt: null,
+        } as never);
+
+        const patchRes = await request(app)
+          .patch(`/api/dishes/${ROW_ID}`)
+          .set('Authorization', 'Bearer test-token')
+          .send({
+            name: 'Pho Bo',
+            price: 55000,
+            category: 'main',
+            isAvailable: true,
+            isFeatured: true,
+          });
+        expect(patchRes.status).toBe(403);
+        expect(patchRes.body.error).toMatchObject({
+          code: 'FORBIDDEN',
+          fields: {
+            isFeatured: expect.any(String),
+          },
+        });
       });
     });
 
@@ -491,7 +626,7 @@ describe('Route-Level RBAC Enforcement', () => {
         expect(res.status).toBe(200);
         expect(res.body.data.dishes[0].permissions).toEqual({
           canUpdate: true,
-          canDelete: true,
+          canDelete: false,
           canRestore: false,
         });
         expect(res.body.data.dishes[1].permissions).toEqual({
@@ -605,6 +740,41 @@ describe('Route-Level RBAC Enforcement', () => {
         expect(res.body.ok).toBe(false);
         expect(res.body.error).toMatchObject({ code: 'LAST_ADMIN' });
         expect(txMock.profile.update).not.toHaveBeenCalled();
+      });
+
+      it('strips createdBy and omits permissions on GET /api/dishes for PENDING STAFF accounts', async () => {
+        setupAuthMock(Role.STAFF, STAFF_A, ProfileStatus.PENDING);
+        vi.spyOn(prisma.dish, 'count').mockResolvedValue(1);
+        vi.spyOn(prisma.dish, 'findMany').mockResolvedValue([
+          {
+            id: ROW_ID,
+            name: 'Pho Bo',
+            slug: 'pho-bo',
+            description: null,
+            imageUrl: null,
+            price: 50000,
+            category: 'main',
+            isAvailable: true,
+            isFeatured: false,
+            prepTimeMinutes: 10,
+            chefId: null,
+            createdBy: STAFF_A,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            deletedAt: null,
+            chef: { id: 'c1', name: 'Chef', createdBy: STAFF_A },
+          } as never,
+        ]);
+
+        const res = await request(app)
+          .get('/api/dishes')
+          .set('Authorization', 'Bearer test-token');
+
+        expect(res.status).toBe(200);
+        const dish = res.body.data.dishes[0];
+        expect(dish.createdBy).toBeUndefined();
+        expect(dish.permissions).toBeUndefined();
+        expect(dish.chef.createdBy).toBeUndefined();
       });
     });
   });

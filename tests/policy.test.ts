@@ -3,6 +3,7 @@ import { ProfileStatus, Role } from '../src/generated/prisma/enums.js';
 import {
   authorize,
   canMutate,
+  checkDishAdminFields,
   getRowPermissions,
   stripCreatedBy,
   type Action,
@@ -20,18 +21,13 @@ describe('ABAC Policy Engine', () => {
   const ownDeletedRow = { createdBy: 'staff-a', deletedAt: new Date() };
   const otherDeletedRow = { createdBy: 'staff-b', deletedAt: new Date() };
 
-  const contentMutateActions: Action[] = [
-    'dish:update',
-    'dish:delete',
-    'chef:update',
-    'chef:delete',
-    'ingredient:update',
-    'ingredient:delete',
-  ];
+  const staffUpdateActions: Action[] = ['dish:update', 'chef:update', 'ingredient:update'];
+  const deleteActions: Action[] = ['dish:delete', 'chef:delete', 'ingredient:delete'];
+  const allMutateActions: Action[] = [...staffUpdateActions, ...deleteActions];
 
   describe('ADMIN role', () => {
-    it('allows ADMIN to mutate own, other-owned, and legacy null-owner rows', () => {
-      for (const action of contentMutateActions) {
+    it('allows ADMIN to mutate and delete own, other-owned, and legacy null-owner rows', () => {
+      for (const action of allMutateActions) {
         expect(authorize(admin, action, ownRow)).toBeNull();
         expect(authorize(admin, action, otherRow)).toBeNull();
         expect(authorize(admin, action, legacyRow)).toBeNull();
@@ -40,7 +36,7 @@ describe('ABAC Policy Engine', () => {
     });
   });
 
-  describe('STAFF role ownership', () => {
+  describe('STAFF role ownership and delete restriction', () => {
     it('allows STAFF to create content and access admin', () => {
       expect(authorize(staffA, 'admin:access')).toBeNull();
       expect(authorize(staffA, 'dish:create')).toBeNull();
@@ -48,22 +44,26 @@ describe('ABAC Policy Engine', () => {
       expect(authorize(staffA, 'ingredient:create')).toBeNull();
     });
 
-    it('allows STAFF to mutate their own rows', () => {
-      for (const action of contentMutateActions) {
+    it('allows STAFF to update/restore their own rows, but denies delete with FORBIDDEN', () => {
+      for (const action of staffUpdateActions) {
         expect(authorize(staffA, action, ownRow)).toBeNull();
         expect(canMutate(staffA, action, ownRow)).toBe(true);
       }
+      for (const action of deleteActions) {
+        expect(authorize(staffA, action, ownRow)).toMatchObject({ code: 'FORBIDDEN' });
+        expect(canMutate(staffA, action, ownRow)).toBe(false);
+      }
     });
 
-    it('denies STAFF from mutating other users rows with NOT_OWNER', () => {
-      for (const action of contentMutateActions) {
+    it('denies STAFF from updating other users rows with NOT_OWNER', () => {
+      for (const action of staffUpdateActions) {
         expect(authorize(staffA, action, otherRow)).toMatchObject({ code: 'NOT_OWNER' });
         expect(canMutate(staffA, action, otherRow)).toBe(false);
       }
     });
 
-    it('denies STAFF from mutating legacy null-owner rows with NOT_OWNER', () => {
-      for (const action of contentMutateActions) {
+    it('denies STAFF from updating legacy null-owner rows with NOT_OWNER', () => {
+      for (const action of staffUpdateActions) {
         expect(authorize(staffA, action, legacyRow)).toMatchObject({ code: 'NOT_OWNER' });
       }
     });
@@ -73,7 +73,7 @@ describe('ABAC Policy Engine', () => {
     });
   });
 
-  describe('SUSPENDED account status', () => {
+  describe('SUSPENDED and PENDING account statuses', () => {
     it('denies SUSPENDED accounts across all roles with ACCOUNT_SUSPENDED', () => {
       const suspendedAdmin: Subject = { ...admin, status: ProfileStatus.SUSPENDED };
       const suspendedStaff: Subject = { ...staffA, status: ProfileStatus.SUSPENDED };
@@ -91,6 +91,67 @@ describe('ABAC Policy Engine', () => {
         code: 'ACCOUNT_SUSPENDED',
       });
     });
+
+    it('denies PENDING accounts across all roles with ACCOUNT_NOT_ACTIVATED', () => {
+      const pendingAdmin: Subject = { ...admin, status: ProfileStatus.PENDING };
+      const pendingStaff: Subject = { ...staffA, status: ProfileStatus.PENDING };
+      const pendingViewer: Subject = { ...viewer, status: ProfileStatus.PENDING };
+
+      expect(authorize(pendingAdmin, 'user:manage')).toMatchObject({
+        code: 'ACCOUNT_NOT_ACTIVATED',
+      });
+      expect(authorize(pendingStaff, 'dish:create')).toMatchObject({
+        code: 'ACCOUNT_NOT_ACTIVATED',
+      });
+      expect(authorize(pendingStaff, 'dish:update', ownRow)).toMatchObject({
+        code: 'ACCOUNT_NOT_ACTIVATED',
+      });
+      expect(authorize(pendingViewer, 'admin:access')).toMatchObject({
+        code: 'ACCOUNT_NOT_ACTIVATED',
+      });
+    });
+  });
+
+  describe('Dish admin-only fields (chefId & isFeatured)', () => {
+    it('allows ADMIN to set or change chefId and isFeatured', () => {
+      expect(checkDishAdminFields(admin, { chefId: 'chef-1', isFeatured: true })).toBeNull();
+      expect(
+        checkDishAdminFields(
+          admin,
+          { chefId: 'chef-2', isFeatured: false },
+          { chefId: 'chef-1', isFeatured: true },
+        ),
+      ).toBeNull();
+    });
+
+    it('denies STAFF from setting chefId or isFeatured on create', () => {
+      expect(checkDishAdminFields(staffA, { chefId: null, isFeatured: false })).toBeNull();
+      expect(checkDishAdminFields(staffA, { chefId: 'chef-1', isFeatured: false })).toMatchObject({
+        code: 'FORBIDDEN',
+        fields: { chefId: expect.any(String) },
+      });
+      expect(checkDishAdminFields(staffA, { chefId: null, isFeatured: true })).toMatchObject({
+        code: 'FORBIDDEN',
+        fields: { isFeatured: expect.any(String) },
+      });
+    });
+
+    it('allows STAFF to keep existing chefId/isFeatured unchanged, but denies changing them', () => {
+      const existing = { chefId: 'chef-1', isFeatured: true };
+      expect(checkDishAdminFields(staffA, { chefId: 'chef-1', isFeatured: true }, existing)).toBeNull();
+      expect(
+        checkDishAdminFields(staffA, { chefId: 'chef-2', isFeatured: true }, existing),
+      ).toMatchObject({
+        code: 'FORBIDDEN',
+        fields: { chefId: expect.any(String) },
+      });
+      expect(
+        checkDishAdminFields(staffA, { chefId: 'chef-1', isFeatured: false }, existing),
+      ).toMatchObject({
+        code: 'FORBIDDEN',
+        fields: { isFeatured: expect.any(String) },
+      });
+    });
   });
 
   describe('VIEWER and unauthenticated subjects', () => {
@@ -106,7 +167,7 @@ describe('ABAC Policy Engine', () => {
     it('computes active and deleted row permissions for ADMIN and STAFF', () => {
       expect(getRowPermissions('dish', ownRow, staffA)).toEqual({
         canUpdate: true,
-        canDelete: true,
+        canDelete: false,
         canRestore: false,
       });
       expect(getRowPermissions('dish', otherRow, staffA)).toEqual({

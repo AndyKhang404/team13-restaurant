@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent, type MouseEvent } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { ApiError, HttpError } from '../lib/api';
 import { authApi } from '../lib/resources';
@@ -101,6 +101,16 @@ export default function ResetPassword() {
     setInfo(null);
     setManualCodeMode(true);
     setPhase('code');
+  }
+
+  async function signOutAndNavigate(e: MouseEvent<HTMLAnchorElement>, to: string) {
+    e.preventDefault();
+    if (busy) return;
+    setBusy(true);
+    if (user) {
+      await signOut().catch(() => {});
+    }
+    navigate(to, { replace: true });
   }
 
   async function onResend() {
@@ -380,19 +390,15 @@ export default function ResetPassword() {
 
         {requiresCurrentPassword ? (
           <div className="auth-alt">
-            Quên mật khẩu hiện tại? <Link to="/forgot-password">Đặt lại bằng email</Link>
+            Quên mật khẩu hiện tại?{' '}
+            <Link to="/forgot-password" onClick={(e) => void signOutAndNavigate(e, '/forgot-password')}>
+              Đặt lại bằng email
+            </Link>
           </div>
         ) : null}
 
         <div className="auth-alt">
-          <Link
-            to="/login"
-            onClick={async (e) => {
-              e.preventDefault();
-              await signOut().catch(() => {});
-              navigate('/login', { replace: true });
-            }}
-          >
+          <Link to="/login" onClick={(e) => void signOutAndNavigate(e, '/login')}>
             Quay lại đăng nhập
           </Link>
         </div>

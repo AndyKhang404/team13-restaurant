@@ -61,6 +61,28 @@ export function NotFoundState({
   );
 }
 
+export function ForbiddenState({
+  message = 'Bạn không có quyền thực hiện thao tác này.',
+  title = 'Không có quyền truy cập',
+  children,
+}: {
+  message?: string;
+  title?: string;
+  children?: ReactNode;
+}) {
+  return (
+    <div className="empty" style={{ marginTop: 36 }}>
+      <b>{title}</b>
+      {message}
+      {children && (
+        <div className="actions-row" style={{ justifyContent: 'center', marginTop: 20 }}>
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function EmptyState({ title, message }: { title?: string; message?: string }) {
   return (
     <div className="empty">

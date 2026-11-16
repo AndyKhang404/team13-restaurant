@@ -116,6 +116,37 @@ function sendUnauthenticatedOrSuspended(req: Request, res: Response) {
   return sendError(res, 401, 'UNAUTHENTICATED', 'Vui lòng đăng nhập để tiếp tục.');
 }
 
+async function handleRevokedOrAttach(
+  req: Request,
+  res: Response,
+  userId: string,
+  tokenIat: number | undefined,
+  email: string,
+  displayName: string | null,
+  aal: string | undefined,
+): Promise<void> {
+  if (isTokenRevoked(userId, tokenIat)) {
+    let isSuspended: boolean;
+    try {
+      const existing = await prisma.profile.findUnique({
+        where: { id: userId },
+        select: { status: true },
+      });
+      isSuspended = existing?.status === ProfileStatus.SUSPENDED;
+    } catch {
+      isSuspended = false;
+    }
+    if (isSuspended) {
+      req.suspended = true;
+    } else {
+      req.tokenRevoked = true;
+    }
+    return;
+  }
+
+  await attachUser(req, res, userId, email, displayName, aal);
+}
+
 /**
  * Resolves the Supabase session (verifying JWT from Bearer header or auth cookie)
  * and loads/creates the app Profile.
@@ -184,26 +215,15 @@ export const loadUser: RequestHandler = async (req, res, next) => {
       }
 
       if (userId) {
-        // Check if token was revoked prior to expiry (e.g. password reset or suspension)
-        if (isTokenRevoked(userId, tokenIat)) {
-          let isSuspended = false;
-          try {
-            const existing = await prisma.profile.findUnique({
-              where: { id: userId },
-              select: { status: true },
-            });
-            isSuspended = existing?.status === ProfileStatus.SUSPENDED;
-          } catch {
-            isSuspended = false;
-          }
-          if (isSuspended) {
-            req.suspended = true;
-          } else {
-            req.tokenRevoked = true;
-          }
-        } else {
-          await attachUser(req, res, userId, email ?? '', displayName ?? null, aal);
-        }
+        await handleRevokedOrAttach(
+          req,
+          res,
+          userId,
+          tokenIat,
+          email ?? '',
+          displayName ?? null,
+          aal,
+        );
       }
     } catch {
       // Ignored: invalid token leaves req.user = null
@@ -215,6 +235,7 @@ export const loadUser: RequestHandler = async (req, res, next) => {
       const claims = data?.claims as
         | {
             sub?: string;
+            iat?: number;
             email?: string;
             aal?: string;
             user_metadata?: Record<string, unknown>;
@@ -222,10 +243,11 @@ export const loadUser: RequestHandler = async (req, res, next) => {
         | undefined;
       if (!error && claims?.sub) {
         const meta = claims.user_metadata ?? {};
-        await attachUser(
+        await handleRevokedOrAttach(
           req,
           res,
           claims.sub,
+          claims.iat,
           typeof claims.email === 'string' ? claims.email : '',
           typeof meta.display_name === 'string' ? meta.display_name : null,
           claims.aal,

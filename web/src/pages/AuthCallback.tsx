@@ -23,6 +23,20 @@ export default function AuthCallback() {
       .callback(`?${params.toString()}`)
       .then(async (result) => {
         if (!alive) return;
+        if (result.mfaRequired && result.challengeId) {
+          navigate('/login', {
+            replace: true,
+            state: {
+              mfaChallenge: {
+                challengeId: result.challengeId,
+                expiresIn: result.expiresIn ?? 300,
+                recoveryOnly: Boolean(result.recoveryOnly),
+                email: result.email,
+              },
+            },
+          });
+          return;
+        }
         await refresh();
         const target = canAccessAdmin(result.user) ? (result.redirectTo ?? '/admin') : '/';
         navigate(target, { replace: true });

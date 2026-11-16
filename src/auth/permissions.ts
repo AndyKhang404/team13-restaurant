@@ -18,22 +18,30 @@ export type Permission =
   | 'ingredient:delete'
   | 'user:manage';
 
-const CONTENT_PERMISSIONS: Permission[] = [
+const STAFF_CONTENT_PERMISSIONS: Permission[] = [
   'dish:create',
   'dish:update',
-  'dish:delete',
   'chef:create',
   'chef:update',
-  'chef:delete',
   'ingredient:create',
   'ingredient:update',
+];
+
+const DELETE_PERMISSIONS: Permission[] = [
+  'dish:delete',
+  'chef:delete',
   'ingredient:delete',
 ];
 
 export const ROLE_PERMISSIONS: Record<Role, ReadonlySet<Permission>> = {
-  [Role.ADMIN]: new Set<Permission>(['admin:access', ...CONTENT_PERMISSIONS, 'user:manage']),
-  // STAFF can access admin panel and manage content (dishes, chefs, ingredients), but cannot manage users.
-  [Role.STAFF]: new Set<Permission>(['admin:access', ...CONTENT_PERMISSIONS]),
+  [Role.ADMIN]: new Set<Permission>([
+    'admin:access',
+    ...STAFF_CONTENT_PERMISSIONS,
+    ...DELETE_PERMISSIONS,
+    'user:manage',
+  ]),
+  // STAFF (Editor) can access admin panel and create/update/restore own content, but cannot delete or manage users.
+  [Role.STAFF]: new Set<Permission>(['admin:access', ...STAFF_CONTENT_PERMISSIONS]),
   [Role.VIEWER]: new Set<Permission>(),
 };
 

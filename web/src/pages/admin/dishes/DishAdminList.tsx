@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../../auth/AuthProvider';
-import { canDeleteRow, canEditRow, NOT_OWNER_TOOLTIP } from '../../../auth/roles';
+import { canDeleteContent, canDeleteRow, canEditRow, NOT_OWNER_TOOLTIP } from '../../../auth/roles';
 import { dishesApi } from '../../../lib/resources';
 import { useApi } from '../../../lib/useApi';
 import { useListParams } from '../../../lib/useListParams';
@@ -494,23 +494,25 @@ export default function DishAdminList() {
                           Sửa
                         </button>
                       )}
-                      {canDeleteRow(dish, currentUser) ? (
-                        <Link
-                          className="btn btn-sm btn-danger"
-                          to={`/admin/dishes/${dish.id}/delete`}
-                        >
-                          Xóa
-                        </Link>
-                      ) : (
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-danger"
-                          disabled
-                          title={NOT_OWNER_TOOLTIP}
-                        >
-                          Xóa
-                        </button>
-                      )}
+                      {canDeleteContent(currentUser) ? (
+                        canDeleteRow(dish, currentUser) ? (
+                          <Link
+                            className="btn btn-sm btn-danger"
+                            to={`/admin/dishes/${dish.id}/delete`}
+                          >
+                            Xóa
+                          </Link>
+                        ) : (
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-danger"
+                            disabled
+                            title={NOT_OWNER_TOOLTIP}
+                          >
+                            Xóa
+                          </button>
+                        )
+                      ) : null}
                     </div>
                   </td>
                 </tr>

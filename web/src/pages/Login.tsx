@@ -8,10 +8,18 @@ import { FormError } from '../components/FieldError';
 import Recaptcha from '../components/Recaptcha';
 import { AuthAside, OtpField, PasswordField } from '../components/auth';
 
+interface MfaChallengeState {
+  challengeId: string;
+  expiresIn?: number;
+  recoveryOnly?: boolean;
+  email?: string;
+}
+
 interface LocationState {
   from?: string;
   verifiedEmail?: string;
   message?: string;
+  mfaChallenge?: MfaChallengeState;
 }
 
 function formatCountdown(seconds: number): string {
@@ -26,8 +34,9 @@ export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
   const state = (location.state ?? {}) as LocationState;
+  const initialMfa = state.mfaChallenge;
 
-  const [email, setEmail] = useState(state.verifiedEmail ?? '');
+  const [email, setEmail] = useState(initialMfa?.email ?? state.verifiedEmail ?? '');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(state.message ?? null);
@@ -37,14 +46,16 @@ export default function Login() {
   const [captchaToken, setCaptchaToken] = useState('');
   const [captchaReset, setCaptchaReset] = useState(0);
 
-  const [step, setStep] = useState<'password' | 'mfa'>('password');
-  const [challengeId, setChallengeId] = useState<string | null>(null);
-  const [challengeExpiresAt, setChallengeExpiresAt] = useState<number | null>(null);
-  const [secondsLeft, setSecondsLeft] = useState(0);
+  const [step, setStep] = useState<'password' | 'mfa'>(initialMfa ? 'mfa' : 'password');
+  const [challengeId, setChallengeId] = useState<string | null>(initialMfa?.challengeId ?? null);
+  const [challengeExpiresAt, setChallengeExpiresAt] = useState<number | null>(
+    initialMfa ? Date.now() + (initialMfa.expiresIn ?? 300) * 1000 : null,
+  );
+  const [secondsLeft, setSecondsLeft] = useState(initialMfa?.expiresIn ?? 0);
   const [mfaCode, setMfaCode] = useState('');
   const [recoveryCode, setRecoveryCode] = useState('');
-  const [useRecoveryCode, setUseRecoveryCode] = useState(false);
-  const [recoveryOnly, setRecoveryOnly] = useState(false);
+  const [useRecoveryCode, setUseRecoveryCode] = useState(Boolean(initialMfa?.recoveryOnly));
+  const [recoveryOnly, setRecoveryOnly] = useState(Boolean(initialMfa?.recoveryOnly));
 
   useEffect(() => {
     let active = true;
@@ -317,7 +328,7 @@ export default function Login() {
             <div className={`mfa-countdown${expired ? ' is-expired' : ''}`}>
               {expired
                 ? 'Phiên xác thực đã hết hạn.'
-                : `Mã còn hiệu lực trong ${formatCountdown(secondsLeft)}`}
+                : `Phiên xác thực còn hiệu lực trong ${formatCountdown(secondsLeft)}`}
             </div>
 
             {expired ? (

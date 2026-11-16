@@ -261,6 +261,7 @@ export interface LoginResult {
   recoveryOnly?: boolean;
   recoveryUsed?: boolean;
   reauthRequired?: boolean;
+  email?: string;
 }
 
 export interface MfaStatus {

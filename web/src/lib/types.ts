@@ -1,5 +1,5 @@
 export type UserRole = 'ADMIN' | 'STAFF' | 'VIEWER';
-export type ProfileStatus = 'ACTIVE' | 'SUSPENDED';
+export type ProfileStatus = 'PENDING' | 'ACTIVE' | 'SUSPENDED';
 
 export interface RowPermissions {
   canUpdate: boolean;

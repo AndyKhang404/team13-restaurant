@@ -214,8 +214,11 @@ export interface MfaFailureResult {
 export function registerMfaFailure(
   failedAttempts: number,
   now: Date = new Date(),
+  previousLockedUntil?: Date | null,
 ): MfaFailureResult {
-  const attempts = failedAttempts + 1;
+  const lockExpired = Boolean(previousLockedUntil && previousLockedUntil.getTime() <= now.getTime());
+  const baseline = lockExpired ? 0 : failedAttempts;
+  const attempts = baseline + 1;
   if (attempts >= MFA_MAX_ATTEMPTS) {
     return {
       failedAttempts: attempts,

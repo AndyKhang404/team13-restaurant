@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { chefsApi } from '../../../lib/resources';
 import { useApi } from '../../../lib/useApi';
 import { ApiError, HttpError, type ApiFieldErrors } from '../../../lib/api';
-import { ErrorState, Loading, NotFoundState } from '../../../components/StateViews';
+import { ErrorState, ForbiddenState, Loading, NotFoundState } from '../../../components/StateViews';
 import { FieldError, FormError } from '../../../components/FieldError';
 import { NOT_OWNER_TOOLTIP } from '../../../auth/roles';
 import { Avatar } from '../../../components/Avatar';
@@ -100,6 +100,15 @@ export default function ChefForm({ mode }: { mode: 'new' | 'edit' }) {
         </NotFoundState>
       );
     }
+    if ((chefState.error instanceof ApiError || chefState.error instanceof HttpError) && chefState.error.status === 403) {
+      return (
+        <ForbiddenState message={chefState.error.message}>
+          <Link className="btn btn-solid" to="/admin/chefs">
+            Về danh sách
+          </Link>
+        </ForbiddenState>
+      );
+    }
     return <ErrorState error={chefState.error} onRetry={chefState.reload} />;
   }
 
@@ -119,6 +128,7 @@ export default function ChefForm({ mode }: { mode: 'new' | 'edit' }) {
       <FormError message={formError ?? (!canEdit ? NOT_OWNER_TOOLTIP : null)} />
 
       <form onSubmit={onSubmit}>
+        <fieldset disabled={saving || !canEdit} style={{ border: 0, margin: 0, padding: 0 }}>
         <div className="form-grid">
           <div className="field full">
             <p className="form-note">Hồ sơ hiển thị công khai ở trang chi tiết món ăn.</p>
@@ -243,6 +253,7 @@ export default function ChefForm({ mode }: { mode: 'new' | 'edit' }) {
             </div>
           </div>
         </div>
+        </fieldset>
 
         <div className="form-foot">
           <span className="left">Trường có dấu * là bắt buộc</span>

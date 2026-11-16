@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { DishCategory } from '../../generated/prisma/enums.js';
 import type { Prisma } from '../../generated/prisma/client.js';
 import { prisma } from '../../lib/prisma.js';
-import { badRequest, conflict, notFound, sendOk } from '../../lib/http.js';
+import { badRequest, conflict, notFound, sendError, sendOk } from '../../lib/http.js';
 import { buildPagination, skipFor } from '../../lib/pagination.js';
 import { bumpVisibleRecordCount, getVisibleRecordCount } from '../../lib/record-counters.js';
 import { isNotFound, isUniqueViolation, paramId } from '../../lib/admin.js';
@@ -29,9 +29,14 @@ import {
 } from '../../lib/validation.js';
 import { fileFor, validateImage, saveWithImage, type UploadedFile } from '../../lib/storage.js';
 import { CATEGORY_LABELS } from '../../lib/format.js';
-import { can } from '../../auth/permissions.js';
 import { requireOwnership, requirePermission } from '../../auth/middleware.js';
-import { stripCreatedBy, withRowPermissions } from '../../auth/policy.js';
+import {
+  authorize,
+  canMutate,
+  checkDishAdminFields,
+  stripCreatedBy,
+  withRowPermissions,
+} from '../../auth/policy.js';
 
 const router = Router();
 
@@ -226,6 +231,21 @@ async function loadFormDependencies(
 router.get('/form-deps', requirePermission('dish:create'), async (req, res) => {
   const rawDishId = typeof req.query.dishId === 'string' ? req.query.dishId.trim() : '';
   const dishId = rawDishId ? paramId(rawDishId) : undefined;
+  if (dishId) {
+    const updateDenial = authorize(req.user, 'dish:update');
+    if (updateDenial) {
+      return sendError(res, 403, updateDenial.code, updateDenial.message);
+    }
+    const ownerRow = await prisma.dish.findUnique({
+      where: { id: dishId },
+      select: { createdBy: true, deletedAt: true },
+    });
+    if (!ownerRow) throw notFound('Món ăn');
+    const ownerDenial = authorize(req.user, 'dish:update', ownerRow);
+    if (ownerDenial) {
+      return sendError(res, 403, ownerDenial.code, ownerDenial.message);
+    }
+  }
   const deps = await loadFormDependencies(dishId);
   if (dishId && !deps.currentDish) throw notFound('Món ăn');
   return sendOk(res, deps);
@@ -273,7 +293,7 @@ function sanitizePublicDish<
 
 router.get('/', async (req, res) => {
   const parsed = parseDishListQuery(req.query as Record<string, unknown>);
-  const hasStaffPerm = can(req.user, 'dish:create');
+  const hasStaffPerm = canMutate(req.user, 'dish:create');
 
   const ftsHits = parsed.q ? await searchDishesFts(parsed.q, { fuzzy: parsed.fuzzy }) : undefined;
   const ftsIds = ftsHits ? ftsHits.map((h) => h.id) : undefined;
@@ -364,7 +384,7 @@ router.get('/:idOrSlug', async (req, res) => {
 
   if (!dish) throw notFound('Món ăn');
 
-  const hasStaffPerm = can(req.user, 'dish:create');
+  const hasStaffPerm = canMutate(req.user, 'dish:create');
   if (dish.deletedAt !== null && !hasStaffPerm) {
     throw notFound('Món ăn');
   }
@@ -415,6 +435,10 @@ router.post('/', requirePermission('dish:create'), async (req, res) => {
   }
 
   const data = parsed.data;
+  const fieldDenial = checkDishAdminFields(req.user, data);
+  if (fieldDenial) {
+    return sendError(res, 403, fieldDenial.code, fieldDenial.message, fieldDenial.fields);
+  }
 
   // Auto-generate slug if not provided, or normalize provided slug
   const baseSlug = slugify(data.slug || data.name);
@@ -486,6 +510,11 @@ async function handleUpdateDish(req: import('express').Request, res: import('exp
   }
 
   const data = parsed.data;
+  const fieldDenial = checkDishAdminFields(req.user, data, existing);
+  if (fieldDenial) {
+    return sendError(res, 403, fieldDenial.code, fieldDenial.message, fieldDenial.fields);
+  }
+
   let finalSlug = existing.slug;
   if (data.slug && data.slug !== existing.slug) {
     const baseSlug = slugify(data.slug);
